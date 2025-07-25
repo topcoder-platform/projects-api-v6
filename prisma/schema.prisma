@@ -1,0 +1,448 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  draft
+  in_review
+  reviewed
+  active
+  completed
+  paused
+  cancelled
+}
+
+model Project {
+  id                    BigInt  @id @default(autoincrement())
+  status                ProjectStatus
+  name                  String
+  description           String?
+  projectFullText       String?
+  billingAccountId      BigInt?
+  directProjectId       BigInt?
+  type                  String
+  version               String?
+  templateId            BigInt?
+  estimatedPrice        Decimal?
+  actualPrice           Decimal?
+  cancelReason          String?
+  terms                 String[]
+  groups                String[]
+
+  // Relations
+  detail                ProjectDetail?
+  utm                   ProjectUtm?
+  external              ProjectExternal?
+  challengeEligibility  ChallengeEligibility[]
+  estimation            ProjectEstimation[]
+  attachments           ProjectAttachment[]
+  bookmarks             ProjectBookmark[]
+  members               ProjectMember[]
+  memberInvites         ProjectMemberInvite[]
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+  deletedAt             DateTime?
+  deletedBy             BigInt?
+  lastActivityAt        DateTime?
+  lastActivityUserId    BigInt?
+}
+
+
+model ProjectDetail {
+  id        BigInt @id @default(autoincrement())
+  products    String[]
+  intakePurpose   String?
+  hideDiscussions Boolean?
+
+  utm             ProjectDetailUtm?
+  setting         ProjectDetailSetting?
+  appDefinition   ProjectDetailAppDefinition?
+  projectData     ProjectDetailProjectData?
+
+  // Relation
+  project     Project @relation(fields: [projectId], references: [id])
+  projectId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectId])
+}
+
+model ProjectDetailProjectData {
+  id                      BigInt    @id @default(autoincrement())
+  
+  customerProject            String?
+  executionHub               String?
+  groupCustomerName          String?
+  projectCode                String?
+  groupName                  String?
+  costCenter                 String?
+  wbsCode                    String?
+  onsiteEfforts              String?   @default("0")
+  offshoreEfforts            String?   @default("0")
+  plannedStartDate           DateTime?
+  plannedEndDate             DateTime?
+  partOfNg3                  String?
+  companyCode                String?
+  approvedAmount             String?
+  projectClassificationCode  String?
+  invoiceType                String?
+  sowNumber                  String?
+  sector                     String?
+  smu                        String?
+  subExecutionHub            String?
+  initiatorEmail             String?
+
+    // Relation
+  projectDetail ProjectDetail @relation(fields: [projectDetailId], references: [id])
+  projectDetailId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectDetailId])
+}
+
+model ProjectDetailUtm {
+  id        BigInt @id @default(autoincrement())
+  code      String?
+
+  // Relation
+  projectDetail ProjectDetail @relation(fields: [projectDetailId], references: [id])
+  projectDetailId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectDetailId])
+}
+
+model ProjectDetailSetting {
+  id        BigInt @id @default(autoincrement())
+
+  workstreams   Boolean?
+
+  // Relation
+  projectDetail ProjectDetail @relation(fields: [projectDetailId], references: [id])
+  projectDetailId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectDetailId])
+}
+
+model ProjectDetailAppDefinition {
+  id        BigInt @id @default(autoincrement())
+
+  budget            Decimal?
+  deliverables      String[]
+  expectedOutcome   String[]
+  designGoal        String[]
+  needAdditionalScreens String?
+  targetDevices     String[]
+  webBrowserBehaviour   String?
+  webBrowsersSupported  String[]
+  hasBrandGuidelines    String?
+  needSpecificFonts     String?
+  needSpecificColors    String?
+
+  // Relation
+  projectDetail ProjectDetail @relation(fields: [projectDetailId], references: [id])
+  projectDetailId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectDetailId])
+}
+
+model ProjectUtm {
+  id       BigInt @id @default(autoincrement())
+  source   String?
+  medium   String?
+  campaign String?
+  
+  // Relation
+  project     Project @relation(fields: [projectId], references: [id])
+  projectId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectId])
+}
+
+enum ExternalType {
+  github
+  jira
+  asana
+  other
+}
+
+model ProjectExternal {
+  id       BigInt @id @default(autoincrement())
+  extId    String
+  type     ExternalType
+  data     String
+  
+  // Relation
+  project     Project @relation(fields: [projectId], references: [id])
+  projectId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectId])
+}
+
+
+enum EligibilityRole {
+  submitter
+  reviewer
+  copilot
+}
+
+model ChallengeEligibility {
+  id        BigInt @id @default(autoincrement())
+  role      EligibilityRole
+
+  // Relation
+  project     Project @relation(fields: [projectId], references: [id])
+  projectId BigInt
+  users     BigInt[]
+  groups    BigInt[]
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectId])
+}
+
+
+model ProjectEstimation {
+  id                  BigInt @id @default(autoincrement())
+  conditions          String
+  price               Decimal
+  quantity            Int?
+  minTime             Int
+  maxTime             Int
+  buildingBlockKey    String
+  metadata            ProjectEstimationMetadata?
+  
+  // Relation
+  project     Project @relation(fields: [projectId], references: [id])
+  projectId           BigInt
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+  deletedAt             DateTime?
+  deletedBy             BigInt?
+
+  @@index([projectId])
+}
+
+model ProjectEstimationMetadata {
+  id                  BigInt @id @default(autoincrement())
+
+  deliverable         String?
+  priceFormula        String?
+
+  // Relation
+  estimation     ProjectEstimation @relation(fields: [projectEstimationId], references: [id])
+  projectEstimationId           BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+  deletedAt             DateTime?
+  deletedBy             BigInt?
+
+  @@index([projectEstimationId])
+}
+
+model ProjectBookmark {
+  id          BigInt @id @default(autoincrement())
+  title       String
+  address     String
+  
+  // Relation
+  project     Project @relation(fields: [projectId], references: [id])
+  projectId   BigInt
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectId])
+}
+
+
+enum AttachmentType {
+  file
+  link
+}
+
+enum ProjectMemberRole {
+  manager
+  observer
+  customer
+  copilot
+  account_manager
+  program_manager
+  account_executive
+  solution_architect
+  project_manager
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  refused
+  requested
+  request_rejected
+  request_approved
+  canceled
+}
+
+model ProjectAttachment {
+  id            Int      @id @default(autoincrement())
+  title         String?
+  type          AttachmentType
+  tags          String[]
+  size          Int?     @db.Integer // size in MB
+  category      String?
+  description   String?
+  path          String
+  contentType   String?
+  allowedUsers  Int[]
+  // Relationships
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId BigInt
+
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime? @updatedAt
+  deletedBy     BigInt?
+  createdBy     BigInt
+  updatedBy     BigInt?
+  
+  @@index([projectId])
+}
+
+model ProjectMember {
+  id          BigInt               @id @default(autoincrement())
+  userId      BigInt
+  role        ProjectMemberRole
+  isPrimary   Boolean              @default(false)
+  // Relationships
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId BigInt
+
+  deletedAt   DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime?            @updatedAt
+  deletedBy   BigInt?
+  createdBy   BigInt
+  updatedBy   BigInt?
+  
+  @@index([projectId])
+  @@index([userId])
+}
+
+model ProjectMemberInvite {
+  id              BigInt             @id @default(autoincrement())
+  userId          BigInt?
+  email           String?
+  applicationId   BigInt?
+  role            ProjectMemberRole
+  status          InviteStatus
+  // Relationships
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId BigInt
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+  
+  @@index([projectId])
+  @@index([userId])
+}
+
+model AccessRule {
+  id              BigInt             @id @default(autoincrement())
+  
+  title           String?
+  group           String?
+  description     String?
+
+  projectRoles    String[]
+  topcoderRoles   String[]
+  scopes          String[]
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+
+  // Relations
+  permissionWorkManagementPermissions WorkManagementPermission[] @relation("PermissionRule")
+  allowWorkManagementPermissions      WorkManagementPermission[] @relation("AllowRule")
+  denyWorkManagementPermissions       WorkManagementPermission[] @relation("DenyRule")
+}
+
+model WorkManagementPermission {
+  id              BigInt             @id @default(autoincrement())
+  policy          String
+  projectTemplateId   BigInt
+
+  permissionRuleId    BigInt?
+  permission      AccessRule? @relation("PermissionRule", fields: [permissionRuleId], references: [id])
+  allowRuleId     BigInt?
+  allowRule       AccessRule? @relation("AllowRule", fields: [allowRuleId], references: [id])
+  denyRuleId      BigInt?
+  denyRule        AccessRule? @relation("DenyRule", fields: [denyRuleId], references: [id])
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+  
+  @@index([projectTemplateId])
+}
