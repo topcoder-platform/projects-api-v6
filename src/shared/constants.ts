@@ -1,5 +1,3 @@
-
-
 export const PROJECT_STATUS = {
   DRAFT: 'draft',
   IN_REVIEW: 'in_review',
@@ -39,7 +37,6 @@ export const COPILOT_OPPORTUNITY_TYPE = {
   AI: 'ai',
   DATA_SCIENCE: 'datascience',
 };
-
 
 export const WORKSTREAM_STATUS = {
   DRAFT: 'draft',
@@ -101,7 +98,11 @@ export const USER_ROLE = {
   TC_COPILOT: 'copilot',
 };
 
-export const ADMIN_ROLES = [USER_ROLE.CONNECT_ADMIN, USER_ROLE.TOPCODER_ADMIN, USER_ROLE.TG_ADMIN];
+export const ADMIN_ROLES = [
+  USER_ROLE.CONNECT_ADMIN,
+  USER_ROLE.TOPCODER_ADMIN,
+  USER_ROLE.TG_ADMIN,
+];
 
 export const MANAGER_ROLES = [
   ...ADMIN_ROLES,
@@ -228,29 +229,39 @@ export const BUS_API_EVENT = {
 export const CONNECT_NOTIFICATION_EVENT = {
   PROJECT_CREATED: 'connect.notification.project.created',
   PROJECT_UPDATED: 'connect.notification.project.updated',
-  PROJECT_SUBMITTED_FOR_REVIEW: 'connect.notification.project.submittedForReview',
+  PROJECT_SUBMITTED_FOR_REVIEW:
+    'connect.notification.project.submittedForReview',
   PROJECT_APPROVED: 'connect.notification.project.approved',
   PROJECT_PAUSED: 'connect.notification.project.paused',
   PROJECT_COMPLETED: 'connect.notification.project.completed',
   PROJECT_CANCELED: 'connect.notification.project.canceled',
   PROJECT_ACTIVE: 'connect.notification.project.active',
 
-  PROJECT_PHASE_TRANSITION_ACTIVE: 'connect.notification.project.phase.transition.active',
-  PROJECT_PHASE_TRANSITION_COMPLETED: 'connect.notification.project.phase.transition.completed',
-  PROJECT_PHASE_UPDATE_PAYMENT: 'connect.notification.project.phase.update.payment',
-  PROJECT_PHASE_UPDATE_PROGRESS: 'connect.notification.project.phase.update.progress',
+  PROJECT_PHASE_TRANSITION_ACTIVE:
+    'connect.notification.project.phase.transition.active',
+  PROJECT_PHASE_TRANSITION_COMPLETED:
+    'connect.notification.project.phase.transition.completed',
+  PROJECT_PHASE_UPDATE_PAYMENT:
+    'connect.notification.project.phase.update.payment',
+  PROJECT_PHASE_UPDATE_PROGRESS:
+    'connect.notification.project.phase.update.progress',
   PROJECT_PHASE_UPDATE_SCOPE: 'connect.notification.project.phase.update.scope',
 
-  PROJECT_WORK_TRANSITION_ACTIVE: 'connect.notification.project.work.transition.active',
-  PROJECT_WORK_TRANSITION_COMPLETED: 'connect.notification.project.work.transition.completed',
-  PROJECT_WORK_UPDATE_PAYMENT: 'connect.notification.project.work.update.payment',
-  PROJECT_WORK_UPDATE_PROGRESS: 'connect.notification.project.work.update.progress',
+  PROJECT_WORK_TRANSITION_ACTIVE:
+    'connect.notification.project.work.transition.active',
+  PROJECT_WORK_TRANSITION_COMPLETED:
+    'connect.notification.project.work.transition.completed',
+  PROJECT_WORK_UPDATE_PAYMENT:
+    'connect.notification.project.work.update.payment',
+  PROJECT_WORK_UPDATE_PROGRESS:
+    'connect.notification.project.work.update.progress',
   PROJECT_WORK_UPDATE_SCOPE: 'connect.notification.project.work.update.scope',
 
   MEMBER_JOINED: 'connect.notification.project.member.joined',
   MEMBER_LEFT: 'connect.notification.project.member.left',
   MEMBER_REMOVED: 'connect.notification.project.member.removed',
-  MEMBER_ASSIGNED_AS_OWNER: 'connect.notification.project.member.assignedAsOwner',
+  MEMBER_ASSIGNED_AS_OWNER:
+    'connect.notification.project.member.assignedAsOwner',
   MEMBER_JOINED_COPILOT: 'connect.notification.project.member.copilotJoined',
   MEMBER_JOINED_MANAGER: 'connect.notification.project.member.managerJoined',
 
@@ -273,30 +284,42 @@ export const CONNECT_NOTIFICATION_EVENT = {
   TIMELINE_ADJUSTED: 'connect.notification.project.timeline.adjusted',
 
   // When specification of a product is modified
-  PROJECT_PRODUCT_SPECIFICATION_MODIFIED: 'connect.notification.project.product.update.spec',
+  PROJECT_PRODUCT_SPECIFICATION_MODIFIED:
+    'connect.notification.project.product.update.spec',
 
   // When specification of a work item is modified
-  PROJECT_WORKITEM_SPECIFICATION_MODIFIED: 'connect.notification.project.workitem.update.spec',
+  PROJECT_WORKITEM_SPECIFICATION_MODIFIED:
+    'connect.notification.project.workitem.update.spec',
 
   MILESTONE_ADDED: 'connect.notification.project.timeline.milestone.added',
   MILESTONE_REMOVED: 'connect.notification.project.timeline.milestone.removed',
   MILESTONE_UPDATED: 'connect.notification.project.timeline.milestone.updated',
   // When milestone is marked as active
-  MILESTONE_TRANSITION_ACTIVE: 'connect.notification.project.timeline.milestone.transition.active',
+  MILESTONE_TRANSITION_ACTIVE:
+    'connect.notification.project.timeline.milestone.transition.active',
   // When milestone is marked as completed
-  MILESTONE_TRANSITION_COMPLETED: 'connect.notification.project.timeline.milestone.transition.completed',
+  MILESTONE_TRANSITION_COMPLETED:
+    'connect.notification.project.timeline.milestone.transition.completed',
   // When milestone is marked as paused
-  MILESTONE_TRANSITION_PAUSED: 'connect.notification.project.timeline.milestone.transition.paused',
+  MILESTONE_TRANSITION_PAUSED:
+    'connect.notification.project.timeline.milestone.transition.paused',
   // When milestone is waiting for customers's input
-  MILESTONE_WAITING_CUSTOMER: 'connect.notification.project.timeline.milestone.waiting.customer',
+  MILESTONE_WAITING_CUSTOMER:
+    'connect.notification.project.timeline.milestone.waiting.customer',
 
   // Project Member Invites
-  PROJECT_MEMBER_INVITE_CREATED: 'connect.notification.project.member.invite.created',
-  PROJECT_MEMBER_INVITE_REQUESTED: 'connect.notification.project.member.invite.requested',
-  PROJECT_MEMBER_INVITE_UPDATED: 'connect.notification.project.member.invite.updated',
-  PROJECT_MEMBER_INVITE_APPROVED: 'connect.notification.project.member.invite.approved',
-  PROJECT_MEMBER_INVITE_REJECTED: 'connect.notification.project.member.invite.rejected',
-  PROJECT_MEMBER_EMAIL_INVITE_CREATED: 'connect.notification.email.project.member.invite.created',
+  PROJECT_MEMBER_INVITE_CREATED:
+    'connect.notification.project.member.invite.created',
+  PROJECT_MEMBER_INVITE_REQUESTED:
+    'connect.notification.project.member.invite.requested',
+  PROJECT_MEMBER_INVITE_UPDATED:
+    'connect.notification.project.member.invite.updated',
+  PROJECT_MEMBER_INVITE_APPROVED:
+    'connect.notification.project.member.invite.approved',
+  PROJECT_MEMBER_INVITE_REJECTED:
+    'connect.notification.project.member.invite.rejected',
+  PROJECT_MEMBER_EMAIL_INVITE_CREATED:
+    'connect.notification.email.project.member.invite.created',
 
   // TC Message Service events
   TOPIC_CREATED: 'connect.notification.project.topic.created',
@@ -312,7 +335,7 @@ export const TEMPLATE_IDS = {
   APPLY_COPILOT: 'd-d7c1f48628654798a05c8e09e52db14f',
   CREATE_REQUEST: 'd-3efdc91da580479d810c7acd50a4c17f',
   PROJECT_MEMBER_INVITED: 'd-b47a25b103604bc28fc0ce77e77fb681',
-}
+};
 export const REGEX = {
   URL: /^(http(s?):\/\/)?(www\.)?[a-zA-Z0-9\.\-\_]+(\.[a-zA-Z]{2,15})+(\:[0-9]{2,5})?(\/[a-zA-Z0-9\_\-\s\.\/\?\%\#\&\=;]*)?$/, // eslint-disable-line
 };
@@ -326,7 +349,8 @@ export const M2M_SCOPES = {
     WRITE: 'write:projects',
     READ_USER_BILLING_ACCOUNTS: 'read:user-billing-accounts',
     WRITE_PROJECTS_BILLING_ACCOUNTS: 'write:projects-billing-accounts',
-    READ_PROJECT_BILLING_ACCOUNT_DETAILS: 'read:project-billing-account-details',
+    READ_PROJECT_BILLING_ACCOUNT_DETAILS:
+      'read:project-billing-account-details',
   },
   PROJECT_MEMBERS: {
     ALL: 'all:project-members',
@@ -371,8 +395,8 @@ export const INVITE_STATUS = {
 };
 
 export const INVITE_SOURCE = {
-  WORK_MANAGER: "work_manager",
-  COPILOT_PORTAL: "copilot_portal",
+  WORK_MANAGER: 'work_manager',
+  COPILOT_PORTAL: 'copilot_portal',
 };
 
 export const SCOPE_CHANGE_REQ_STATUS = {
@@ -411,7 +435,6 @@ export const VALUE_TYPE = {
   STRING: 'string',
   PERCENTAGE: 'percentage',
 };
-
 
 export const RESOURCES = {
   PROJECT: 'project',
@@ -604,4 +627,3 @@ export const CUSTOMER_PAYMENT_CURRENCY = {
 };
 
 export const DEFAULT_PAGE_SIZE = 10;
-

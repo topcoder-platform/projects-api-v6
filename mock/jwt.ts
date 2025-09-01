@@ -14,7 +14,7 @@ const m2mPayload = {
   iat: 1550906388,
   exp,
   azp: 'enjw1810eDz3XTwSO2Rn2Y9cQTrspn3B',
-  scope: 'all:connect_project,all:projects,all:project-members,all:project-invites,all:customer-payments',
+  scope: 'all:connect_project all:projects all:project-members all:project-invites all:customer-payments',
   gty: 'client-credentials'
 }
 
@@ -57,7 +57,7 @@ const userPayload = {
   exp,
   userId: '22742764',
   iat: 1549799569,
-  email: 'email@domain.com.z',
+  email: 'pheadc@tc.com',
   jti: '9c4511c5-c165-4a1b-899e-b65ad0e02b55'
 }
 
@@ -75,7 +75,7 @@ const expiredToken = {
   exp: Date.now() / 1000 - 60,
   userId: '22742764',
   iat: 1549799569,
-  email: 'email@domain.com.z',
+  email: 'pheadc@tc.com',
   jti: '9c4511c5-c165-4a1b-899e-b65ad0e02b55'
 }
 

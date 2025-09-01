@@ -1,6 +1,4 @@
-
-
-
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
@@ -14,7 +12,6 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { ATTACHMENT_TYPES } from 'src/shared/constants';
-
 
 export class CreateAttachmentDto {
   @ApiProperty({
@@ -84,7 +81,7 @@ export class CreateAttachmentDto {
     description: 'S3 bucket name (required when type is FILE)',
     example: 'my-bucket',
   })
-  @ValidateIf(o => o.type === ATTACHMENT_TYPES.FILE)
+  @ValidateIf((o) => o.type === ATTACHMENT_TYPES.FILE)
   @IsString()
   @IsNotEmpty()
   s3Bucket?: string;
@@ -93,7 +90,7 @@ export class CreateAttachmentDto {
     description: 'Content type (required when type is FILE)',
     example: 'application/pdf',
   })
-  @ValidateIf(o => o.type === ATTACHMENT_TYPES.FILE)
+  @ValidateIf((o) => o.type === ATTACHMENT_TYPES.FILE)
   @IsString()
   @IsNotEmpty()
   contentType?: string;
@@ -111,7 +108,6 @@ export class CreateAttachmentDto {
   allowedUsers?: number[] | null;
 }
 
-
 export class AttachmentResponseDto {
   @ApiProperty({
     description: 'The unique identifier of the attachment',
@@ -128,7 +124,7 @@ export class AttachmentResponseDto {
   @ApiProperty({
     description: 'Type of the attachment',
     example: 'link',
-    enum: Object.values(ATTACHMENT_TYPES)
+    enum: Object.values(ATTACHMENT_TYPES),
   })
   type: string;
 
@@ -220,7 +216,6 @@ export class AttachmentResponseDto {
   updatedBy?: number | null;
 }
 
-
 export class UpdateAttachmentDto {
   @ApiProperty({
     description: 'Title of the resource',
@@ -237,7 +232,7 @@ export class UpdateAttachmentDto {
   })
   @IsString()
   @IsOptional()
-  @ValidateIf(o => o.description !== null)
+  @ValidateIf((o) => o.description !== null)
   description?: string | null;
 
   @ApiPropertyOptional({
@@ -270,4 +265,3 @@ export class UpdateAttachmentDto {
   @IsString()
   path: string;
 }
-

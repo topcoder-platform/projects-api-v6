@@ -1,8 +1,11 @@
-import { Controller, Get, HttpStatus, Param } from "@nestjs/common";
-import { BillingAccountResponseDto, ListBillingAccountItem } from "./billing-account.dto";
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { BillingAccountService } from "./billing-account.service";
-import { Permission } from "src/auth/decorators/permissions.decorator";
+import { Controller, Get, HttpStatus, Param } from '@nestjs/common';
+import {
+  BillingAccountResponseDto,
+  ListBillingAccountItem,
+} from './billing-account.dto';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BillingAccountService } from './billing-account.service';
+import { Permission } from 'src/auth/decorators/permissions.decorator';
 
 /**
  * Controller for handling project billing account operations.
@@ -27,7 +30,10 @@ export class BillingAccountController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async getAccount(
     @Param('projectId') projectId: string,
   ): Promise<BillingAccountResponseDto> {
@@ -43,12 +49,19 @@ export class BillingAccountController {
   @Permission('projectBillingAccounts.view')
   @ApiOperation({ summary: 'List project billing accounts' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
-  @ApiResponse({ status: HttpStatus.OK, isArray: true, type: ListBillingAccountItem })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    isArray: true,
+    type: ListBillingAccountItem,
+  })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async listAccounts(
     @Param('projectId') projectId: string,
   ): Promise<ListBillingAccountItem[]> {

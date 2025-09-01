@@ -1,10 +1,26 @@
-import { Body, Controller, Delete, Get, HttpStatus, Param, Patch, Post, Query, Req } from "@nestjs/common";
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { CreateProjectMemberDto, ProjectMemberResponseDto, QueryProjectMemberDto, UpdateProjectMemberDto } from "./project-member.dto";
-import { FieldsQueryDto } from "../common/common.dto";
-import { ProjectMemberService } from "./project-member.service";
-import { JwtUser } from "src/auth/auth.dto";
-import { Permission } from "src/auth/decorators/permissions.decorator";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  CreateProjectMemberDto,
+  ProjectMemberResponseDto,
+  QueryProjectMemberDto,
+  UpdateProjectMemberDto,
+} from './project-member.dto';
+import { FieldsQueryDto } from '../common/common.dto';
+import { ProjectMemberService } from './project-member.service';
+import { JwtUser } from 'src/auth/auth.dto';
+import { Permission } from 'src/auth/decorators/permissions.decorator';
 
 /**
  * Controller for managing project members.
@@ -33,12 +49,15 @@ export class ProjectMemberController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async create(
     @Req() req: Request,
     @Param('projectId') projectId: number,
     @Body() dto: CreateProjectMemberDto,
-    @Query() query: FieldsQueryDto
+    @Query() query: FieldsQueryDto,
   ): Promise<ProjectMemberResponseDto> {
     const authUser = req['user'] as JwtUser;
     return this.service.create(authUser, projectId, dto, query);
@@ -54,15 +73,22 @@ export class ProjectMemberController {
   @Permission('projectMember.view')
   @ApiOperation({ summary: 'Search project member with given parameters' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
-  @ApiResponse({ status: HttpStatus.OK, isArray: true, type: ProjectMemberResponseDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    isArray: true,
+    type: ProjectMemberResponseDto,
+  })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async search(
     @Param('projectId') projectId: number,
-    @Query() dto: QueryProjectMemberDto
+    @Query() dto: QueryProjectMemberDto,
   ): Promise<ProjectMemberResponseDto[]> {
     return this.service.search(projectId, dto);
   }
@@ -84,11 +110,14 @@ export class ProjectMemberController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async getMember(
     @Param('projectId') projectId: number,
     @Param('id') id: number,
-    @Query() query: FieldsQueryDto
+    @Query() query: FieldsQueryDto,
   ): Promise<ProjectMemberResponseDto> {
     return this.service.getMember(projectId, id, query);
   }
@@ -112,7 +141,10 @@ export class ProjectMemberController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async updateMember(
     @Req() req: Request,
     @Param('projectId') projectId: number,
@@ -135,12 +167,18 @@ export class ProjectMemberController {
   @ApiOperation({ summary: 'Search project member with given parameters' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'project member id', type: Number })
-  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Operation successful' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Operation successful',
+  })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async deleteMember(
     @Param('projectId') projectId: number,
     @Param('id') id: number,

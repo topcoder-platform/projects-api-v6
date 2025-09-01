@@ -2,7 +2,8 @@
 
 export const AppConfig = {
   port: Number(process.env.PORT) || 3000,
-  prefix: process.env.API_PREFIX || '/v6',
+  prefix: process.env.API_PREFIX || '/v5',
+  maxPhaseProductCount: process.env.MAX_PHASE_PRODUCT_COUNT || 100,
 
   authSecret: process.env.AUTH_SECRET || 'secret',
   validIssuers: process.env.VALID_ISSUERS
@@ -11,14 +12,16 @@ export const AppConfig = {
 }
 
 export const Auth0Config = {
-  url: process.env.AUTH0_URL || 'https://topcoder-dev.auth0.com/oauth/token',
-  proxyServerUrl: process.env.AUTH0_PROXY_SERVER_URL || 'https://auth0proxy.topcoder-dev.com/token',
-  audience: process.env.AUTH0_AUDIENCE || 'https://m2m.topcoder-dev.com/',
-  clientId: process.env.AUTH0_CLIENT_ID,
-  clientSecret: process.env.AUTH0_CLIENT_SECRET
+  url: process.env.AUTH0_URL || 'http://localhost:4000/oauth/token',
+  proxyServerUrl: process.env.AUTH0_PROXY_SERVER_URL || 'http://localhost:4000/oauth/token',
+  audience: process.env.AUTH0_AUDIENCE || 'http://localhost:4000',
+  clientId: process.env.AUTH0_CLIENT_ID || 'abc123',
+  clientSecret: process.env.AUTH0_CLIENT_SECRET || 'secret',
+  tokenCacheTime: process.env.TOKEN_CACHE_TIME ?? 86400000,
 }
 
 export const EventBusConfig = {
-  url: process.env.BUSAPI_URL || 'https://api.topcoder-dev.com/v5'
+  url: process.env.BUSAPI_URL || 'http://localhost:4000/eventBus',
+  kafkaErrorTopic: process.env.KAFKA_ERROR_TOPIC ?? 'common.error.reporting',
 }
 

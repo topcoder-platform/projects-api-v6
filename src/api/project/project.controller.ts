@@ -1,10 +1,37 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, HttpStatus, Query } from '@nestjs/common';
-import { CreateProjectDto, ProjectResponseDto, QueryProjectDto, UpdateProjectDto } from './project.dto';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Req,
+  Res,
+  HttpStatus,
+  Query,
+  ParseIntPipe,
+  HttpCode,
+} from '@nestjs/common';
+import {
+  CreateProjectDto,
+  ProjectResponseDto,
+  QueryProjectDto,
+  UpdateProjectDto,
+  ProjectCriteria,
+} from './project.dto';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { Permission } from '../../auth/decorators/permissions.decorator';
-import { JwtUser } from 'src/auth/auth.dto';
 import { ProjectService } from './project.service';
 import { JwtRequired } from 'src/auth/decorators/jwt.decorator';
+import Utils from 'src/shared/utils';
 
 /**
  * Controller for handling project-related HTTP requests
@@ -12,7 +39,6 @@ import { JwtRequired } from 'src/auth/decorators/jwt.decorator';
 @ApiTags('Project')
 @Controller('/projects')
 export class ProjectsController {
-
   constructor(private readonly service: ProjectService) {}
 
   /**
@@ -23,19 +49,22 @@ export class ProjectsController {
    */
   @Post()
   @JwtRequired()
+  @ApiBearerAuth()
   @Permission('project.create')
   @ApiOperation({ summary: 'Create a new project' })
   @ApiResponse({ status: HttpStatus.CREATED, type: ProjectResponseDto })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async createProject(
     @Req() req: Request,
-    @Body() dto: CreateProjectDto
+    @Body() dto: CreateProjectDto,
   ): Promise<ProjectResponseDto> {
-    const authUser = req['user'] as JwtUser; // Extract authenticated user from request
-    return this.service.createProject(authUser, dto); // Delegate to service
+    return this.service.createProject(dto, req); // Delegate to service
   }
 
   /**
@@ -44,16 +73,69 @@ export class ProjectsController {
    * @returns array of ProjectResponseDto
    */
   @Get()
+  @JwtRequired()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project' })
-  @ApiResponse({ status: HttpStatus.OK, isArray: true, type: ProjectResponseDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    isArray: true,
+    type: ProjectResponseDto,
+    headers: {
+      'X-Next-Page': {
+        description: 'The index of the next page',
+        schema: {
+          type: 'integer',
+        },
+      },
+      'X-Page': {
+        description: 'The index of the current page (starting at 1)',
+        schema: {
+          type: 'integer',
+        },
+      },
+      'X-Per-Page': {
+        description: 'The number of items to list per page',
+        schema: {
+          type: 'integer',
+        },
+      },
+      'X-Total': {
+        description: 'The total number of items',
+        schema: {
+          type: 'integer',
+        },
+      },
+      'X-Total-Pages': {
+        description: 'The total number of pages',
+        schema: {
+          type: 'integer',
+        },
+      },
+      Link: {
+        description: 'Pagination link header',
+        schema: {
+          type: 'integer',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async searchProject(
-    @Query() dto: QueryProjectDto
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Query() dto: QueryProjectDto,
   ): Promise<ProjectResponseDto[]> {
-    return this.service.searchProject(dto); // Delegate to service
+    const result = await this.service.searchProject(dto, req); // Delegate to service
+
+    Utils.setResHeaders(req, res, result);
+
+    return result.data;
   }
 
   /**
@@ -63,6 +145,7 @@ export class ProjectsController {
    */
   @Get('/:projectId')
   @JwtRequired()
+  @ApiBearerAuth()
   @Permission('project.view')
   @ApiOperation({ summary: 'Get project by id' })
   @ApiParam({ name: 'projectId', description: 'project id' })
@@ -71,11 +154,16 @@ export class ProjectsController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async getProject(
-    @Param('projectId') projectId: string,
+    @Req() req: Request,
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Query() criteria: ProjectCriteria,
   ): Promise<ProjectResponseDto> {
-    return this.service.getProject(projectId); // Delegate to service
+    return this.service.getProject(projectId, criteria, req); // Delegate to service
   }
 
   /**
@@ -87,6 +175,7 @@ export class ProjectsController {
    */
   @Patch('/:projectId')
   @JwtRequired()
+  @ApiBearerAuth()
   @Permission('project.edit')
   @ApiOperation({ summary: 'Update project by id' })
   @ApiParam({ name: 'projectId', description: 'project id' })
@@ -95,14 +184,16 @@ export class ProjectsController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async updateProject(
     @Req() req: Request,
-    @Param('projectId') projectId: string,
-    @Body() dto: UpdateProjectDto
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Body() dto: UpdateProjectDto,
   ): Promise<ProjectResponseDto> {
-    const authUser = req['user'] as JwtUser; // Extract authenticated user from request
-    return this.service.updateProject(authUser, projectId, dto); // Delegate to service
+    return this.service.updateProject(projectId, dto, req); // Delegate to service
   }
 
   /**
@@ -111,18 +202,26 @@ export class ProjectsController {
    */
   @Delete('/:projectId')
   @JwtRequired()
+  @ApiBearerAuth()
   @Permission('project.delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete project by id' })
   @ApiParam({ name: 'projectId', description: 'project id' })
-  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Delete successfully' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Delete successfully',
+  })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async deleteProject(
-    @Param('projectId') projectId: string
+    @Req() req: Request,
+    @Param('projectId', ParseIntPipe) projectId: number,
   ): Promise<void> {
-    await this.service.deleteProject(projectId);
+    await this.service.deleteProject(projectId, req);
   }
 }

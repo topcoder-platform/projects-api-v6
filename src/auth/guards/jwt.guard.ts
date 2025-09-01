@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, HttpStatus, Injectable, Logger } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
+import {
+  CanActivate,
+  ExecutionContext,
+  HttpStatus,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Response } from 'express';
 import { JwtUser } from '../auth.dto';
@@ -14,13 +21,9 @@ export class JwtGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isJwtRequired = this.reflector.get<boolean>(
-      'jwtRequired',
-      context.getHandler(),
-    ) || this.reflector.get<boolean>(
-      'jwtRequired',
-      context.getClass(),
-    );
+    const isJwtRequired =
+      this.reflector.get<boolean>('jwtRequired', context.getHandler()) ||
+      this.reflector.get<boolean>('jwtRequired', context.getClass());
 
     if (!isJwtRequired) {
       return true;
@@ -45,7 +48,7 @@ export class JwtGuard implements CanActivate {
       return false;
     }
     // put auth user into request and proceed
-    req['user'] = authUser;
+    req['authUser'] = authUser;
     return true;
   }
 }

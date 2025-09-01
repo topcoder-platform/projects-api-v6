@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
 /**
  * User permission policies.
  * Can be used with `hasPermission` method.
@@ -154,11 +155,22 @@ const SCOPES_CUSTOMER_PAYMENT_READ = [
   M2M_SCOPES.CUSTOMER_PAYMENT.READ,
 ];
 
-
 export class RuleMetadata {
   title: string;
   group: string;
   description?: string;
+
+  constructor(params: any) {
+    if (params.title) {
+      this.title = params.title;
+    }
+    if (params.group) {
+      this.group = params.group;
+    }
+    if (params.description) {
+      this.description = params.description;
+    }
+  }
 }
 
 export class PermissionRule {
@@ -166,6 +178,21 @@ export class PermissionRule {
   topcoderRoles?: boolean | string[];
   projectRoles?: boolean | string[];
   scopes?: string[];
+
+  constructor(params: any) {
+    if (params.meta) {
+      this.meta = new RuleMetadata(params.meta);
+    }
+    if (params.topcoderRoles) {
+      this.topcoderRoles = params.topcoderRoles;
+    }
+    if (params.projectRoles) {
+      this.projectRoles = params.projectRoles;
+    }
+    if (params.scopes) {
+      this.scopes = params.scopes;
+    }
+  }
 }
 
 export class AccessRule {
@@ -176,20 +203,20 @@ export class AccessRule {
 /**
  * The full list of possible permission rules in Project Service
  */
-export const PERMISSION = { // eslint-disable-line import/prefer-default-export
+export const PERMISSION = {
   /*
    * Project
    */
-  CREATE_PROJECT: {
+  CREATE_PROJECT: new PermissionRule({
     meta: {
       title: 'Create Project',
       group: 'Project',
     },
     topcoderRoles: ALL,
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  CREATE_PROJECT_AS_MANAGER: {
+  CREATE_PROJECT_AS_MANAGER: new PermissionRule({
     meta: {
       title: 'Create Project as a "manager"',
       group: 'Project',
@@ -199,9 +226,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: TOPCODER_ROLES_MANAGERS_AND_ADMINS,
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  READ_PROJECT: {
+  READ_PROJECT: new PermissionRule({
     meta: {
       title: 'Read Project',
       group: 'Project',
@@ -214,9 +241,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     ],
     projectRoles: ALL,
     scopes: SCOPES_PROJECTS_READ,
-  },
+  }),
 
-  READ_PROJECT_ANY: {
+  READ_PROJECT_ANY: new PermissionRule({
     meta: {
       title: 'Read Any Project',
       group: 'Project',
@@ -228,13 +255,14 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       USER_ROLE.PROJECT_MANAGER,
     ],
     scopes: SCOPES_PROJECTS_READ,
-  },
+  }),
 
-  UPDATE_PROJECT: {
+  UPDATE_PROJECT: new PermissionRule({
     meta: {
       title: 'Update Project',
       group: 'Project',
-      description: 'There are additional limitations on editing some parts of the project.',
+      description:
+        'There are additional limitations on editing some parts of the project.',
     },
     topcoderRoles: TOPCODER_ROLES_MANAGERS_AND_ADMINS,
     projectRoles: [
@@ -243,113 +271,90 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       PROJECT_MEMBER_ROLE.CUSTOMER,
     ],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  UPDATE_PROJECT_STATUS: {
+  UPDATE_PROJECT_STATUS: new PermissionRule({
     meta: {
       title: 'Update Project Status',
       group: 'Project',
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  MANAGE_PROJECT_DIRECT_PROJECT_ID: {
+  MANAGE_PROJECT_DIRECT_PROJECT_ID: new PermissionRule({
     meta: {
       title: 'Manage Project property "directProjectId"',
       group: 'Project',
       description: 'Who can set or update the "directProjectId" property.',
     },
-    topcoderRoles: [
-      USER_ROLE.MANAGER,
-      USER_ROLE.TOPCODER_ADMIN,
-    ],
+    topcoderRoles: [USER_ROLE.MANAGER, USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  MANAGE_COPILOT_REQUEST: {
+  MANAGE_COPILOT_REQUEST: new PermissionRule({
     meta: {
       title: 'Manage Copilot Request',
       group: 'Copilot Request',
       description: 'Who can create, update, delete copilot request.',
     },
-    topcoderRoles: [
-      USER_ROLE.PROJECT_MANAGER,
-      USER_ROLE.TOPCODER_ADMIN,
-    ],
+    topcoderRoles: [USER_ROLE.PROJECT_MANAGER, USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  APPLY_COPILOT_OPPORTUNITY: {
+  APPLY_COPILOT_OPPORTUNITY: new PermissionRule({
     meta: {
       title: 'Apply copilot opportunity',
       group: 'Apply Copilot',
       description: 'Who can apply for copilot opportunity.',
     },
-    topcoderRoles: [
-      USER_ROLE.TC_COPILOT,
-    ],
+    topcoderRoles: [USER_ROLE.TC_COPILOT],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
-  ASSIGN_COPILOT_OPPORTUNITY: {
+  }),
+
+  ASSIGN_COPILOT_OPPORTUNITY: new PermissionRule({
     meta: {
       title: 'Assign copilot to opportunity',
       group: 'Assign Copilot',
       description: 'Who can assign for copilot opportunity.',
     },
-    topcoderRoles: [
-      USER_ROLE.PROJECT_MANAGER,
-      USER_ROLE.TOPCODER_ADMIN,
-    ],
+    topcoderRoles: [USER_ROLE.PROJECT_MANAGER, USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
-  
-  CANCEL_COPILOT_OPPORTUNITY: {
+  }),
+
+  CANCEL_COPILOT_OPPORTUNITY: new PermissionRule({
     meta: {
       title: 'Cancel copilot opportunity',
       group: 'Cancel copilot opportunity',
       description: 'Who can cancel copilot opportunity.',
     },
-    topcoderRoles: [
-      USER_ROLE.PROJECT_MANAGER,
-      USER_ROLE.TOPCODER_ADMIN,
-    ],
+    topcoderRoles: [USER_ROLE.PROJECT_MANAGER, USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  LIST_COPILOT_OPPORTUNITY: {
+  LIST_COPILOT_OPPORTUNITY: new PermissionRule({
     meta: {
       title: 'Apply copilot opportunity',
       group: 'Apply Copilot',
       description: 'Who can apply for copilot opportunity.',
     },
-    topcoderRoles: [
-      USER_ROLE.TOPCODER_ADMIN,
-    ],
-    projectRoles: [
-      USER_ROLE.PROJECT_MANAGER,
-    ],
+    topcoderRoles: [USER_ROLE.TOPCODER_ADMIN],
+    projectRoles: [USER_ROLE.PROJECT_MANAGER],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  MANAGE_PROJECT_BILLING_ACCOUNT_ID: {
+  MANAGE_PROJECT_BILLING_ACCOUNT_ID: new PermissionRule({
     meta: {
       title: 'Manage Project property "billingAccountId"',
       group: 'Project',
       description: 'Who can set or update the "billingAccountId" property.',
     },
-    topcoderRoles: [
-      USER_ROLE.MANAGER,
-      USER_ROLE.TOPCODER_ADMIN,
-    ],
+    topcoderRoles: [USER_ROLE.MANAGER, USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_PROJECTS_WRITE_PROJECTS_BILLING_ACCOUNTS,
-  },
+  }),
 
-  DELETE_PROJECT: {
+  DELETE_PROJECT: new PermissionRule({
     meta: {
       title: 'Delete Project',
       group: 'Project',
@@ -365,49 +370,42 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       PROJECT_MEMBER_ROLE.SOLUTION_ARCHITECT,
     ],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
   /*
    * Project Invite
    */
-  READ_AVL_PROJECT_BILLING_ACCOUNTS: {
+  READ_AVL_PROJECT_BILLING_ACCOUNTS: new PermissionRule({
     meta: {
       title: 'Read Available Project Billing Accounts',
       group: 'Project Billing Accounts',
-      description: 'Who can view the Billing Accounts available for the project',
+      description:
+        'Who can view the Billing Accounts available for the project',
     },
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
     topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.PROJECT_MANAGER],
     scopes: SCOPES_PROJECTS_READ_AVL_BILLING_ACCOUNTS,
-  },
+  }),
 
   /*
    * Project Invite
    */
-  READ_PROJECT_BILLING_ACCOUNT_DETAILS: {
+  READ_PROJECT_BILLING_ACCOUNT_DETAILS: new PermissionRule({
     meta: {
       title: 'Read details of billing accounts - only allowed to m2m calls',
       group: 'Project Billing Accounts',
-      description: 'Who can view the details of the Billing Account attached to the project',
+      description:
+        'Who can view the details of the Billing Account attached to the project',
     },
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
-    topcoderRoles: [
-      USER_ROLE.TOPCODER_ADMIN,
-      USER_ROLE.PROJECT_MANAGER,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
+    topcoderRoles: [USER_ROLE.TOPCODER_ADMIN, USER_ROLE.PROJECT_MANAGER],
     scopes: SCOPES_PROJECTS_READ_BILLING_ACCOUNT_DETAILS,
-  },
+  }),
 
   /*
    * Project Member
    */
-  READ_PROJECT_MEMBER: {
+  READ_PROJECT_MEMBER: new PermissionRule({
     meta: {
       title: 'Read Project Member',
       group: 'Project Member',
@@ -415,31 +413,33 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     topcoderRoles: TOPCODER_ROLES_MANAGERS_AND_ADMINS,
     projectRoles: ALL,
     scopes: SCOPES_PROJECT_MEMBERS_READ,
-  },
+  }),
 
-  READ_PROJECT_MEMBER_DETAILS: {
+  READ_PROJECT_MEMBER_DETAILS: new PermissionRule({
     meta: {
       title: 'Read Project Member Details',
       group: 'Project Member',
-      description: 'Who can see user details (PII) like email, first name and last name.',
+      description:
+        'Who can see user details (PII) like email, first name and last name.',
     },
-    topcoderRoles: [
-      USER_ROLE.TOPCODER_ADMIN,
-    ],
+    topcoderRoles: [USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_PROJECT_MEMBERS_READ,
-  },
+  }),
 
-  CREATE_PROJECT_MEMBER_OWN: {
+  CREATE_PROJECT_MEMBER_OWN: new PermissionRule({
     meta: {
       title: 'Create Project Member (own)',
       group: 'Project Member',
       description: 'Who can add themselves as project members.',
     },
-    topcoderRoles: [...TOPCODER_ROLES_MANAGERS_AND_ADMINS, USER_ROLE.PROJECT_MANAGER],
+    topcoderRoles: [
+      ...TOPCODER_ROLES_MANAGERS_AND_ADMINS,
+      USER_ROLE.PROJECT_MANAGER,
+    ],
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
-  },
+  }),
 
-  CREATE_PROJECT_MEMBER_NOT_OWN: {
+  CREATE_PROJECT_MEMBER_NOT_OWN: new PermissionRule({
     meta: {
       title: 'Create Project Member (not own)',
       group: 'Project Member',
@@ -447,23 +447,20 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.PROJECT_MANAGER],
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
-  },
+  }),
 
-  UPDATE_PROJECT_MEMBER_CUSTOMER: {
+  UPDATE_PROJECT_MEMBER_CUSTOMER: new PermissionRule({
     meta: {
       title: 'Update Project Member (customer)',
       group: 'Project Member',
       description: 'Who can update project members with "customer" role.',
     },
     topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.PROJECT_MANAGER],
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
-  },
+  }),
 
-  UPDATE_PROJECT_MEMBER_NON_CUSTOMER: {
+  UPDATE_PROJECT_MEMBER_NON_CUSTOMER: new PermissionRule({
     meta: {
       title: 'Update Project Member (non-customer)',
       group: 'Project Member',
@@ -472,34 +469,32 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.PROJECT_MANAGER],
     projectRoles: PROJECT_ROLES_MANAGEMENT,
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_MEMBER_CUSTOMER: {
+  DELETE_PROJECT_MEMBER_CUSTOMER: new PermissionRule({
     meta: {
       title: 'Delete Project Member (customer)',
       group: 'Project Member',
       description: 'Who can delete project members with "customer" role.',
     },
     topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.PROJECT_MANAGER],
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_MEMBER_TOPCODER: {
+  DELETE_PROJECT_MEMBER_TOPCODER: new PermissionRule({
     meta: {
       title: 'Delete Project Member (topcoder)',
       group: 'Project Member',
-      description: 'Who can delete project members with some topcoder role like "manager" etc.',
+      description:
+        'Who can delete project members with some topcoder role like "manager" etc.',
     },
     topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.PROJECT_MANAGER],
     projectRoles: PROJECT_ROLES_MANAGEMENT,
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_MEMBER_COPILOT: {
+  DELETE_PROJECT_MEMBER_COPILOT: new PermissionRule({
     meta: {
       title: 'Delete Project Member (copilot)',
       group: 'Project Member',
@@ -510,17 +505,14 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       USER_ROLE.COPILOT_MANAGER,
       USER_ROLE.PROJECT_MANAGER,
     ],
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
-  },
+  }),
 
   /*
    * Project Invite
    */
-  READ_PROJECT_INVITE_OWN: {
+  READ_PROJECT_INVITE_OWN: new PermissionRule({
     meta: {
       title: 'Read Project Invite (own)',
       group: 'Project Invite',
@@ -528,61 +520,54 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: ALL,
     scopes: SCOPES_PROJECT_INVITES_READ,
-  },
+  }),
 
-  READ_PROJECT_INVITE_NOT_OWN: {
+  READ_PROJECT_INVITE_NOT_OWN: new PermissionRule({
     meta: {
       title: 'Read Project Invite (not own)',
       group: 'Project Invite',
       description: 'Who can view invites of other users.',
     },
     topcoderRoles: TOPCODER_ROLES_MANAGERS_AND_ADMINS,
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
     scopes: SCOPES_PROJECT_INVITES_READ,
-  },
+  }),
 
-  CREATE_PROJECT_INVITE_CUSTOMER: {
+  CREATE_PROJECT_INVITE_CUSTOMER: new PermissionRule({
     meta: {
       title: 'Create Project Invite (customer)',
       group: 'Project Invite',
       description: 'Who can invite project members with "customer" role.',
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  CREATE_PROJECT_INVITE_TOPCODER: {
+  CREATE_PROJECT_INVITE_TOPCODER: new PermissionRule({
     meta: {
       title: 'Create Project Invite (topcoder)',
       group: 'Project Invite',
-      description: 'Who can invite project members with topcoder role like "manager" etc.',
+      description:
+        'Who can invite project members with topcoder role like "manager" etc.',
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
     projectRoles: PROJECT_ROLES_MANAGEMENT,
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  CREATE_PROJECT_INVITE_COPILOT: {
+  CREATE_PROJECT_INVITE_COPILOT: new PermissionRule({
     meta: {
       title: 'Create Project Invite (copilot)',
       group: 'Project Invite',
-      description: 'Who can invite user with "copilot" role directly without requesting.',
+      description:
+        'Who can invite user with "copilot" role directly without requesting.',
     },
-    topcoderRoles: [
-      ...TOPCODER_ROLES_ADMINS,
-      USER_ROLE.COPILOT_MANAGER,
-    ],
+    topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.COPILOT_MANAGER],
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  UPDATE_PROJECT_INVITE_OWN: {
+  UPDATE_PROJECT_INVITE_OWN: new PermissionRule({
     meta: {
       title: 'Update Project Invite (own)',
       group: 'Project Invite',
@@ -590,9 +575,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: ALL,
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  UPDATE_PROJECT_INVITE_NOT_OWN: {
+  UPDATE_PROJECT_INVITE_NOT_OWN: new PermissionRule({
     meta: {
       title: 'Update Project Invite (not own)',
       group: 'Project Invite',
@@ -600,22 +585,19 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  UPDATE_PROJECT_INVITE_REQUESTED: {
+  UPDATE_PROJECT_INVITE_REQUESTED: new PermissionRule({
     meta: {
       title: 'Update Project Invite (requested)',
       group: 'Project Invite',
       description: 'Who can update requested invites.',
     },
-    topcoderRoles: [
-      ...TOPCODER_ROLES_ADMINS,
-      USER_ROLE.COPILOT_MANAGER,
-    ],
+    topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.COPILOT_MANAGER],
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_INVITE_OWN: {
+  DELETE_PROJECT_INVITE_OWN: new PermissionRule({
     meta: {
       title: 'Delete Project Member (own)',
       group: 'Project Invite',
@@ -623,45 +605,45 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: ALL,
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER: {
+  DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER: new PermissionRule({
     meta: {
       title: 'Delete Project Invite (not own, customer)',
       group: 'Project Invite',
-      description: 'Who can delete invites for other members with "customer" role.',
+      description:
+        'Who can delete invites for other members with "customer" role.',
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
     projectRoles: ALL,
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER: {
+  DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER: new PermissionRule({
     meta: {
       title: 'Delete Project Invite (not own, topcoder)',
       group: 'Project Invite',
-      description: 'Who can delete project invites for other members with some topcoder role like "manager" etc.',
+      description:
+        'Who can delete project invites for other members with some topcoder role like "manager" etc.',
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
     projectRoles: PROJECT_ROLES_MANAGEMENT,
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_INVITE_NOT_OWN_COPILOT: {
+  DELETE_PROJECT_INVITE_NOT_OWN_COPILOT: new PermissionRule({
     meta: {
       title: 'Delete Project Invite (not own, copilot)',
       group: 'Project Invite',
-      description: 'Who can delete invites for other members with "copilot" role.',
+      description:
+        'Who can delete invites for other members with "copilot" role.',
     },
-    topcoderRoles: [
-      ...TOPCODER_ROLES_ADMINS,
-      USER_ROLE.COPILOT_MANAGER,
-    ],
+    topcoderRoles: [...TOPCODER_ROLES_ADMINS, USER_ROLE.COPILOT_MANAGER],
     projectRoles: PROJECT_ROLES_MANAGEMENT,
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_INVITE_REQUESTED: {
+  DELETE_PROJECT_INVITE_REQUESTED: new PermissionRule({
     meta: {
       title: 'Delete Project Invite (requested)',
       group: 'Project Invite',
@@ -673,12 +655,12 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       USER_ROLE.PROJECT_MANAGER,
     ],
     scopes: SCOPES_PROJECT_INVITES_WRITE,
-  },
+  }),
 
   /*
    * Project Attachments
    */
-  CREATE_PROJECT_ATTACHMENT: {
+  CREATE_PROJECT_ATTACHMENT: new PermissionRule({
     meta: {
       title: 'Create Project Attachment',
       group: 'Project Attachment',
@@ -690,30 +672,32 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       PROJECT_MEMBER_ROLE.CUSTOMER,
     ],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  READ_PROJECT_ATTACHMENT_OWN_OR_ALLOWED: {
+  READ_PROJECT_ATTACHMENT_OWN_OR_ALLOWED: new PermissionRule({
     meta: {
       title: 'Read Project Attachment (own or allowed)',
       group: 'Project Attachment',
-      description: 'Who can view own attachment or an attachment of another user when they are in the "allowed" list.',
+      description:
+        'Who can view own attachment or an attachment of another user when they are in the "allowed" list.',
     },
     topcoderRoles: TOPCODER_ROLES_MANAGERS_AND_ADMINS,
     projectRoles: ALL,
     scopes: SCOPES_PROJECTS_READ,
-  },
+  }),
 
-  READ_PROJECT_ATTACHMENT_NOT_OWN_AND_NOT_ALLOWED: {
+  READ_PROJECT_ATTACHMENT_NOT_OWN_AND_NOT_ALLOWED: new PermissionRule({
     meta: {
       title: 'Read Project Attachment (not own and not allowed)',
       group: 'Project Attachment',
-      description: 'Who can view attachment of another user when they are not in "allowed" users list.',
+      description:
+        'Who can view attachment of another user when they are not in "allowed" users list.',
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
     scopes: SCOPES_PROJECTS_READ,
-  },
+  }),
 
-  UPDATE_PROJECT_ATTACHMENT_OWN: {
+  UPDATE_PROJECT_ATTACHMENT_OWN: new PermissionRule({
     meta: {
       title: 'Update Project Attachment (own)',
       group: 'Project Attachment',
@@ -726,9 +710,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       PROJECT_MEMBER_ROLE.CUSTOMER,
     ],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  UPDATE_PROJECT_ATTACHMENT_NOT_OWN: {
+  UPDATE_PROJECT_ATTACHMENT_NOT_OWN: new PermissionRule({
     meta: {
       title: 'Update Project Attachment (not own)',
       group: 'Project Attachment',
@@ -736,9 +720,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_ATTACHMENT_OWN: {
+  DELETE_PROJECT_ATTACHMENT_OWN: new PermissionRule({
     meta: {
       title: 'Delete Project Attachment (own)',
       group: 'Project Attachment',
@@ -751,9 +735,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
       PROJECT_MEMBER_ROLE.CUSTOMER,
     ],
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
-  DELETE_PROJECT_ATTACHMENT_NOT_OWN: {
+  DELETE_PROJECT_ATTACHMENT_NOT_OWN: new PermissionRule({
     meta: {
       title: 'Delete Project Attachment (not own)',
       group: 'Project Attachment',
@@ -761,37 +745,34 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
     scopes: SCOPES_PROJECTS_WRITE,
-  },
+  }),
 
   /*
    * Project Phase Approval
    */
-  CREATE_PROJECT_PHASE_APPROVE: {
+  CREATE_PROJECT_PHASE_APPROVE: new PermissionRule({
     meta: {
       title: 'Create Project Phase Approval',
       group: 'Project Phase Approval',
       description: 'Who can create project phase approval',
     },
     projectRoles: [PROJECT_MEMBER_ROLE.CUSTOMER],
-  },
+  }),
 
   /*
    * DEPRECATED - THIS PERMISSION RULE HAS TO BE REMOVED
    *
    * Permissions defined by logic: **WHO** can do actions with such a permission.
    */
-  ROLES_COPILOT_AND_ABOVE: {
+  ROLES_COPILOT_AND_ABOVE: new PermissionRule({
     meta: {
       group: 'Deprecated',
     },
     topcoderRoles: TOPCODER_ROLES_ADMINS,
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-    ],
-  },
+    projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
+  }),
 
-  CREATE_CUSTOMER_PAYMENT: {
+  CREATE_CUSTOMER_PAYMENT: new PermissionRule({
     meta: {
       title: 'Create Customer Payment',
       group: 'Customer Payment',
@@ -799,9 +780,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: ALL,
     scopes: SCOPES_CUSTOMER_PAYMENT_WRITE,
-  },
+  }),
 
-  VIEW_CUSTOMER_PAYMENT: {
+  VIEW_CUSTOMER_PAYMENT: new PermissionRule({
     meta: {
       title: 'View Customer Payments',
       group: 'Customer Payment',
@@ -809,9 +790,9 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: [USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_CUSTOMER_PAYMENT_READ,
-  },
+  }),
 
-  UPDATE_CUSTOMER_PAYMENT: {
+  UPDATE_CUSTOMER_PAYMENT: new PermissionRule({
     meta: {
       title: 'Update Customer Payment',
       group: 'Customer Payment',
@@ -819,7 +800,7 @@ export const PERMISSION = { // eslint-disable-line import/prefer-default-export
     },
     topcoderRoles: [USER_ROLE.TOPCODER_ADMIN],
     scopes: SCOPES_CUSTOMER_PAYMENT_WRITE,
-  },
+  }),
 };
 
 /**
@@ -842,10 +823,7 @@ export const PROJECT_TO_TOPCODER_ROLES_MATRIX = {
     USER_ROLE.PROJECT_MANAGER,
     USER_ROLE.COPILOT_MANAGER,
   ],
-  [PROJECT_MEMBER_ROLE.COPILOT]: [
-    USER_ROLE.COPILOT,
-    'copilot',
-  ],
+  [PROJECT_MEMBER_ROLE.COPILOT]: [USER_ROLE.COPILOT, 'copilot'],
 };
 
 /**
@@ -861,40 +839,52 @@ export const DEFAULT_PROJECT_ROLE = [
   {
     topcoderRole: USER_ROLE.MANAGER,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.COPILOT_MANAGER,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.CONNECT_ADMIN,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.TOPCODER_ADMIN,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.TOPCODER_ACCOUNT_MANAGER,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.BUSINESS_DEVELOPMENT_REPRESENTATIVE,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.PRESALES,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.COPILOT,
     projectRole: PROJECT_MEMBER_ROLE.COPILOT,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.ACCOUNT_EXECUTIVE,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.PROGRAM_MANAGER,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.SOLUTION_ARCHITECT,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.PROJECT_MANAGER,
     projectRole: PROJECT_MEMBER_ROLE.MANAGER,
-  }, {
+  },
+  {
     topcoderRole: USER_ROLE.TOPCODER_USER,
     projectRole: PROJECT_MEMBER_ROLE.CUSTOMER,
   },

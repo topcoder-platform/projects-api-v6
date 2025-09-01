@@ -1,6 +1,11 @@
-import { Controller, Get, HttpStatus } from "@nestjs/common";
-import { ApiOperation, ApiProperty, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { PrismaService } from "src/shared/services/prisma.service";
+import { Controller, Get, HttpStatus } from '@nestjs/common';
+import {
+  ApiOperation,
+  ApiProperty,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { PrismaService } from 'src/shared/services/prisma.service';
 
 export class HealthResponse {
   @ApiProperty({ name: 'message', description: 'Health check message' })
@@ -22,4 +27,3 @@ export class HealthController {
     return { message: 'All-is-well' };
   }
 }
-

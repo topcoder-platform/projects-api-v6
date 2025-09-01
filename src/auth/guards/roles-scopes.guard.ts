@@ -1,5 +1,10 @@
 // roles-scopes.guard.ts
-import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtUser } from '../auth.dto';
 
@@ -13,15 +18,20 @@ export class RolesScopesGuard implements CanActivate {
 
     if (!roles && !scopes) return true;
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const request = context.switchToHttp().getRequest();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const user = request.user as JwtUser;
 
     // use case insensitive checking
-    const userRoles = user.roles?.map(t => t.toLowerCase());
-    const userScopes = user.scopes?.map(t => t.toLowerCase());
+    const userRoles = user.roles?.map((t) => t.toLowerCase());
+    const userScopes = user.scopes?.map((t) => t.toLowerCase());
 
-    const hasRoles = roles && roles?.some(role => userRoles.includes(role.toLowerCase()));
-    const hasScopes = scopes && scopes?.some(scope => userScopes.includes(scope.toLowerCase()));
+    const hasRoles =
+      roles && roles?.some((role) => userRoles.includes(role.toLowerCase()));
+    const hasScopes =
+      scopes &&
+      scopes?.some((scope) => userScopes.includes(scope.toLowerCase()));
 
     if (hasRoles || hasScopes) return true;
 
