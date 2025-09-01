@@ -1,8 +1,19 @@
-import { ApiExtraModels, ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsPositive, IsString } from "class-validator";
-import { PROJECT_TO_TOPCODER_ROLES_MATRIX } from "src/auth/permissions/constants";
-import { FieldsQueryDto } from "../common/common.dto";
-import { PROJECT_MEMBER_ROLE } from "src/shared/constants";
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+import {
+  IsBoolean,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+} from 'class-validator';
+import { PROJECT_TO_TOPCODER_ROLES_MATRIX } from 'src/auth/permissions/constants';
+import { FieldsQueryDto } from '../common/common.dto';
+import { PROJECT_MEMBER_ROLE } from 'src/shared/constants';
 
 const allowedRoles = Object.keys(PROJECT_TO_TOPCODER_ROLES_MATRIX);
 
@@ -21,7 +32,8 @@ const allowedUpdateRoles = [
 export class CreateProjectMemberDto {
   @ApiPropertyOptional({
     name: 'userId',
-    description: 'user id to add as project member. Will use current user if not present.'
+    description:
+      'user id to add as project member. Will use current user if not present.',
   })
   @IsOptional()
   @IsNumber()
@@ -30,7 +42,7 @@ export class CreateProjectMemberDto {
 
   @ApiProperty({
     name: 'role',
-    enum: allowedUpdateRoles
+    enum: allowedUpdateRoles,
   })
   @IsString()
   @IsIn(allowedUpdateRoles)
@@ -45,7 +57,7 @@ export class UpdateProjectMemberDto {
 
   @ApiProperty({
     name: 'role',
-    enum: allowedRoles
+    enum: allowedRoles,
   })
   @IsString()
   @IsIn(allowedRoles)
@@ -84,7 +96,7 @@ export class ProjectMemberResponseDto {
   })
   role: string;
 
-   @ApiProperty({
+  @ApiProperty({
     description: 'User handle or username',
     example: 'johndoe',
   })
@@ -171,13 +183,12 @@ export class ProjectMemberResponseDto {
   updatedBy?: number | null;
 }
 
-
 @ApiExtraModels(FieldsQueryDto)
 export class QueryProjectMemberDto extends FieldsQueryDto {
-
   @ApiPropertyOptional({
-    name: 'role', description: 'member role',
-    enum: [...allowedRoles, PROJECT_MEMBER_ROLE.ACCOUNT_MANAGER]
+    name: 'role',
+    description: 'member role',
+    enum: [...allowedRoles, PROJECT_MEMBER_ROLE.ACCOUNT_MANAGER],
   })
   @IsOptional()
   @IsString()

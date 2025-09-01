@@ -1,12 +1,10 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString } from "class-validator";
-
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 export class FieldsQueryDto {
-
   @ApiPropertyOptional({
     name: 'fields',
-    description: 'Fields you want in response'
+    description: 'Fields you want in response',
   })
   @IsOptional()
   @IsString()

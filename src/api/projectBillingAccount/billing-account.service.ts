@@ -1,5 +1,9 @@
-import { Injectable } from "@nestjs/common";
-import { BillingAccountResponseDto, ListBillingAccountItem } from "./billing-account.dto";
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
+import { Injectable } from '@nestjs/common';
+import {
+  BillingAccountResponseDto,
+  ListBillingAccountItem,
+} from './billing-account.dto';
 
 /**
  * Service for handling billing account related operations.
@@ -7,15 +11,12 @@ import { BillingAccountResponseDto, ListBillingAccountItem } from "./billing-acc
  */
 @Injectable()
 export class BillingAccountService {
-
   /**
    * Retrieves a single billing account associated with a project.
    * @param projectId - The unique identifier of the project
    * @returns A promise that resolves to the billing account details
    */
-  async getAccount(
-    projectId: string,
-  ): Promise<BillingAccountResponseDto> {
+  async getAccount(projectId: string): Promise<BillingAccountResponseDto> {
     return new BillingAccountResponseDto();
   }
 
@@ -24,9 +25,7 @@ export class BillingAccountService {
    * @param projectId - The unique identifier of the project
    * @returns A promise that resolves to an array of billing account items
    */
-  async listAccounts(
-    projectId: string,
-  ): Promise<ListBillingAccountItem[]> {
+  async listAccounts(projectId: string): Promise<ListBillingAccountItem[]> {
     return [new ListBillingAccountItem()];
   }
 }

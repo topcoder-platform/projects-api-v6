@@ -1,16 +1,21 @@
-import { ApiExtraModels, ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsArray, IsEmail, IsIn, IsOptional, IsString } from "class-validator";
-import { INVITE_SOURCE, INVITE_STATUS, PROJECT_MEMBER_ROLE } from "src/shared/constants";
-
-
+import {
+  ApiExtraModels,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+import { IsArray, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  INVITE_SOURCE,
+  INVITE_STATUS,
+  PROJECT_MEMBER_ROLE,
+} from 'src/shared/constants';
 
 export class CreateInviteDto {
-
   @ApiPropertyOptional({
     name: 'handles',
     description: 'handles of member',
     isArray: true,
-    type: String
+    type: String,
   })
   @IsOptional()
   @IsArray()
@@ -22,16 +27,19 @@ export class CreateInviteDto {
     description: 'emails of member',
     isArray: true,
     type: String,
-    format: 'email'
+    format: 'email',
   })
   @IsOptional()
   @IsArray()
-  @IsEmail({}, { each: true, message: 'Each item must be a valid email address' })
+  @IsEmail(
+    {},
+    { each: true, message: 'Each item must be a valid email address' },
+  )
   emails?: string[];
 
   @ApiProperty({
     name: 'role',
-    enum: Object.values(PROJECT_MEMBER_ROLE)
+    enum: Object.values(PROJECT_MEMBER_ROLE),
   })
   @IsString()
   @IsIn(Object.values(PROJECT_MEMBER_ROLE))
@@ -39,7 +47,6 @@ export class CreateInviteDto {
 }
 
 export class FailedInviteItem {
-
   @ApiProperty({ name: 'email', description: 'user email' })
   email?: string;
 
@@ -85,7 +92,7 @@ export class InviteResponseDto {
   @ApiProperty({
     description: 'The status of the project member invitation/association',
     example: 'pending',
-    enum: Object.values(INVITE_STATUS)
+    enum: Object.values(INVITE_STATUS),
   })
   status: string;
 
@@ -120,23 +127,23 @@ export class CreateInviteResponseDto {
   @ApiProperty({
     description: 'successful member invites',
     isArray: true,
-    type: InviteResponseDto
+    type: InviteResponseDto,
   })
-  success: InviteResponseDto[]
+  success: InviteResponseDto[];
 
   @ApiPropertyOptional({
     description: 'failed member invites',
     isArray: true,
-    type: FailedInviteItem
+    type: FailedInviteItem,
   })
-  failed?: FailedInviteItem[]
+  failed?: FailedInviteItem[];
 }
 
 export class UpdateInviteDto {
   @ApiProperty({
     description: 'The status of the project member invitation/association',
     example: 'pending',
-    enum: Object.values(INVITE_STATUS)
+    enum: Object.values(INVITE_STATUS),
   })
   @IsString()
   @IsIn(Object.values(INVITE_STATUS))
@@ -144,10 +151,9 @@ export class UpdateInviteDto {
 
   @ApiPropertyOptional({
     description: 'source of this update operation',
-    default: INVITE_SOURCE.WORK_MANAGER
+    default: INVITE_SOURCE.WORK_MANAGER,
   })
   @IsOptional()
   @IsString()
   source?: string = INVITE_SOURCE.WORK_MANAGER;
 }
-

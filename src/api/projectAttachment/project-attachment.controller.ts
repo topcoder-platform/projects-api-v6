@@ -1,9 +1,23 @@
-import { Body, Controller, Delete, Get, HttpStatus, Param, Patch, Post, Req } from "@nestjs/common";
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { AttachmentResponseDto, CreateAttachmentDto, UpdateAttachmentDto } from "./project-attachment.dto";
-import { JwtUser } from "src/auth/auth.dto";
-import { ProjectAttachmentService } from "./project-attachment.service";
-import { Permission } from "src/auth/decorators/permissions.decorator";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  AttachmentResponseDto,
+  CreateAttachmentDto,
+  UpdateAttachmentDto,
+} from './project-attachment.dto';
+import { JwtUser } from 'src/auth/auth.dto';
+import { ProjectAttachmentService } from './project-attachment.service';
+import { Permission } from 'src/auth/decorators/permissions.decorator';
 
 /**
  * Controller for handling project attachment operations.
@@ -30,11 +44,14 @@ export class ProjectAttachmentController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async createAttachment(
     @Req() req: Request,
     @Param('projectId') projectId: string,
-    @Body() dto: CreateAttachmentDto
+    @Body() dto: CreateAttachmentDto,
   ): Promise<AttachmentResponseDto> {
     const authUser = req['user'] as JwtUser;
     return this.service.createAttachment(authUser, projectId, dto);
@@ -49,12 +66,19 @@ export class ProjectAttachmentController {
   @Permission('projectAttachment.view')
   @ApiOperation({ summary: 'Search project attachment' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
-  @ApiResponse({ status: HttpStatus.OK, isArray: true, type: AttachmentResponseDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    isArray: true,
+    type: AttachmentResponseDto,
+  })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async searchAttachment(
     @Param('projectId') projectId: string,
   ): Promise<AttachmentResponseDto[]> {
@@ -69,7 +93,9 @@ export class ProjectAttachmentController {
    */
   @Get('/:projectId/attachments/:id')
   @Permission('projectAttachment.view')
-  @ApiOperation({ summary: 'Get project attachment by project id and attachment id' })
+  @ApiOperation({
+    summary: 'Get project attachment by project id and attachment id',
+  })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'attachment id', type: Number })
   @ApiResponse({ status: HttpStatus.OK, type: AttachmentResponseDto })
@@ -77,7 +103,10 @@ export class ProjectAttachmentController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async getAttachment(
     @Param('projectId') projectId: string,
     @Param('id') id: string,
@@ -103,12 +132,15 @@ export class ProjectAttachmentController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async updateAttachment(
     @Req() req: Request,
     @Param('projectId') projectId: string,
     @Param('id') id: string,
-    @Body() dto: UpdateAttachmentDto
+    @Body() dto: UpdateAttachmentDto,
   ): Promise<AttachmentResponseDto> {
     const authUser = req['user'] as JwtUser;
     return this.service.updateAttachment(authUser, projectId, id, dto);
@@ -122,15 +154,23 @@ export class ProjectAttachmentController {
    */
   @Delete('/:projectId/attachments/:id')
   @Permission('projectAttachment.delete')
-  @ApiOperation({ summary: 'Delete project attachment by project id and attachment id' })
+  @ApiOperation({
+    summary: 'Delete project attachment by project id and attachment id',
+  })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'attachment id', type: Number })
-  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Delete Successful' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Delete Successful',
+  })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not Found' })
-  @ApiResponse({ status: HttpStatus.INTERNAL_SERVER_ERROR, description: 'Internal Server Error' })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal Server Error',
+  })
   async deleteAttachment(
     @Param('projectId') projectId: string,
     @Param('id') id: string,

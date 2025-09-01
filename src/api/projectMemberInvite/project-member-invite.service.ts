@@ -1,8 +1,14 @@
-import { Injectable } from "@nestjs/common";
-import { JwtUser } from "src/auth/auth.dto";
-import { PrismaService } from "src/shared/services/prisma.service";
-import { CreateInviteDto, CreateInviteResponseDto, InviteResponseDto, UpdateInviteDto } from "./project-member-invite.dto";
-import { FieldsQueryDto } from "../common/common.dto";
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
+import { Injectable } from '@nestjs/common';
+import { JwtUser } from 'src/auth/auth.dto';
+import { PrismaService } from 'src/shared/services/prisma.service';
+import {
+  CreateInviteDto,
+  CreateInviteResponseDto,
+  InviteResponseDto,
+  UpdateInviteDto,
+} from './project-member-invite.dto';
+import { FieldsQueryDto } from '../common/common.dto';
 
 /**
  * Service for managing project member invitations.
@@ -10,7 +16,6 @@ import { FieldsQueryDto } from "../common/common.dto";
  */
 @Injectable()
 export class ProjectMemberInviteService {
-
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -25,7 +30,7 @@ export class ProjectMemberInviteService {
     authUser: JwtUser,
     projectId: string,
     dto: CreateInviteDto,
-    query: FieldsQueryDto
+    query: FieldsQueryDto,
   ): Promise<CreateInviteResponseDto> {
     return new CreateInviteResponseDto();
   }
@@ -38,7 +43,7 @@ export class ProjectMemberInviteService {
    */
   async searchInvite(
     projectId: string,
-    query: FieldsQueryDto
+    query: FieldsQueryDto,
   ): Promise<InviteResponseDto[]> {
     return [new InviteResponseDto()];
   }
@@ -53,7 +58,7 @@ export class ProjectMemberInviteService {
   async getInvite(
     projectId: string,
     inviteId: string,
-    query: FieldsQueryDto
+    query: FieldsQueryDto,
   ): Promise<InviteResponseDto> {
     return new InviteResponseDto();
   }
@@ -70,7 +75,7 @@ export class ProjectMemberInviteService {
     authUser: JwtUser,
     projectId: string,
     inviteId: string,
-    dto: UpdateInviteDto
+    dto: UpdateInviteDto,
   ): Promise<InviteResponseDto> {
     return new InviteResponseDto();
   }
@@ -81,9 +86,5 @@ export class ProjectMemberInviteService {
    * @param inviteId - ID of the invite to delete
    * @returns Promise that resolves when the invite is successfully deleted
    */
-  async deleteInvite(
-    projectId: string,
-    inviteId: string,
-  ): Promise<void> {
-  }
+  async deleteInvite(projectId: string, inviteId: string): Promise<void> {}
 }

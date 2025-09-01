@@ -43,8 +43,14 @@ pnpm run init-db
 # reset db
 pnpm run reset-db
 
+# generate seed data
+pnpm run seed-data
+
 # Generate jwt
 pnpm exec ts-node mock/jwt.ts
+
+# Run mock api
+node mock/mock-api.js
 ```
 
 ## Local Deployment
@@ -55,10 +61,33 @@ After that, you can run:
 ```bash
 pnpm install
 
+# init db first
+pnpm run init-db
+
+# generate seed data
+pnpm run seed-data
+
+# Run mock api
+node mock/mock-api.js
+
 # Start application
-pnpm start
+pnpm run start
 ```
 
+## Verify
+
+We use `Postman` to test all apis.
+Please import `doc/tc-projects-api.postman_collection.json`, `Local Dev Environment.postman_environment.json`
+
+Then generate token
+`pnpm exec ts-node mock/jwt.ts`
+
+Then set `Admin Token` to `accessToken` in Postman environment
+Then set `User Token` to `accessTokenUser` in Postman environment
+
+Then you can test all postman apis.
+
+I also provide a demo video here: https://youtu.be/vcoiKmbasOI
 
 ## Swagger
 

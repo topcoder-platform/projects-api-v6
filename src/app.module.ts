@@ -4,11 +4,7 @@ import { SharedModule } from './shared/shared.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [
-    SharedModule,
-    AuthModule,
-    ApiModule
-  ],
+  imports: [SharedModule, AuthModule, ApiModule],
   controllers: [],
   providers: [],
 })

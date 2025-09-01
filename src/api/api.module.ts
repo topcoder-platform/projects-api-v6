@@ -20,12 +20,8 @@ import { ProjectService } from './project/project.service';
 import { AuthModule } from 'src/auth/auth.module';
 import { PolicyService } from 'src/auth/permissions/policy.service';
 
-
 @Module({
-  imports: [
-    SharedModule,
-    AuthModule,
-  ],
+  imports: [SharedModule, AuthModule],
   controllers: [
     HealthController,
     ProjectsController,

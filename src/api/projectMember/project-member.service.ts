@@ -1,8 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "src/shared/services/prisma.service";
-import { CreateProjectMemberDto, ProjectMemberResponseDto, QueryProjectMemberDto, UpdateProjectMemberDto } from "./project-member.dto";
-import { FieldsQueryDto } from "../common/common.dto";
-import { JwtUser } from "src/auth/auth.dto";
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from 'src/shared/services/prisma.service';
+import {
+  CreateProjectMemberDto,
+  ProjectMemberResponseDto,
+  QueryProjectMemberDto,
+  UpdateProjectMemberDto,
+} from './project-member.dto';
+import { FieldsQueryDto } from '../common/common.dto';
+import { JwtUser } from 'src/auth/auth.dto';
 
 /**
  * Service for managing project members and their associations with projects.
@@ -27,7 +33,7 @@ export class ProjectMemberService {
     authUser: JwtUser,
     projectId: number,
     dto: CreateProjectMemberDto,
-    query: FieldsQueryDto
+    query: FieldsQueryDto,
   ): Promise<ProjectMemberResponseDto> {
     return new ProjectMemberResponseDto();
   }
@@ -40,7 +46,7 @@ export class ProjectMemberService {
    */
   async search(
     projectId: number,
-    dto: QueryProjectMemberDto
+    dto: QueryProjectMemberDto,
   ): Promise<ProjectMemberResponseDto[]> {
     return [new ProjectMemberResponseDto()];
   }
@@ -55,7 +61,7 @@ export class ProjectMemberService {
   async getMember(
     projectId: number,
     id: number,
-    query: FieldsQueryDto
+    query: FieldsQueryDto,
   ): Promise<ProjectMemberResponseDto> {
     return new ProjectMemberResponseDto();
   }
@@ -85,8 +91,5 @@ export class ProjectMemberService {
    * @param id - ID of the project member to remove
    * @returns Promise that resolves when the member is successfully removed
    */
-  async deleteMember(
-    projectId: number,
-    id: number,
-  ): Promise<void> {}
+  async deleteMember(projectId: number, id: number): Promise<void> {}
 }

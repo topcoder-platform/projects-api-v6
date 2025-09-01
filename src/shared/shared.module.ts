@@ -5,15 +5,7 @@ import { EventBusService } from './services/event-bus.service';
 @Global()
 @Module({
   imports: [],
-  providers: [
-    M2MService,
-    PrismaService,
-    EventBusService,
-  ],
-  exports: [
-    M2MService,
-    PrismaService,
-    EventBusService,
-  ],
+  providers: [M2MService, PrismaService, EventBusService],
+  exports: [M2MService, PrismaService, EventBusService],
 })
 export class SharedModule {}

@@ -1,0 +1,959 @@
+{
+	"info": {
+		"_postman_id": "f700cd20-9b97-4563-9006-4fa6f653f783",
+		"name": "tc-projects-api",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23458"
+	},
+	"item": [
+		{
+			"name": "check project health",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects/health",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get project by id with admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects/101",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"101"
+					],
+					"query": [
+						{
+							"key": "fields",
+							"value": "id,name,status,attachments",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get project by id with user",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessTokenUser}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects/101?fields=id,name,status,attachments",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"101"
+					],
+					"query": [
+						{
+							"key": "fields",
+							"value": "id,name,status,attachments"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get project by id with fields",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects/101?fields=id,name,status,attachments,members",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"101"
+					],
+					"query": [
+						{
+							"key": "fields",
+							"value": "id,name,status,attachments,members"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "search projects with admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects?name=App Deleted 1&status=paused&manager=phead&customer=tony",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					],
+					"query": [
+						{
+							"key": "name",
+							"value": "App Deleted 1"
+						},
+						{
+							"key": "status",
+							"value": "paused"
+						},
+						{
+							"key": "manager",
+							"value": "phead"
+						},
+						{
+							"key": "customer",
+							"value": "tony"
+						},
+						{
+							"key": "directProjectId",
+							"value": "1001",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "search projects with user",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessTokenUser}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects?name=App New1&status=in_review&manager=phead&directProjectId=1001",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					],
+					"query": [
+						{
+							"key": "name",
+							"value": "App New1"
+						},
+						{
+							"key": "status",
+							"value": "in_review"
+						},
+						{
+							"key": "manager",
+							"value": "phead"
+						},
+						{
+							"key": "customer",
+							"value": "tony",
+							"disabled": true
+						},
+						{
+							"key": "directProjectId",
+							"value": "1001"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "search projects with pagination and sort",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects?page=2&perPage=3&sort=name desc",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "2"
+						},
+						{
+							"key": "perPage",
+							"value": "3"
+						},
+						{
+							"key": "sort",
+							"value": "name desc"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "search projects with full query params",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects?id=101&id=103&status=paused&status=in_review&type=scoped-solutions&type=generic&directProjectId=1001&code=code123&manager=phead&customer=tony&keyword=fUl&fields=id,name,details,attachments",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "101"
+						},
+						{
+							"key": "id",
+							"value": "103"
+						},
+						{
+							"key": "name",
+							"value": "App Deleted 1",
+							"disabled": true
+						},
+						{
+							"key": "status",
+							"value": "paused"
+						},
+						{
+							"key": "status",
+							"value": "in_review"
+						},
+						{
+							"key": "type",
+							"value": "scoped-solutions"
+						},
+						{
+							"key": "type",
+							"value": "generic"
+						},
+						{
+							"key": "directProjectId",
+							"value": "1001"
+						},
+						{
+							"key": "code",
+							"value": "code123"
+						},
+						{
+							"key": "manager",
+							"value": "phead"
+						},
+						{
+							"key": "customer",
+							"value": "tony"
+						},
+						{
+							"key": "keyword",
+							"value": "fUl"
+						},
+						{
+							"key": "fields",
+							"value": "id,name,details,attachments"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create project by id with admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () { pm.response.to.have.status(201); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"generic\",\n    \"description\": \"test project\",\n    \"details\": {},\n    \"name\": \"test project1\",\n    \"templateId\": 2001,\n    \"attachments\": [\n        {\n            \"title\": \"file1.txt\",\n            \"description\": \"blah\",\n            \"contentType\": \"application/unknown\",\n            \"size\": 12312,\n            \"category\": \"categ1\",\n            \"path\": \"https://media.topcoder.com/projects/1/test.txt\",\n            \"type\": \"file\",\n            \"tags\": [\"tag1\", \"tag2\"]\n        },\n        {\n            \"title\": \"Test Link 1\",\n            \"description\": \"Test link 1 description\",\n            \"size\": 123456,\n            \"category\": \"categ1\",\n            \"path\": \"https://connect.topcoder-dev.com/projects/8600/assets\",\n            \"type\": \"link\",\n            \"tags\": [\"tag3\", \"tag4\"]\n        }\n    ]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create project by id with full fields",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () { pm.response.to.have.status(201); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"scoped-solutions\",\n    \"description\": \"test project\",\n    \"name\": \"test project1\",\n    \"projectFullText\": \"full text 1\",\n    \"billingAccountId\": null,\n    \"directProjectId\": 1001,\n    \"version\": \"v3\",\n    \"templateId\": 2001,\n    \"estimatedPrice\": null,\n    \"actualPrice\": null,\n    \"cancelReason\": null,\n    \"terms\": [],\n    \"groups\": [],\n    \"projectUrl\": \"http://project.example.com\",\n    \"details\": {\n        \"products\": [\"product1\", \"product2\"],\n        \"intakePurpose\": \"demo-test-other\",\n        \"hideDiscussions\": false,\n        \"utm\": {\n            \"code\": \"code123\"\n        },\n        \"techstack\": {\n            \"languages\": [\"java\", \"nodejs\"],\n            \"frameworks\": [\"spring\", \"nestjs\"],\n            \"database\": \"postgresql\",\n            \"hosting\": \"localhost\",\n            \"others\": \"other1\"\n        },\n        \"appDefinition\": {\n            \"budget\":34.56,\n            \"deliverables\": [\"deployment\"],\n            \"expectedOutcome\": [],\n            \"designGoal\": [],\n            \"needAdditionalScreens\": \"Yes\",\n            \"targetDevices\": [],\n            \"webBrowserBehaviour\" : \"View\",\n            \"webBrowsersSupported\": [],\n            \"hasBrandGuidelines\": \"Yes\",\n            \"needSpecificFonts\": \"Yes\",\n            \"needSpecificColors\": \"Yes\"\n        },\n        \"projectData\": {\n            \"customerProject\": \"customerProject1\",\n            \"executionHub\": \"executionHub1\",\n            \"groupCustomerName\": \"groupCustomer1\",\n            \"projectCode\": \"project123\",\n            \"groupName\": \"group1\",\n            \"costCenter\": \"costCenter1\",\n            \"wbsCode\": \"wbs123\",\n            \"onsiteEfforts\": \"0\",\n            \"offshoreEfforts\": \"0\",\n            \"plannedStartDate\": \"2025-05-05T10:10:47.007Z\",\n            \"plannedEndDate\": \"2025-05-05T10:10:47.007Z\",\n            \"partOfNg3\": \"partOfNg345\",\n            \"companyCode\": \"company123\",\n            \"approvedAmount\": \"12.3\",\n            \"projectClassificationCode\": \"projectClassification123\",\n            \"invoiceType\": \"invoiceType1\",\n            \"sowNumber\": \"1234567\",\n            \"sector\": \"sector1\",\n            \"smu\": \"smu1\",\n            \"subExecutionHub\": \"subExecutionHub1\",\n            \"initiatorEmail\": \"initiator@tc.com\"\n        },\n        \"apiDefinition\": {\n            \"addons\": [\"addon1\", \"addon2\"],\n            \"deliverables\": [\"development\"],\n            \"deploymentTargets\": [\"Amazon\"]\n        }\n    },\n    \"utm\": {\n      \"source\": \"source1\",\n      \"medium\": \"medium1\",\n      \"campaign\": \"campaign2\"\n    },\n    \"external\": {\n        \"extId\": \"extId123\",\n        \"type\": \"github\",\n        \"data\": \"extData\"\n    },\n    \"estimation\": [{\n      \"conditions\": \"conditions1\",\n      \"price\": 12.34,\n      \"quantity\": 90,\n      \"minTime\": 20,\n      \"maxTime\": 40,\n      \"buildingBlockKey\": \"key1\",\n      \"metadata\": {\n          \"deliverable\": \"deliverable1\",\n          \"priceFormula\": 3200\n      }\n    }],\n    \"challengeEligibility\": [{\n      \"role\": \"reviewer\",\n      \"users\": [],\n      \"groups\": []\n    }],\n    \"bookmarks\": [{\n      \"title\": \"bookmark1\",\n      \"address\": \"address1\"\n    }, {\n      \"title\": \"bookmark2\",\n      \"address\": \"address2\"\n    }],\n    \"attachments\": [\n        {\n            \"title\": \"file1.txt\",\n            \"description\": \"blah\",\n            \"contentType\": \"application/unknown\",\n            \"size\": 12312,\n            \"category\": \"categ1\",\n            \"path\": \"https://media.topcoder.com/projects/1/test.txt\",\n            \"type\": \"file\",\n            \"tags\": [\"tag1\", \"tag2\"]\n        },\n        {\n            \"title\": \"Test Link 1\",\n            \"description\": \"Test link 1 description\",\n            \"size\": 123456,\n            \"category\": \"categ1\",\n            \"path\": \"https://connect.topcoder-dev.com/projects/8600/assets\",\n            \"type\": \"link\",\n            \"tags\": [\"tag3\", \"tag4\"]\n        }\n    ]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create project by id with no template id",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () { pm.response.to.have.status(201); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"generic\",\n    \"description\": \"test project\",\n    \"name\": \"test project1\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create project by id with no template phases",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () { pm.response.to.have.status(201); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"generic\",\n    \"description\": \"test project\",\n    \"name\": \"test project1\",\n    \"templateId\": 2002\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create project by id with invalid type",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () { pm.response.to.have.status(201); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"generic invalid\",\n    \"description\": \"test project\",\n    \"name\": \"test project1\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update project with full fields",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"scoped-solutions\",\n    \"description\": \"test project updated\",\n    \"name\": \"test project2 updated\",\n    \"directProjectId\": 10001,\n    \"details\": {\n        \"intakePurpose\": \"demo-test-other updated\",\n        \"products\": [\"product3\", \"product4\"],\n        \"appDefinition\": {\n            \"budget\": 99.88,\n            \"deliverables\": [\"deployment updated\"]\n        },\n        \"projectData\": {\n            \"costCenter\": \"costCenter1 updated\",\n            \"wbsCode\": \"wbs123 updated\"\n        },\n        \"techstack\": {\n            \"languages\": [\"java2\", \"nodejs2\"],\n            \"hosting\": \"localhost updated\"\n        },\n        \"apiDefinition\": {\n            \"addons\": [\"addon1\", \"addon2\"]\n        }\n    },\n    \"external\": {\n        \"extId\": \"extId123 updated\",\n        \"type\": \"other\",\n        \"data\": \"extData updated\"\n    },\n    \"bookmarks\": [{\n      \"title\": \"bookmark3 updated\",\n      \"address\": \"address3 updated\"\n    }, {\n      \"title\": \"bookmark4 updated\",\n      \"address\": \"address4 updated\"\n    }],\n    \"challengeEligibility\": [{\n      \"role\": \"submitter\",\n      \"users\": [1,2],\n      \"groups\": [3,4]\n    }, {\n      \"role\": \"copilot\",\n      \"users\": [3],\n      \"groups\": [5]\n    }]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects/102",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"102"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update project status",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"status\": \"cancelled\",\n    \"directProjectId\": 10001,\n    \"cancelReason\": \"The project is useless\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects/102",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"102"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update project with user",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessTokenUser}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"scoped-solutions\",\n    \"description\": \"test project updated\",\n    \"name\": \"test project2 updated\",\n    \"details\": {\n        \"intakePurpose\": \"demo-test-other updated\",\n        \"products\": [\"product3\", \"product4\"],\n        \"appDefinition\": {\n            \"budget\": 99.88,\n            \"deliverables\": [\"deployment updated\"]\n        },\n        \"projectData\": {\n            \"costCenter\": \"costCenter1 updated\",\n            \"wbsCode\": \"wbs123 updated\"\n        },\n        \"techstack\": {\n            \"languages\": [\"java2\", \"nodejs2\"],\n            \"hosting\": \"localhost updated\"\n        },\n        \"apiDefinition\": {\n            \"addons\": [\"addon1\", \"addon2\"]\n        }\n    },\n    \"external\": {\n        \"extId\": \"extId123 updated\",\n        \"type\": \"other\",\n        \"data\": \"extData updated\"\n    },\n    \"bookmarks\": [{\n      \"title\": \"bookmark3 updated\",\n      \"address\": \"address3 updated\"\n    }, {\n      \"title\": \"bookmark4 updated\",\n      \"address\": \"address4 updated\"\n    }],\n    \"challengeEligibility\": [{\n      \"role\": \"submitter\",\n      \"users\": [1,2],\n      \"groups\": [3,4]\n    }, {\n      \"role\": \"copilot\",\n      \"users\": [3],\n      \"groups\": [5]\n    }]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects/102",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"102"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update project with invalid type",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 400\", function () { pm.response.to.have.status(400); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"generic updated\",\n    \"description\": \"test project updated\",\n    \"name\": \"test project2 updated\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects/102",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"102"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update project with no permission to update directProjectId",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 400\", function () { pm.response.to.have.status(400); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessTokenUser}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": " {\n    \"type\": \"scoped-solutions\",\n    \"description\": \"test project updated\",\n    \"name\": \"test project2 updated\",\n    \"directProjectId\": 10001\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/projects/102",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"102"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "delete project",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 204\", function () { pm.response.to.have.status(204); });"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{accessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/projects/10",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"projects",
+						"10"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

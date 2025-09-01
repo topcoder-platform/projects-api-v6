@@ -1,7 +1,7 @@
-import { Injectable } from "@nestjs/common";
-import { JwtUser } from "src/auth/auth.dto";
-import { PrismaService } from "src/shared/services/prisma.service";
-
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
+import { Injectable } from '@nestjs/common';
+import { JwtUser } from 'src/auth/auth.dto';
+import { PrismaService } from 'src/shared/services/prisma.service';
 
 @Injectable()
 export class PermissionService {

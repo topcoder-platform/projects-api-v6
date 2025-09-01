@@ -1,7 +1,12 @@
-import { Injectable } from "@nestjs/common";
-import { JwtUser } from "src/auth/auth.dto";
-import { PrismaService } from "src/shared/services/prisma.service";
-import { AttachmentResponseDto, CreateAttachmentDto, UpdateAttachmentDto } from "./project-attachment.dto";
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unused-vars */
+import { Injectable } from '@nestjs/common';
+import { JwtUser } from 'src/auth/auth.dto';
+import { PrismaService } from 'src/shared/services/prisma.service';
+import {
+  AttachmentResponseDto,
+  CreateAttachmentDto,
+  UpdateAttachmentDto,
+} from './project-attachment.dto';
 
 /**
  * Service class for handling project attachment operations.
@@ -9,7 +14,6 @@ import { AttachmentResponseDto, CreateAttachmentDto, UpdateAttachmentDto } from 
  */
 @Injectable()
 export class ProjectAttachmentService {
-
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -22,7 +26,7 @@ export class ProjectAttachmentService {
   async createAttachment(
     authUser: JwtUser,
     projectId: string,
-    dto: CreateAttachmentDto
+    dto: CreateAttachmentDto,
   ): Promise<AttachmentResponseDto> {
     return new AttachmentResponseDto();
   }
@@ -32,9 +36,7 @@ export class ProjectAttachmentService {
    * @param projectId - ID of the project to get attachments for
    * @returns Promise resolving to an array of attachment responses
    */
-  async searchAttachment(
-    projectId: string,
-  ): Promise<AttachmentResponseDto[]> {
+  async searchAttachment(projectId: string): Promise<AttachmentResponseDto[]> {
     return [new AttachmentResponseDto()];
   }
 
@@ -63,7 +65,7 @@ export class ProjectAttachmentService {
     authUser: JwtUser,
     projectId: string,
     id: string,
-    dto: UpdateAttachmentDto
+    dto: UpdateAttachmentDto,
   ): Promise<AttachmentResponseDto> {
     return new AttachmentResponseDto();
   }
@@ -74,10 +76,5 @@ export class ProjectAttachmentService {
    * @param id - ID of the attachment to delete
    * @returns Promise that resolves when deletion is complete
    */
-  async deleteAttachment(
-    projectId: string,
-    id: string,
-  ): Promise<void> {
-
-  }
+  async deleteAttachment(projectId: string, id: string): Promise<void> {}
 }

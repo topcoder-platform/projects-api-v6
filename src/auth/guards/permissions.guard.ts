@@ -1,5 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 // roles-scopes.guard.ts
-import { CanActivate, ExecutionContext, Injectable, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { PolicyService } from '../permissions/policy.service';
@@ -10,12 +17,15 @@ export class PermissionGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
-    private readonly policyService: PolicyService
+    private readonly policyService: PolicyService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // read policy name
-    const permission = this.reflector.get<string>('permission', context.getHandler());
+    const permission = this.reflector.get<string>(
+      'permission',
+      context.getHandler(),
+    );
     if (!permission) {
       // Do not check permission. Directly return.
       return true;

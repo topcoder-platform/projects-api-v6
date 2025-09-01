@@ -33,9 +33,10 @@ model Project {
   cancelReason          String?
   terms                 String[]
   groups                String[]
+  projectUrl            String?
 
   // Relations
-  detail                ProjectDetail?
+  details               ProjectDetail?
   utm                   ProjectUtm?
   external              ProjectExternal?
   challengeEligibility  ChallengeEligibility[]
@@ -44,6 +45,7 @@ model Project {
   bookmarks             ProjectBookmark[]
   members               ProjectMember[]
   memberInvites         ProjectMemberInvite[]
+  phases                ProjectPhase[]
 
   createdAt             DateTime              @default(now())
   createdBy             BigInt
@@ -66,6 +68,8 @@ model ProjectDetail {
   setting         ProjectDetailSetting?
   appDefinition   ProjectDetailAppDefinition?
   projectData     ProjectDetailProjectData?
+  techstack       ProjectDetailTechstack?
+  apiDefinition   ProjectDetailApiDefinition?
 
   // Relation
   project     Project @relation(fields: [projectId], references: [id])
@@ -81,7 +85,7 @@ model ProjectDetail {
 
 model ProjectDetailProjectData {
   id                      BigInt    @id @default(autoincrement())
-  
+
   customerProject            String?
   executionHub               String?
   groupCustomerName          String?
@@ -149,6 +153,46 @@ model ProjectDetailSetting {
   @@index([projectDetailId])
 }
 
+model ProjectDetailTechstack {
+  id                    BigInt @id @default(autoincrement())
+
+  languages             String[]
+  frameworks            String[]
+  database              String?
+  hosting               String?
+  others                String?
+
+  // Relation
+  projectDetail ProjectDetail @relation(fields: [projectDetailId], references: [id])
+  projectDetailId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectDetailId])
+}
+
+model ProjectDetailApiDefinition {
+  id                    BigInt @id @default(autoincrement())
+
+  addons                String[]
+  deliverables          String[]
+  deploymentTargets     String[]
+
+  // Relation
+  projectDetail ProjectDetail @relation(fields: [projectDetailId], references: [id])
+  projectDetailId BigInt @unique
+
+  createdAt             DateTime              @default(now())
+  createdBy             BigInt
+  updatedAt             DateTime?             @updatedAt
+  updatedBy             BigInt?
+
+  @@index([projectDetailId])
+}
+
 model ProjectDetailAppDefinition {
   id        BigInt @id @default(autoincrement())
 
@@ -163,6 +207,9 @@ model ProjectDetailAppDefinition {
   hasBrandGuidelines    String?
   needSpecificFonts     String?
   needSpecificColors    String?
+  securityRequirements  Json?
+  userRequirements      Json?
+  addons                Json?
 
   // Relation
   projectDetail ProjectDetail @relation(fields: [projectDetailId], references: [id])
@@ -181,7 +228,7 @@ model ProjectUtm {
   source   String?
   medium   String?
   campaign String?
-  
+
   // Relation
   project     Project @relation(fields: [projectId], references: [id])
   projectId BigInt @unique
@@ -206,7 +253,7 @@ model ProjectExternal {
   extId    String
   type     ExternalType
   data     String
-  
+
   // Relation
   project     Project @relation(fields: [projectId], references: [id])
   projectId BigInt @unique
@@ -254,7 +301,7 @@ model ProjectEstimation {
   maxTime             Int
   buildingBlockKey    String
   metadata            ProjectEstimationMetadata?
-  
+
   // Relation
   project     Project @relation(fields: [projectId], references: [id])
   projectId           BigInt
@@ -273,7 +320,7 @@ model ProjectEstimationMetadata {
   id                  BigInt @id @default(autoincrement())
 
   deliverable         String?
-  priceFormula        String?
+  priceFormula        Int?
 
   // Relation
   estimation     ProjectEstimation @relation(fields: [projectEstimationId], references: [id])
@@ -293,7 +340,7 @@ model ProjectBookmark {
   id          BigInt @id @default(autoincrement())
   title       String
   address     String
-  
+
   // Relation
   project     Project @relation(fields: [projectId], references: [id])
   projectId   BigInt
@@ -355,7 +402,7 @@ model ProjectAttachment {
   deletedBy     BigInt?
   createdBy     BigInt
   updatedBy     BigInt?
-  
+
   @@index([projectId])
 }
 
@@ -364,6 +411,11 @@ model ProjectMember {
   userId      BigInt
   role        ProjectMemberRole
   isPrimary   Boolean              @default(false)
+  handle      String
+  email       String
+  firstName   String?
+  lastName    String?
+
   // Relationships
   project   Project @relation(fields: [projectId], references: [id])
   projectId BigInt
@@ -374,7 +426,7 @@ model ProjectMember {
   deletedBy   BigInt?
   createdBy   BigInt
   updatedBy   BigInt?
-  
+
   @@index([projectId])
   @@index([userId])
 }
@@ -396,14 +448,91 @@ model ProjectMemberInvite {
   createdBy       BigInt
   updatedBy       BigInt?
   deletedBy       BigInt?
-  
+
   @@index([projectId])
   @@index([userId])
 }
 
+model ProjectPhase {
+  id              BigInt             @id @default(autoincrement())
+
+  name            String
+  status          String
+  spentBudget     Int?
+  requirements    String?
+  description     String?
+  duration        Int?
+  progress        Int?
+  details         Json?
+  startDate       DateTime
+  endDate         DateTime
+  budget          Int?
+  order           Int?
+
+  products        ProjectPhaseProduct[]
+  members         ProjectPhaseMember[]
+
+  // Relationships
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId BigInt
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  createdBy       BigInt
+  updatedBy       BigInt?
+
+  @@index([projectId])
+}
+
+model ProjectPhaseProduct {
+  id              BigInt             @id @default(autoincrement())
+
+  actualPrice       Decimal?
+  billingAccountId  BigInt?
+  templateId        BigInt
+  type              String
+  estimatedPrice    Decimal?
+  name              String
+  details           Json?
+  directProjectId   BigInt?
+  projectId         BigInt
+
+  // Relationships
+  phase   ProjectPhase @relation(fields: [phaseId], references: [id])
+  phaseId BigInt
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+
+  @@index([phaseId])
+}
+
+model ProjectPhaseMember {
+  id              BigInt             @id @default(autoincrement())
+
+  userId          BigInt
+
+  // Relationships
+  phase   ProjectPhase @relation(fields: [phaseId], references: [id])
+  phaseId BigInt
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  createdBy       BigInt
+  updatedBy       BigInt?
+
+  @@index([phaseId])
+  @@index([userId])
+}
+
+
 model AccessRule {
   id              BigInt             @id @default(autoincrement())
-  
+
   title           String?
   group           String?
   description     String?
@@ -443,6 +572,128 @@ model WorkManagementPermission {
   createdBy       BigInt
   updatedBy       BigInt?
   deletedBy       BigInt?
-  
+
   @@index([projectTemplateId])
+}
+
+model ProjectTemplate {
+  id              BigInt             @id @default(autoincrement())
+
+  name            String
+  key             String
+  category        String
+  icon            String
+  question        String
+  info            String
+  aliases         Json
+  scope           Json?
+  phases          Json?
+  disabled        Boolean            @default(false)
+  hidden          Boolean            @default(false)
+  planConfig      Json?
+  priceConfig     Json?
+  form            Json?
+  subCategory     String?
+  metadata        Json               @default("{}")
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+}
+
+model ProjectHistory {
+  id              BigInt             @id @default(autoincrement())
+
+  projectId       BigInt
+  status          ProjectStatus
+  cancelReason    String?
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  updatedBy       BigInt?
+}
+
+model PlanConfig {
+  id              BigInt             @id @default(autoincrement())
+
+  key             String
+  version         Int                @default(1)
+  revision        Int                @default(1)
+  config          Json
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+}
+
+model ProductTemplate {
+  id              BigInt             @id @default(autoincrement())
+
+  name            String
+  productKey      String
+  category        String
+  subCategory     String?
+  icon            String
+  brief           String
+  details         String
+  aliases         Json
+  form            Json?
+  template        Json?
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+}
+
+enum WorkStreamStatus {
+  draft
+  reviewed
+  active
+  completed
+  paused
+}
+
+model WorkStream {
+  id              BigInt             @id @default(autoincrement())
+
+  name            String
+  type            String
+  status          WorkStreamStatus
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+}
+
+model ProjectType {
+  id              BigInt             @id @default(autoincrement())
+
+  key             String
+  displayName     String
+  icon            String
+  question        String
+  info            String
+  aliases         Json
+  disabled        Boolean
+  hidden          Boolean
+  metadata        Json
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
 }
