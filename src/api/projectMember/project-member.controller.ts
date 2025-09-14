@@ -3,14 +3,23 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { Request } from 'express';
 import {
   CreateProjectMemberDto,
   ProjectMemberResponseDto,
@@ -19,8 +28,10 @@ import {
 } from './project-member.dto';
 import { FieldsQueryDto } from '../common/common.dto';
 import { ProjectMemberService } from './project-member.service';
-import { JwtUser } from 'src/auth/auth.dto';
-import { Permission } from 'src/auth/decorators/permissions.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Scopes } from 'src/auth/decorators/scopes.decorator';
+import { RolesScopesGuard } from 'src/auth/guards/roles-scopes.guard';
+import { MANAGER_ROLES, USER_ROLE, M2M_SCOPES } from 'src/shared/constants';
 
 /**
  * Controller for managing project members.
@@ -41,8 +52,11 @@ export class ProjectMemberController {
    * @returns The created project member response
    */
   @Post('/:projectId/members')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECT_MEMBERS.WRITE)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create project member' })
-  @Permission('projectMember.create')
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({ status: HttpStatus.CREATED, type: ProjectMemberResponseDto })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
@@ -59,8 +73,7 @@ export class ProjectMemberController {
     @Body() dto: CreateProjectMemberDto,
     @Query() query: FieldsQueryDto,
   ): Promise<ProjectMemberResponseDto> {
-    const authUser = req['user'] as JwtUser;
-    return this.service.create(authUser, projectId, dto, query);
+    return this.service.create(req, projectId, dto, query);
   }
 
   /**
@@ -70,7 +83,10 @@ export class ProjectMemberController {
    * @returns Array of project member responses matching criteria
    */
   @Get('/:projectId/members')
-  @Permission('projectMember.view')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECT_MEMBERS.READ)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project member with given parameters' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({
@@ -87,10 +103,11 @@ export class ProjectMemberController {
     description: 'Internal Server Error',
   })
   async search(
+    @Req() req: Request,
     @Param('projectId') projectId: number,
     @Query() dto: QueryProjectMemberDto,
   ): Promise<ProjectMemberResponseDto[]> {
-    return this.service.search(projectId, dto);
+    return this.service.search(projectId, dto, req);
   }
 
   /**
@@ -101,7 +118,10 @@ export class ProjectMemberController {
    * @returns The requested project member response
    */
   @Get('/:projectId/members/:id')
-  @Permission('projectMember.view')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECT_MEMBERS.READ)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project member with given parameters' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'project member id', type: Number })
@@ -115,11 +135,12 @@ export class ProjectMemberController {
     description: 'Internal Server Error',
   })
   async getMember(
+    @Req() req: Request,
     @Param('projectId') projectId: number,
     @Param('id') id: number,
     @Query() query: FieldsQueryDto,
   ): Promise<ProjectMemberResponseDto> {
-    return this.service.getMember(projectId, id, query);
+    return this.service.getMember(projectId, id, query, req);
   }
 
   /**
@@ -132,7 +153,10 @@ export class ProjectMemberController {
    * @returns The updated project member response
    */
   @Patch('/:projectId/members/:id')
-  @Permission('projectMember.edit')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECT_MEMBERS.WRITE)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project member with given parameters' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'project member id', type: Number })
@@ -152,8 +176,7 @@ export class ProjectMemberController {
     @Body() dto: UpdateProjectMemberDto,
     @Query() query: FieldsQueryDto,
   ): Promise<ProjectMemberResponseDto> {
-    const authUser = req['user'] as JwtUser;
-    return this.service.updateMember(authUser, projectId, id, dto, query);
+    return this.service.updateMember(projectId, id, dto, query, req);
   }
 
   /**
@@ -163,7 +186,11 @@ export class ProjectMemberController {
    * @returns Empty promise indicating successful deletion
    */
   @Delete('/:projectId/members/:id')
-  @Permission('projectMember.delete')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECT_MEMBERS.WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project member with given parameters' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'project member id', type: Number })
@@ -180,9 +207,10 @@ export class ProjectMemberController {
     description: 'Internal Server Error',
   })
   async deleteMember(
+    @Req() req: Request,
     @Param('projectId') projectId: number,
     @Param('id') id: number,
   ): Promise<void> {
-    await this.service.deleteMember(projectId, id);
+    await this.service.deleteMember(projectId, id, req);
   }
 }

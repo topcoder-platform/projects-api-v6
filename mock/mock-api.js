@@ -107,6 +107,92 @@ app.get('/challenges', (req, res) => {
   }])
 })
 
+// Identity roles
+app.get('/identity/roles/:id', (req, res) => {
+  logger.info(`Identity received message: ${JSON.stringify(req.query)}`);
+  const id = req.params.id
+  res.statusCode = 200;
+
+  if (req.query.fields === 'subjects') {
+    const resp = {
+      result: {
+        content: {
+          id,
+          name: `Test role ${id}`,
+          subjects: [{
+            handle: 'TonyJ',
+            email: 'jmgasper+tjefts@gmail.com',
+          }, {
+            handle: 'phead',
+            email: 'email@domain.com.z',
+          }, {
+            handle: 'billsedison',
+            email: 'email@domain.com.z',
+          }]
+        }
+      }
+    }
+    res.json(resp)
+  } else {
+    const resp = {
+      result: {
+        content: [
+          {id: 1, roleName: 'Topcoder User'},
+          {id: 2, roleName: 'Connect Support'},
+          {id: 3, roleName: 'administrator'},
+          {id: 4, roleName: 'Connect Manager'},
+          {id: 5, roleName: 'Connect Admin'},
+          {id: 6, roleName: 'copilot'},
+          {id: 7, roleName: 'Connect Copilot Manager'},
+          {id: 8, roleName: 'Project Manager'},
+        ]
+      }
+    };
+    res.json(resp)
+  }
+})
+
+// Identity
+app.get('/identity/roles', (req, res) => {
+  logger.info(`Identity received message: ${JSON.stringify(req.query)}`);
+  res.statusCode = 200;
+  const resp = {
+    result: {
+      content: [
+        {id: 1, roleName: 'Topcoder User'},
+        {id: 2, roleName: 'Connect Support'},
+        {id: 3, roleName: 'administrator'},
+        {id: 4, roleName: 'Connect Manager'},
+        {id: 5, roleName: 'Connect Admin'},
+        {id: 6, roleName: 'copilot'},
+        {id: 7, roleName: 'Connect Copilot Manager'},
+        {id: 8, roleName: 'Project Manager'},
+      ]
+    }
+  };
+  res.json(resp)
+})
+
+
+
+// Identity users
+app.get('/identity/users', (req, res) => {
+  logger.info(`Identity received message: ${JSON.stringify(req.query)}`);
+  res.statusCode = 200;
+  const resp = {
+    // data: {
+      result: {
+        content: [
+          {id: 1, handle: 'phead', email: 'phead@tc.com'},
+          {id: 4, handle: 'billsedison', email: 'billsedison@tc.com'},
+        ]
+      }
+    // }
+  };
+  res.json(resp)
+})
+
+
 
 app.listen(app.get('port'), '0.0.0.0', () => {
   logger.info(`Express server listening on port ${app.get('port')}`)

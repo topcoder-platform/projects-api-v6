@@ -32,7 +32,7 @@ export class CreateInviteDto {
   @IsOptional()
   @IsArray()
   @IsEmail(
-    {},
+    { domain_specific_validation: true, require_tld: false },
     { each: true, message: 'Each item must be a valid email address' },
   )
   emails?: string[];

@@ -5,7 +5,6 @@ import {
 } from './billing-account.dto';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BillingAccountService } from './billing-account.service';
-import { Permission } from 'src/auth/decorators/permissions.decorator';
 
 /**
  * Controller for handling project billing account operations.
@@ -22,7 +21,6 @@ export class BillingAccountController {
    * @returns A single billing account response DTO
    */
   @Get('/:projectId/billingAccount')
-  @Permission('projectBillingAccount.view')
   @ApiOperation({ summary: 'Get project billing account' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({ status: HttpStatus.OK, type: BillingAccountResponseDto })
@@ -46,7 +44,6 @@ export class BillingAccountController {
    * @returns An array of billing account items
    */
   @Get('/:projectId/billingAccounts')
-  @Permission('projectBillingAccounts.view')
   @ApiOperation({ summary: 'List project billing accounts' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({

@@ -46,6 +46,8 @@ model Project {
   members               ProjectMember[]
   memberInvites         ProjectMemberInvite[]
   phases                ProjectPhase[]
+  copilotRequests       CopilotRequest[]
+  copilotOpportunities  CopilotOpportunity[]
 
   createdAt             DateTime              @default(now())
   createdBy             BigInt
@@ -697,3 +699,94 @@ model ProjectType {
   updatedBy       BigInt?
   deletedBy       BigInt?
 }
+
+enum CopilotRequestStatus {
+  new
+  approved
+  rejected
+  seeking
+  canceled
+  fulfilled
+}
+
+model CopilotRequest {
+  id              BigInt             @id @default(autoincrement())
+
+  status          CopilotRequestStatus  @default(new)
+  data            Json
+
+  // Relationships
+  copilotOpportunities  CopilotOpportunity[]
+  projectId       BigInt
+  project         Project @relation(fields: [projectId], references: [id])
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+}
+
+enum CopilotApplicationStatus {
+  pending
+  invited
+  accepted
+  canceled
+}
+
+model CopilotApplication {
+  id              BigInt             @id @default(autoincrement())
+
+  notes           String?
+  status          CopilotApplicationStatus  @default(pending)
+  userId          BigInt
+
+  // Relationships
+  opportunityId       BigInt
+  copilotOpportunity  CopilotOpportunity @relation(fields: [opportunityId], references: [id])
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+
+  @@index([opportunityId])
+}
+
+enum CopilotOpportunityStatus {
+  active
+  completed
+  canceled
+}
+
+enum CopilotOpportunityType {
+  dev
+  qa
+  design
+  ai
+  datascience
+}
+
+model CopilotOpportunity {
+  id              BigInt             @id @default(autoincrement())
+
+  // Relations
+  status          CopilotOpportunityStatus  @default(active)
+  type            CopilotOpportunityType
+  copilotApplications  CopilotApplication[]
+  copilotRequestId     BigInt
+  copilotRequest       CopilotRequest @relation(fields: [copilotRequestId], references: [id])
+  projectId       BigInt
+  project         Project @relation(fields: [projectId], references: [id])
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime?          @updatedAt
+  deletedAt       DateTime?
+  createdBy       BigInt
+  updatedBy       BigInt?
+  deletedBy       BigInt?
+}
+

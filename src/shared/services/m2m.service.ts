@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-// import * as core from 'tc-core-library-js/lib/auth/m2m';
 import * as core from 'tc-core-library-js';
-import { Auth0Config } from '../../../config/config';
+import { M2MConfig } from '../../../config/config';
 
 /**
  * M2M service to get M2M token.
@@ -13,14 +12,14 @@ export class M2MService {
    * @returns m2m token
    */
   async getM2mToken(): Promise<string> {
+    const m2mConfig = M2MConfig();
+
     const m2mAuth = core.auth.m2m({
-      AUTH0_URL: Auth0Config.url,
-      AUTH0_AUDIENCE: Auth0Config.audience,
-      AUTH0_PROXY_SERVER_URL: Auth0Config.proxyServerUrl,
+      AUTH0_URL: m2mConfig.url,
+      AUTH0_AUDIENCE: m2mConfig.audience,
+      AUTH0_PROXY_SERVER_URL: m2mConfig.proxyServerUrl,
     });
-    return m2mAuth.getMachineToken(
-      Auth0Config.clientId,
-      Auth0Config.clientSecret,
-    );
+
+    return m2mAuth.getMachineToken(m2mConfig.clientId, m2mConfig.clientSecret);
   }
 }

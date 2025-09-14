@@ -32,7 +32,7 @@ import {
   isArray,
   uniq,
 } from 'lodash';
-import { PERMISSION } from 'src/auth/permissions/constants';
+import { PERMISSION } from 'src/auth/constants';
 import {
   DEFAULT_PAGE_SIZE,
   PROJECT_STATUS,
