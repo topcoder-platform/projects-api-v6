@@ -1,8 +1,5 @@
 import { Module } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { APP_GUARD } from '@nestjs/core';
-import { JwtGuard } from 'src/auth/guards/jwt.guard';
-import { PermissionGuard } from 'src/auth/guards/permissions.guard';
 import { SharedModule } from 'src/shared/shared.module';
 import { HealthController } from './health/health.controller';
 import { ProjectMemberController } from './projectMember/project-member.controller';
@@ -17,11 +14,9 @@ import { PermissionController } from './permission/permission.controller';
 import { PermissionService } from './permission/permission.service';
 import { ProjectsController } from './project/project.controller';
 import { ProjectService } from './project/project.service';
-import { AuthModule } from 'src/auth/auth.module';
-import { PolicyService } from 'src/auth/permissions/policy.service';
 
 @Module({
-  imports: [SharedModule, AuthModule],
+  imports: [SharedModule],
   controllers: [
     HealthController,
     ProjectsController,
@@ -33,9 +28,6 @@ import { PolicyService } from 'src/auth/permissions/policy.service';
   ],
   providers: [
     Reflector,
-    PolicyService,
-    { provide: APP_GUARD, useClass: JwtGuard },
-    { provide: APP_GUARD, useClass: PermissionGuard },
     ProjectService,
     ProjectMemberService,
     ProjectMemberInviteService,

@@ -12,6 +12,7 @@ import {
   Query,
   ParseIntPipe,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import {
   CreateProjectDto,
@@ -28,9 +29,11 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { Permission } from '../../auth/decorators/permissions.decorator';
 import { ProjectService } from './project.service';
-import { JwtRequired } from 'src/auth/decorators/jwt.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Scopes } from 'src/auth/decorators/scopes.decorator';
+import { RolesScopesGuard } from 'src/auth/guards/roles-scopes.guard';
+import { MANAGER_ROLES, USER_ROLE, M2M_SCOPES } from 'src/shared/constants';
 import Utils from 'src/shared/utils';
 
 /**
@@ -48,9 +51,10 @@ export class ProjectsController {
    * @returns ProjectResponseDto
    */
   @Post()
-  @JwtRequired()
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.WRITE)
   @ApiBearerAuth()
-  @Permission('project.create')
   @ApiOperation({ summary: 'Create a new project' })
   @ApiResponse({ status: HttpStatus.CREATED, type: ProjectResponseDto })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
@@ -73,7 +77,9 @@ export class ProjectsController {
    * @returns array of ProjectResponseDto
    */
   @Get()
-  @JwtRequired()
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECTS.READ)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project' })
   @ApiResponse({
@@ -144,9 +150,10 @@ export class ProjectsController {
    * @returns ProjectResponseDto
    */
   @Get('/:projectId')
-  @JwtRequired()
   @ApiBearerAuth()
-  @Permission('project.view')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECTS.READ)
   @ApiOperation({ summary: 'Get project by id' })
   @ApiParam({ name: 'projectId', description: 'project id' })
   @ApiResponse({ status: HttpStatus.OK, type: ProjectResponseDto })
@@ -174,9 +181,10 @@ export class ProjectsController {
    * @returns ProjectResponseDto
    */
   @Patch('/:projectId')
-  @JwtRequired()
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.WRITE)
   @ApiBearerAuth()
-  @Permission('project.edit')
   @ApiOperation({ summary: 'Update project by id' })
   @ApiParam({ name: 'projectId', description: 'project id' })
   @ApiResponse({ status: HttpStatus.OK, type: ProjectResponseDto })
@@ -201,9 +209,10 @@ export class ProjectsController {
    * @param projectId project id
    */
   @Delete('/:projectId')
-  @JwtRequired()
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.WRITE)
   @ApiBearerAuth()
-  @Permission('project.delete')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete project by id' })
   @ApiParam({ name: 'projectId', description: 'project id' })

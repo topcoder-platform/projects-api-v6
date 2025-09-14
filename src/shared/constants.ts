@@ -118,6 +118,93 @@ export const MANAGER_ROLES = [
   USER_ROLE.PROJECT_MANAGER,
 ];
 
+/**
+ * This list determines default Project Role by Topcoder Role.
+ *
+ * - The order of items in this list is IMPORTANT.
+ * - To determine default Project Role we have to go from TOP to END
+ *   and find the first record which has the Topcoder Role of the user.
+ * - Always define default Project Role which is allowed for such Topcoder Role
+ *   as per `PROJECT_TO_TOPCODER_ROLES_MATRIX`
+ */
+export const DEFAULT_PROJECT_ROLE = [
+  {
+    topcoderRole: USER_ROLE.MANAGER,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.COPILOT_MANAGER,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.CONNECT_ADMIN,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.TOPCODER_ADMIN,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.TOPCODER_ACCOUNT_MANAGER,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.BUSINESS_DEVELOPMENT_REPRESENTATIVE,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.PRESALES,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.COPILOT,
+    projectRole: PROJECT_MEMBER_ROLE.COPILOT,
+  },
+  {
+    topcoderRole: USER_ROLE.ACCOUNT_EXECUTIVE,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.PROGRAM_MANAGER,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.SOLUTION_ARCHITECT,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.PROJECT_MANAGER,
+    projectRole: PROJECT_MEMBER_ROLE.MANAGER,
+  },
+  {
+    topcoderRole: USER_ROLE.TOPCODER_USER,
+    projectRole: PROJECT_MEMBER_ROLE.CUSTOMER,
+  },
+];
+
+/**
+ * Matrix which define Project Roles and corresponding Topcoder Roles of users
+ * who may join with such Project Roles.
+ */
+export const PROJECT_TO_TOPCODER_ROLES_MATRIX = {
+  [PROJECT_MEMBER_ROLE.CUSTOMER]: Object.values(USER_ROLE),
+  [PROJECT_MEMBER_ROLE.OBSERVER]: Object.values(USER_ROLE),
+  [PROJECT_MEMBER_ROLE.MANAGER]: [
+    USER_ROLE.TOPCODER_ADMIN,
+    USER_ROLE.CONNECT_ADMIN,
+    USER_ROLE.MANAGER,
+    USER_ROLE.TOPCODER_ACCOUNT_MANAGER,
+    USER_ROLE.BUSINESS_DEVELOPMENT_REPRESENTATIVE,
+    USER_ROLE.PRESALES,
+    USER_ROLE.ACCOUNT_EXECUTIVE,
+    USER_ROLE.PROGRAM_MANAGER,
+    USER_ROLE.SOLUTION_ARCHITECT,
+    USER_ROLE.PROJECT_MANAGER,
+    USER_ROLE.COPILOT_MANAGER,
+  ],
+  [PROJECT_MEMBER_ROLE.COPILOT]: [USER_ROLE.COPILOT, 'copilot'],
+};
+
 export const EVENT = {
   ROUTING_KEY: {
     PROJECT_MEMBER_ADDED: 'project.member.added',
@@ -335,6 +422,11 @@ export const TEMPLATE_IDS = {
   APPLY_COPILOT: 'd-d7c1f48628654798a05c8e09e52db14f',
   CREATE_REQUEST: 'd-3efdc91da580479d810c7acd50a4c17f',
   PROJECT_MEMBER_INVITED: 'd-b47a25b103604bc28fc0ce77e77fb681',
+  INFORM_PM_COPILOT_APPLICATION_ACCEPTED: 'd-b35d073e302b4279a1bd208fcfe96f58',
+  COPILOT_ALREADY_PART_OF_PROJECT: 'd-003d41cdc9de4bbc9e14538e8f2e0585',
+  COPILOT_APPLICATION_ACCEPTED: 'd-eef5e7568c644940b250e76d026ced5b',
+  COPILOT_OPPORTUNITY_COMPLETED: 'd-dc448919d11b4e7d8b4ba351c4b67b8b',
+  COPILOT_OPPORTUNITY_CANCELED: 'd-2a67ba71e82f4d70891fe6989c3522a3',
 };
 export const REGEX = {
   URL: /^(http(s?):\/\/)?(www\.)?[a-zA-Z0-9\.\-\_]+(\.[a-zA-Z]{2,15})+(\:[0-9]{2,5})?(\/[a-zA-Z0-9\_\-\s\.\/\?\%\#\&\=;]*)?$/, // eslint-disable-line

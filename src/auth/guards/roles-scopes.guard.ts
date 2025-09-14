@@ -1,40 +1,73 @@
-// roles-scopes.guard.ts
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
+// src/auth/guards/roles.guard.ts
 import {
   CanActivate,
   ExecutionContext,
-  Injectable,
   ForbiddenException,
+  Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtUser } from '../auth.dto';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import { SCOPES_KEY } from '../decorators/scopes.decorator';
 
 @Injectable()
 export class RolesScopesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const roles = this.reflector.get<string[]>('roles', context.getHandler());
-    const scopes = this.reflector.get<string[]>('scopes', context.getHandler());
+    const rolesRequired = this.reflector.getAllAndOverride<string[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    const scopesRequired = this.reflector.getAllAndOverride<string[]>(
+      SCOPES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    const rolesRequiredFlag = rolesRequired && rolesRequired.length > 0;
+    const scopesRequiredFlag = scopesRequired && scopesRequired.length > 0;
+    if (!rolesRequiredFlag && !scopesRequiredFlag) return true;
 
-    if (!roles && !scopes) return true;
+    const req = context.switchToHttp().getRequest();
+    const user = req.authUser;
+    if (!user) throw new ForbiddenException('Missing authUser');
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const request = context.switchToHttp().getRequest();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const user = request.user as JwtUser;
+    // roles might be array or comma-separated string depending on token source
+    const roles: string[] = Array.isArray(user.roles)
+      ? user.roles
+      : (user.roles || user.role || '')
+          .split(',')
+          .map((r: string) => r.trim())
+          .filter(Boolean);
 
-    // use case insensitive checking
-    const userRoles = user.roles?.map((t) => t.toLowerCase());
-    const userScopes = user.scopes?.map((t) => t.toLowerCase());
+    const rolesOK = roles.some((r: string) => rolesRequired?.includes(r));
 
-    const hasRoles =
-      roles && roles?.some((role) => userRoles.includes(role.toLowerCase()));
-    const hasScopes =
-      scopes &&
-      scopes?.some((scope) => userScopes.includes(scope.toLowerCase()));
+    const scopes: string[] = Array.isArray(user.scopes)
+      ? user.scopes
+      : (user.scope || '')
+          .split(' ')
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+    const scopesFixed: string[] = [];
+    scopes.forEach((scope) => {
+      scopesFixed.push(scope);
+      if (scope.startsWith('all:')) {
+        const scopeName = scope.substring(4);
+        scopesFixed.push('read:' + scopeName);
+        scopesFixed.push('write:' + scopeName);
+      }
+    });
 
-    if (hasRoles || hasScopes) return true;
+    const scopesOK = scopesRequired?.every((s) => scopesFixed.includes(s));
+    if (rolesRequiredFlag && scopesRequiredFlag && !scopesOK && !rolesOK) {
+      throw new ForbiddenException(
+        'Insufficient role or Missing required scope(s)',
+      );
+    } else if (!rolesRequiredFlag && scopesRequiredFlag && !scopesOK) {
+      throw new ForbiddenException('Missing required scope(s)');
+    } else if (rolesRequiredFlag && !scopesRequiredFlag && !rolesOK) {
+      throw new ForbiddenException('Insufficient role');
+    }
 
-    throw new ForbiddenException('Forbidden resource');
+    return true;
   }
 }

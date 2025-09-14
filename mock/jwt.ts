@@ -3,9 +3,8 @@ import { AppConfig } from '../config/config';
 
 
 const secret = AppConfig.authSecret;
-const iss = AppConfig.validIssuers[0];
+const iss = JSON.parse(AppConfig.validIssuers)[0];
 const exp = 1980992788
-
 
 const m2mPayload = {
   iss,
@@ -14,7 +13,7 @@ const m2mPayload = {
   iat: 1550906388,
   exp,
   azp: 'enjw1810eDz3XTwSO2Rn2Y9cQTrspn3B',
-  scope: 'all:connect_project all:projects all:project-members all:project-invites all:customer-payments',
+  scopes: 'all:connect_project all:projects all:project-members all:project-invites all:customer-payments',
   gty: 'client-credentials'
 }
 

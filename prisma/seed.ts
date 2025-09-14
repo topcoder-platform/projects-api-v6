@@ -341,7 +341,7 @@ const projectData1: Prisma.ProjectCreateInput = {
   },
   members: {
     create: [{
-      userId: 8547899,
+      userId: 40154782,
       role: 'customer',
       isPrimary: true,
       handle: 'TonyJ',
@@ -362,9 +362,9 @@ const projectData1: Prisma.ProjectCreateInput = {
   },
   memberInvites: {
     create: [{
-      userId: 8547866,
-      email: 'tonyj@tc.com',
-      applicationId: 20001,
+      userId: 19849563,
+      email: 'email@domain.com.z',
+      applicationId: 101,
       role: 'manager',
       status: 'pending',
       createdBy: 40152856,
@@ -372,7 +372,7 @@ const projectData1: Prisma.ProjectCreateInput = {
     {
       userId: 22742765,
       email: 'pheadj@tc.com',
-      applicationId: 20001,
+      applicationId: 102,
       role: 'copilot',
       status: 'requested',
       createdBy: 40152856,
@@ -380,8 +380,16 @@ const projectData1: Prisma.ProjectCreateInput = {
     {
       userId: 22742755,
       email: 'pheadc@tc.com',
-      applicationId: 20001,
+      applicationId: 103,
       role: 'customer',
+      status: 'pending',
+      createdBy: 40152856,
+    },
+    {
+      userId: 22721181,
+      email: 'email@domain.com.z',
+      applicationId: 104,
+      role: 'copilot',
       status: 'pending',
       createdBy: 40152856,
     }]
@@ -503,7 +511,7 @@ const projectData2: Prisma.ProjectCreateInput = {
   projectUrl: 'http://project.example.com',
   members: {
     create: [{
-      userId: 8547899,
+      userId: 40154782,
       role: 'copilot',
       isPrimary: true,
       handle: 'bill',
@@ -565,7 +573,7 @@ const projectData3: Prisma.ProjectCreateInput = {
   },
   members: {
     create: [{
-      userId: 8547899,
+      userId: 40154782,
       role: 'customer',
       isPrimary: true,
       handle: 'TonyJ',
@@ -603,7 +611,7 @@ const projectData4: Prisma.ProjectCreateInput = {
   groups: [],
   members: {
     create: [{
-      userId: 8547899,
+      userId: 40154782,
       role: 'customer',
       isPrimary: true,
       handle: 'TonyJ',
@@ -641,7 +649,7 @@ const projectData5: Prisma.ProjectCreateInput = {
   groups: [],
   members: {
     create: [{
-      userId: 8547899,
+      userId: 40154782,
       role: 'customer',
       isPrimary: true,
       handle: 'TonyJ',
@@ -679,7 +687,7 @@ const projectData6: Prisma.ProjectCreateInput = {
   groups: [],
   members: {
     create: [{
-      userId: 8547899,
+      userId: 40154782,
       role: 'customer',
       isPrimary: true,
       handle: 'TonyJ',
@@ -708,8 +716,157 @@ const projectData6: Prisma.ProjectCreateInput = {
   lastActivityUserId: 40152856
 }
 
+const copilotRequestData: Prisma.CopilotRequestCreateManyInput[] = [{
+  id: 101,
+  status: 'new',
+  data: '{}',
+  projectId: 101,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 102,
+  status: 'approved',
+  data: '{"projectId":4725,"copilotUsername":"test","projectType":"qa","complexity":"medium","overview":"saeta aestaset","skills":[{"id":"0c1d3476-37e0-4ade-a2a1-58eb114e653c","name":"Entity Framework (EF) Core"}],"startDate":"2025-05-30T18:30:00.000Z","numWeeks":70,"tzRestrictions":"no","numHoursPerWeek":21,"requiresCommunication":"yes","paymentType":"standard"}',
+  projectId: 101,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 103,
+  status: 'new',
+  data: '{"skills": [{"id": "63bb7cfc-b0d4-4584-820a-18c503b4b0fe", "name": "Java"}], "numWeeks": "-3", "overview": "test project ", "projectId": 9204, "startDate": "2025-02-03T18:30:00.000Z", "complexity": "low", "paymentType": "standard", "projectType": "design", "tzRestrictions": "no", "numHoursPerWeek": "-5", "requiresCommunicatn": "yes"}',
+  projectId: 102,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 104,
+  status: 'fulfilled',
+  data: '{"complexity":"low","copilotUsername":"maria","projectId":9216,"projectType":"design","overview":"vjbhkknjkknklnj","skills":[{"id":"63bb7cfc-b0d4-4584-820a-18c503b4b0fe","name":"Java"}],"startDate":"2025-02-20T18:30:00.000Z","numWeeks":6,"tzRestrictions":"no","numHoursPerWeek":7,"requiresCommunication":"yes","paymentType":"standard"}',
+  projectId: 103,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}]
+
+const copilotOpportunityData: Prisma.CopilotOpportunityCreateManyInput[] = [{
+  id: 101,
+  status: 'active',
+  type: 'dev',
+  copilotRequestId: 101,
+  projectId: 101,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 102,
+  status: 'completed',
+  type: 'design',
+  copilotRequestId: 101,
+  projectId: 101,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 103,
+  status: 'canceled',
+  type: 'ai',
+  copilotRequestId: 102,
+  projectId: 102,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 104,
+  status: 'active',
+  type: 'dev',
+  copilotRequestId: 102,
+  projectId: 101,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}]
+
+const copilotApplicationData: Prisma.CopilotApplicationCreateManyInput[] = [{
+  id: 101,
+  notes: 'note1',
+  status: 'pending',
+  userId: 40152856,
+  opportunityId: 101,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 102,
+  notes: 'note2',
+  status: 'invited',
+  userId: 40154782,
+  opportunityId: 102,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 103,
+  notes: 'note3',
+  status: 'accepted',
+  userId: 40152856,
+  opportunityId: 101,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}, {
+  id: 104,
+  notes: 'note4',
+  status: 'pending',
+  userId: 22721181,
+  opportunityId: 104,
+  createdBy: 40152856,
+  createdAt: '2020-05-16T10:10:47.007Z',
+  updatedBy: 40152856,
+  updatedAt: '2020-05-16T10:10:47.008Z',
+  deletedBy: null,
+  deletedAt: null,
+}]
+
 
 async function clearDB() {
+  await prisma.copilotApplication.deleteMany();
+  await prisma.copilotOpportunity.deleteMany();
+  await prisma.copilotRequest.deleteMany();
   await prisma.productTemplate.deleteMany();
   await prisma.planConfig.deleteMany();
   await prisma.projectHistory.deleteMany();
@@ -798,6 +955,22 @@ async function main() {
     data: projectData6,
   });
   console.log(`Created project data with id: `, project6.id);
+
+  await prisma.copilotRequest.createMany({
+    data: copilotRequestData,
+  });
+  console.log(`Created copilot request data`);
+
+  await prisma.copilotOpportunity.createMany({
+    data: copilotOpportunityData,
+  });
+  console.log(`Created copilot opportunity data`);
+
+  await prisma.copilotApplication.createMany({
+    data: copilotApplicationData,
+  });
+  console.log(`Created copilot application data`);
+
   console.log(`Seeding finished.`);
 }
 

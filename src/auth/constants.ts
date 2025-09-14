@@ -52,7 +52,7 @@ import {
   ADMIN_ROLES as TOPCODER_ROLES_ADMINS,
   MANAGER_ROLES as TOPCODER_ROLES_MANAGERS_AND_ADMINS,
   M2M_SCOPES,
-} from '../../shared/constants';
+} from '../shared/constants';
 
 /**
  * All Project Roles

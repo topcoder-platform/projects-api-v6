@@ -2,13 +2,23 @@
 
 export const AppConfig = {
   port: Number(process.env.PORT) || 3000,
-  prefix: process.env.API_PREFIX || '/v5',
+  prefix: process.env.API_PREFIX || '/v6',
   maxPhaseProductCount: process.env.MAX_PHASE_PRODUCT_COUNT || 100,
+  uniqueGmailValidation: process.env.UNIQUE_GMAIL_VALIDATION === 'true' || false,
+  prismaTransactionTimeout: process.env.PRISMA_TRANSACTION_TIMEOUT ? parseInt(process.env.PRISMA_TRANSACTION_TIMEOUT ) : 60000, // Sets the timeout to 60 seconds
 
   authSecret: process.env.AUTH_SECRET || 'secret',
   validIssuers: process.env.VALID_ISSUERS
     ? process.env.VALID_ISSUERS.replace(/\\"/g, '')
-    : '["https://api.topcoder-dev.com", "https://api.topcoder.com","https://topcoder-dev.auth0.com/"]'
+    : '["https://api.topcoder-dev.com", "https://api.topcoder.com","https://topcoder-dev.auth0.com/"]',
+  identityServiceEndpoint: process.env.IDENTITY_SERVICE_ENDPOINT || 'http://localhost:4000/identity',
+  memberServiceEndpoint: process.env.MEMBER_SERVICE_ENDPOINT || 'https://api.topcoder-dev.com/v5/members',
+  copilotPortalUrl: process.env.COPILOT_PORTAL_URL || 'https://copilots.topcoder-dev.com',
+  workManagerUrl: process.env.WORK_MANAGER_URL || 'https://challenges.topcoder-dev.com',
+  accountsAppUrl: process.env.ACCOUNTS_APP_URL || 'https://accounts.topcoder-dev.com',
+  inviteEmailSubject: process.env.INVITE_EMAIL_SUBJECT || 'You are invited to Topcoder',
+  inviteEmailSectionTitle: process.env.INVITE_EMAIL_SECTION_TITLE || 'Project Invitation',
+  SSO_REFCODES: process.env.SSO_REFCODES || '[]',
 }
 
 export const Auth0Config = {
@@ -18,6 +28,18 @@ export const Auth0Config = {
   clientId: process.env.AUTH0_CLIENT_ID || 'abc123',
   clientSecret: process.env.AUTH0_CLIENT_SECRET || 'secret',
   tokenCacheTime: process.env.TOKEN_CACHE_TIME ?? 86400000,
+}
+
+export function M2MConfig() {
+  return {
+    url: process.env.M2M_AUTH_URL || 'https://topcoder-dev.auth0.com/oauth/token',
+    proxyServerUrl: process.env.M2M_AUTH_PROXY_SEREVR_URL || 'https://auth0proxy.topcoder-dev.com/token',
+    audience: process.env.M2M_AUTH_AUDIENCE || '',
+    domain: process.env.M2M_AUTH_DOMAIN || '',
+    clientId: process.env.M2M_AUTH_CLIENT_ID || '',
+    clientSecret: process.env.M2M_AUTH_CLIENT_SECRET || '',
+    tokenCacheTime: process.env.TOKEN_CACHE_TIME ?? 86400000,
+  }
 }
 
 export const EventBusConfig = {

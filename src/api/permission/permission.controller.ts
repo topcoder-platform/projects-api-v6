@@ -1,9 +1,17 @@
-import { Controller, Get, HttpStatus, Param, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { JwtUser } from 'src/auth/auth.dto';
 import { PermissionService } from './permission.service';
-import { JwtRequired } from 'src/auth/decorators/jwt.decorator';
-import { Permission } from 'src/auth/decorators/permissions.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolesScopesGuard } from 'src/auth/guards/roles-scopes.guard';
+import { MANAGER_ROLES } from 'src/shared/constants';
 
 @Controller('/projects')
 export class PermissionController {
@@ -16,8 +24,8 @@ export class PermissionController {
    * @returns member's project permissions
    */
   @Get('/:projectId/permissions')
-  @JwtRequired()
-  @Permission('permissions.view')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES)
   @ApiOperation({ summary: "Get member's project permission" })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({

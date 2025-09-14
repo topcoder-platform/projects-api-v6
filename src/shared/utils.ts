@@ -1,12 +1,22 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unused-vars */
 import * as _ from 'lodash';
 import * as querystring from 'querystring';
 import { Request, Response } from 'express';
+import * as jp from 'jsonpath';
 import { JwtUser } from 'src/auth/auth.dto';
 import { SearchResult } from './dto/common.dto';
-import { PermissionRule, AccessRule } from 'src/auth/permissions/constants';
-import { ADMIN_ROLES, M2M_SCOPES } from './constants';
+import { PermissionRule, AccessRule, PERMISSION } from 'src/auth/constants';
+import {
+  ADMIN_ROLES,
+  M2M_SCOPES,
+  DEFAULT_PROJECT_ROLE,
+  COPILOT_OPPORTUNITY_TYPE,
+  USER_ROLE,
+} from './constants';
+import { AppConfig } from '../../config/config';
 import { BadRequestException } from '@nestjs/common';
+
+const ssoRefCodes = JSON.parse(AppConfig.SSO_REFCODES);
 
 class Utils {
   private constructor() {}
@@ -361,6 +371,219 @@ class Utils {
       mapping[value] = true;
     });
     return values;
+  }
+
+  /**
+   * Get default Project Role for a user by they Topcoder Roles.
+   *
+   * @param {Object} user       user
+   * @param {Array}  user.roles user Topcoder roles
+   *
+   * @returns {String} project role
+   */
+  static getDefaultProjectRole(user) {
+    for (let i = 0; i < DEFAULT_PROJECT_ROLE.length; i += 1) {
+      const rule = DEFAULT_PROJECT_ROLE[i];
+
+      if (
+        Utils.hasPermission(
+          new PermissionRule({ topcoderRoles: [rule.topcoderRole] }),
+          user,
+          undefined,
+        )
+      ) {
+        return rule.projectRole;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Add user details fields to the list of field, if it's allowed to a user who made the request
+   *
+   * @param  {Array}  fields fields list
+   * @param  {Object} req    request object
+   *
+   * @return {Array} fields list with 'email' if allowed
+   */
+  static addUserDetailsFieldsIfAllowed(fields, req) {
+    // Only Topcoder Admins can get email
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    if (Utils.hasPermissionByReq(PERMISSION.READ_PROJECT_MEMBER_DETAILS, req)) {
+      return _.concat(fields, ['email', 'firstName', 'lastName']);
+    }
+
+    return fields;
+  }
+
+  /**
+   * Get copilot type label
+   *
+   * @param  {String} type   copilot type
+   */
+  static getCopilotTypeLabel(type) {
+    switch (type) {
+      case COPILOT_OPPORTUNITY_TYPE.AI:
+        return 'AI';
+      case COPILOT_OPPORTUNITY_TYPE.DATA_SCIENCE:
+        return 'Data Science';
+      case COPILOT_OPPORTUNITY_TYPE.DESIGN:
+        return 'Design';
+      case COPILOT_OPPORTUNITY_TYPE.DEV:
+        return 'Development';
+      default:
+        return 'Quality Assurance';
+    }
+  }
+
+  /**
+   * Validate if `fields` list has only allowed values from `allowedFields` or throws error.
+   *
+   * @param {Array} fields        fields to validate
+   * @param {Array} allowedFields allowed fields
+   *
+   * @throws {Error}
+   * @returns {void}
+   */
+  static validateFields(fields, allowedFields) {
+    if (!allowedFields) {
+      throw new BadRequestException(
+        'List of "allowedFields" has to be provided.',
+      );
+    }
+
+    const disallowedFields = _.difference(fields, allowedFields);
+
+    if (disallowedFields.length > 0) {
+      const disallowedFieldsString = disallowedFields
+        .map((field) => `"${field}"`)
+        .join(', ');
+
+      throw new BadRequestException(
+        `values ${disallowedFieldsString} are not allowed`,
+      );
+    }
+  }
+
+  /**
+   * Check if project is for SSO users
+   * @param {Object}  project        project
+   * @return {Boolean} is SSO project
+   */
+  static isSSO(project) {
+    return ssoRefCodes.indexOf(_.get(project, 'details.utm.code')) > -1;
+  }
+
+  /**
+   * maksEmail
+   *
+   * @param {String} email emailstring
+   *
+   * @return {String} email has been masked
+   */
+  static maskEmail(email) {
+    // common function for formating
+    const addMask = (str) => {
+      const len = str.length;
+      if (len === 1) {
+        return `${str}***${str}`;
+      }
+      return `${str[0]}***${str[len - 1]}`;
+    };
+
+    try {
+      const mailParts = email.split('@');
+
+      let userName = mailParts[0];
+      userName = addMask(userName);
+      mailParts[0] = userName;
+
+      const index = mailParts[1].lastIndexOf('.');
+      if (index !== -1) {
+        mailParts[1] = `${addMask(mailParts[1].slice(0, index))}.${mailParts[1].slice(index + 1)}`;
+      }
+
+      return mailParts.join('@');
+    } catch (err) {
+      // ignore error
+      return email;
+    }
+  }
+
+  /**
+   * Post-process given invite(s)
+   * Mask `email` and hide `userId` to prevent leaking Personally Identifiable Information (PII)
+   *
+   * Immutable - doesn't modify data, but creates a clone.
+   *
+   * @param {String}  jsonPath  jsonpath string
+   * @param {Object}  data      the data which  need to process
+   * @param {Object}  req       The request object
+   *
+   * @return {Object} data has been processed
+   */
+  static postProcessInvites(jsonPath, data, req) {
+    // clone data to avoid mutations
+    const dataClone = _.cloneDeep(data);
+
+    const isAdmin = Utils.hasPermissionByReq(
+      new PermissionRule({ topcoderRoles: [USER_ROLE.TOPCODER_ADMIN] }),
+      req, // eslint-disable-line @typescript-eslint/no-unsafe-argument
+    );
+    const currentUserId = req.authUser.userId;
+    const currentUserEmail = req.authUser.email;
+
+    // admins can get data as it is
+    if (isAdmin) {
+      // even though we didn't make any changes to the data, return a clone here for consistency
+      return dataClone;
+    }
+
+    const postProcessInvite = (invite) => {
+      if (!_.has(invite, 'email')) {
+        return invite;
+      }
+
+      if (invite.email) {
+        const canSeeEmail =
+          isAdmin || // admin
+          invite.createdBy === currentUserId || // user who created invite
+          (invite.userId !== null && invite.userId === currentUserId) || // user who is invited by `handle`
+          // user who is invited by `email` (invite doesn't have `userId`)
+          (invite.userId === null &&
+            invite.email &&
+            currentUserEmail &&
+            invite.email.toLowerCase() === currentUserEmail.toLowerCase());
+        // mask email if user cannot see it
+        _.assign(invite, {
+          email: canSeeEmail ? invite.email : Utils.maskEmail(invite.email),
+        });
+
+        const canGetUserId =
+          isAdmin || // admin
+          invite.userId === currentUserId; // user who is invited
+        if (invite.userId && !canGetUserId) {
+          _.assign(invite, {
+            userId: null,
+          });
+        }
+      }
+
+      return invite;
+    };
+
+    jp.apply(dataClone, jsonPath, (value) => {
+      if (_.isObject(value)) {
+        // data contains nested invite object
+        return postProcessInvite(value);
+      }
+      // data is single invite object
+      // value is string or null
+      return postProcessInvite(dataClone).email;
+    });
+
+    return dataClone;
   }
 }
 

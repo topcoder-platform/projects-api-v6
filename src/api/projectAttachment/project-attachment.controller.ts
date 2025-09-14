@@ -17,7 +17,6 @@ import {
 } from './project-attachment.dto';
 import { JwtUser } from 'src/auth/auth.dto';
 import { ProjectAttachmentService } from './project-attachment.service';
-import { Permission } from 'src/auth/decorators/permissions.decorator';
 
 /**
  * Controller for handling project attachment operations.
@@ -37,7 +36,6 @@ export class ProjectAttachmentController {
    */
   @Post('/:projectId/attachments')
   @ApiOperation({ summary: 'Create project attachment' })
-  @Permission('projectAttachment.create')
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({ status: HttpStatus.CREATED, type: AttachmentResponseDto })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad Request' })
@@ -63,7 +61,6 @@ export class ProjectAttachmentController {
    * @returns Array of attachment responses
    */
   @Get('/:projectId/attachments')
-  @Permission('projectAttachment.view')
   @ApiOperation({ summary: 'Search project attachment' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({
@@ -92,7 +89,6 @@ export class ProjectAttachmentController {
    * @returns The requested attachment response
    */
   @Get('/:projectId/attachments/:id')
-  @Permission('projectAttachment.view')
   @ApiOperation({
     summary: 'Get project attachment by project id and attachment id',
   })
@@ -123,7 +119,6 @@ export class ProjectAttachmentController {
    * @returns The updated attachment response
    */
   @Patch('/:projectId/attachments/:id')
-  @Permission('projectAttachment.edit')
   @ApiOperation({ summary: 'Update project attachment' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'attachment id', type: Number })
@@ -153,7 +148,6 @@ export class ProjectAttachmentController {
    * @returns Empty promise indicating successful deletion
    */
   @Delete('/:projectId/attachments/:id')
-  @Permission('projectAttachment.delete')
   @ApiOperation({
     summary: 'Delete project attachment by project id and attachment id',
   })

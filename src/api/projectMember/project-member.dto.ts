@@ -1,18 +1,15 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  ApiExtraModels,
-  ApiProperty,
-  ApiPropertyOptional,
-} from '@nestjs/swagger';
-import {
-  IsBoolean,
+  IsEnum,
   IsIn,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsPositive,
   IsString,
+  IsBoolean,
 } from 'class-validator';
-import { PROJECT_TO_TOPCODER_ROLES_MATRIX } from 'src/auth/permissions/constants';
-import { FieldsQueryDto } from '../common/common.dto';
+import { PROJECT_TO_TOPCODER_ROLES_MATRIX } from 'src/auth/constants';
 import { PROJECT_MEMBER_ROLE } from 'src/shared/constants';
 
 const allowedRoles = Object.keys(PROJECT_TO_TOPCODER_ROLES_MATRIX);
@@ -29,6 +26,18 @@ const allowedUpdateRoles = [
   PROJECT_MEMBER_ROLE.PROJECT_MANAGER,
 ];
 
+enum ProjectMemberRole {
+  MANAGER = 'manager',
+  OBSERVER = 'observer',
+  CUSTOMER = 'customer',
+  COPILOT = 'copilot',
+  ACCOUNT_MANAGER = 'account_manager',
+  PROGRAM_MANAGER = 'program_manager',
+  ACCOUNT_EXECUTIVE = 'account_executive',
+  SOLUTION_ARCHITECT = 'solution_architect',
+  PROJECT_MANAGER = 'project_manager',
+}
+
 export class CreateProjectMemberDto {
   @ApiPropertyOptional({
     name: 'userId',
@@ -42,11 +51,11 @@ export class CreateProjectMemberDto {
 
   @ApiProperty({
     name: 'role',
-    enum: allowedUpdateRoles,
+    enum: ProjectMemberRole,
   })
-  @IsString()
-  @IsIn(allowedUpdateRoles)
-  role: string;
+  @IsEnum(ProjectMemberRole)
+  @IsOptional()
+  role?: ProjectMemberRole;
 }
 
 export class UpdateProjectMemberDto {
@@ -57,11 +66,16 @@ export class UpdateProjectMemberDto {
 
   @ApiProperty({
     name: 'role',
-    enum: allowedRoles,
+    enum: allowedUpdateRoles,
   })
   @IsString()
-  @IsIn(allowedRoles)
+  @IsIn(allowedUpdateRoles)
   role: string;
+
+  @ApiPropertyOptional({ name: 'action', description: 'action' })
+  @IsOptional()
+  @IsString()
+  action?: string;
 }
 
 export class ProjectMemberResponseDto {
@@ -183,15 +197,23 @@ export class ProjectMemberResponseDto {
   updatedBy?: number | null;
 }
 
-@ApiExtraModels(FieldsQueryDto)
-export class QueryProjectMemberDto extends FieldsQueryDto {
-  @ApiPropertyOptional({
-    name: 'role',
-    description: 'member role',
-    enum: [...allowedRoles, PROJECT_MEMBER_ROLE.ACCOUNT_MANAGER],
+export class QueryProjectMemberDto {
+  @ApiProperty({
+    description: 'project member role',
+    enum: ProjectMemberRole,
   })
+  @IsEnum(ProjectMemberRole)
   @IsOptional()
+  role?: ProjectMemberRole;
+
+  @ApiProperty({
+    name: 'fields',
+    description: 'the project member fields',
+    type: 'string',
+    required: false,
+  })
   @IsString()
-  @IsIn([...allowedRoles, PROJECT_MEMBER_ROLE.ACCOUNT_MANAGER])
-  role?: string;
+  @IsNotEmpty()
+  @IsOptional()
+  fields?: string;
 }

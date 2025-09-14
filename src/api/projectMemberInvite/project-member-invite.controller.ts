@@ -4,11 +4,14 @@ import {
   Delete,
   Get,
   HttpStatus,
+  HttpCode,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  Res,
+  UseGuards,
 } from '@nestjs/common';
 import {
   CreateInviteDto,
@@ -17,10 +20,20 @@ import {
   UpdateInviteDto,
 } from './project-member-invite.dto';
 import { FieldsQueryDto } from '../common/common.dto';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { JwtUser } from 'src/auth/auth.dto';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { Request, Response } from 'express';
+import { assign } from 'lodash';
 import { ProjectMemberInviteService } from './project-member-invite.service';
-import { Permission } from 'src/auth/decorators/permissions.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Scopes } from 'src/auth/decorators/scopes.decorator';
+import { RolesScopesGuard } from 'src/auth/guards/roles-scopes.guard';
+import { MANAGER_ROLES, USER_ROLE, M2M_SCOPES } from 'src/shared/constants';
 
 /**
  * Controller for handling project member invitation operations.
@@ -40,7 +53,10 @@ export class ProjectMemberInviteController {
    * @returns The created invitation response
    */
   @Post('/:projectId/invites')
-  @Permission('projectMemberInvite.create')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECT_INVITES.WRITE)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Project member invites' })
   @ApiParam({ name: 'projectId', description: 'project id' })
   @ApiResponse({ status: HttpStatus.CREATED, type: CreateInviteResponseDto })
@@ -54,12 +70,26 @@ export class ProjectMemberInviteController {
   })
   async createInvite(
     @Req() req: Request,
-    @Param('projectId') projectId: string,
+    @Res({ passthrough: true }) resp: Response,
+    @Param('projectId') projectId: number,
     @Body() dto: CreateInviteDto,
     @Query() query: FieldsQueryDto,
   ): Promise<CreateInviteResponseDto> {
-    const authUser = req['user'] as JwtUser;
-    return this.service.createInvite(authUser, projectId, dto, query);
+    const { success, failed } = await this.service.createInvite(
+      projectId,
+      dto,
+      query,
+      req,
+    );
+    if (failed && failed.length > 0) {
+      resp.status(HttpStatus.FORBIDDEN);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      return assign({}, success[0], { failed });
+    }
+
+    resp.status(HttpStatus.CREATED);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return success[0] as any;
   }
 
   /**
@@ -70,7 +100,10 @@ export class ProjectMemberInviteController {
    * @returns An array of invitation responses
    */
   @Get('/:projectId/invites')
-  @Permission('projectMemberInvite.view')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECT_INVITES.READ)
+  @ApiBearerAuth()
   @ApiOperation({
     summary:
       'If user can "view" this project, he/she can get all invitations. Otherwise user can only see his/her own invitation in this project. If user has no invitation in this project or this project doesn\'t exist, an empty array will be returned.',
@@ -90,10 +123,11 @@ export class ProjectMemberInviteController {
     description: 'Internal Server Error',
   })
   async searchInvite(
-    @Param('projectId') projectId: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
     @Query() query: FieldsQueryDto,
   ): Promise<InviteResponseDto[]> {
-    return this.service.searchInvite(projectId, query);
+    return this.service.searchInvite(projectId, query, req);
   }
 
   /**
@@ -104,7 +138,10 @@ export class ProjectMemberInviteController {
    * @returns The requested invitation response
    */
   @Get('/:projectId/invites/:inviteId')
-  @Permission('projectMemberInvite.view')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECT_INVITES.READ)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get an invite' })
   @ApiParam({ name: 'projectId', description: 'project id' })
   @ApiParam({ name: 'inviteId', description: 'invite id' })
@@ -118,11 +155,12 @@ export class ProjectMemberInviteController {
     description: 'Internal Server Error',
   })
   async getInvite(
-    @Param('projectId') projectId: string,
-    @Param('inviteId') inviteId: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
+    @Param('inviteId') inviteId: number,
     @Query() query: FieldsQueryDto,
   ): Promise<InviteResponseDto> {
-    return this.service.getInvite(projectId, inviteId, query);
+    return this.service.getInvite(projectId, inviteId, query, req);
   }
 
   /**
@@ -134,7 +172,10 @@ export class ProjectMemberInviteController {
    * @returns The updated invitation response
    */
   @Patch('/:projectId/invites/:inviteId')
-  @Permission('projectMemberInvite.edit')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECT_INVITES.WRITE)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update an invite' })
   @ApiParam({ name: 'projectId', description: 'project id' })
   @ApiParam({ name: 'inviteId', description: 'invite id' })
@@ -149,12 +190,11 @@ export class ProjectMemberInviteController {
   })
   async updateInvite(
     @Req() req: Request,
-    @Param('projectId') projectId: string,
-    @Param('inviteId') inviteId: string,
+    @Param('projectId') projectId: number,
+    @Param('inviteId') inviteId: number,
     @Body() dto: UpdateInviteDto,
   ): Promise<InviteResponseDto> {
-    const authUser = req['user'] as JwtUser;
-    return this.service.updateInvite(authUser, projectId, inviteId, dto);
+    return this.service.updateInvite(projectId, inviteId, dto, req);
   }
 
   /**
@@ -164,7 +204,10 @@ export class ProjectMemberInviteController {
    * @returns Nothing upon successful deletion
    */
   @Delete('/:projectId/invites/:inviteId')
-  @Permission('projectMemberInvite.delete')
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECT_INVITES.WRITE)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an invite' })
   @ApiParam({ name: 'projectId', description: 'project id' })
   @ApiParam({ name: 'inviteId', description: 'invite id' })
@@ -181,9 +224,10 @@ export class ProjectMemberInviteController {
     description: 'Internal Server Error',
   })
   async deleteInvite(
-    @Param('projectId') projectId: string,
-    @Param('inviteId') inviteId: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
+    @Param('inviteId') inviteId: number,
   ): Promise<void> {
-    await this.service.deleteInvite(projectId, inviteId);
+    await this.service.deleteInvite(projectId, inviteId, req);
   }
 }
