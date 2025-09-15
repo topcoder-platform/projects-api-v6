@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsEnum,
   IsIn,
   IsNotEmpty,
   IsNumber,
@@ -26,17 +25,8 @@ const allowedUpdateRoles = [
   PROJECT_MEMBER_ROLE.PROJECT_MANAGER,
 ];
 
-enum ProjectMemberRole {
-  MANAGER = 'manager',
-  OBSERVER = 'observer',
-  CUSTOMER = 'customer',
-  COPILOT = 'copilot',
-  ACCOUNT_MANAGER = 'account_manager',
-  PROGRAM_MANAGER = 'program_manager',
-  ACCOUNT_EXECUTIVE = 'account_executive',
-  SOLUTION_ARCHITECT = 'solution_architect',
-  PROJECT_MANAGER = 'project_manager',
-}
+// Use PROJECT_MEMBER_ROLE values directly instead of duplicating enum
+const ProjectMemberRoleValues = Object.values(PROJECT_MEMBER_ROLE);
 
 export class CreateProjectMemberDto {
   @ApiPropertyOptional({
@@ -51,11 +41,12 @@ export class CreateProjectMemberDto {
 
   @ApiProperty({
     name: 'role',
-    enum: ProjectMemberRole,
+    enum: ProjectMemberRoleValues,
   })
-  @IsEnum(ProjectMemberRole)
+  @IsString()
+  @IsIn(ProjectMemberRoleValues)
   @IsOptional()
-  role?: ProjectMemberRole;
+  role?: string;
 }
 
 export class UpdateProjectMemberDto {
@@ -200,11 +191,12 @@ export class ProjectMemberResponseDto {
 export class QueryProjectMemberDto {
   @ApiProperty({
     description: 'project member role',
-    enum: ProjectMemberRole,
+    enum: ProjectMemberRoleValues,
   })
-  @IsEnum(ProjectMemberRole)
+  @IsString()
+  @IsIn(ProjectMemberRoleValues)
   @IsOptional()
-  role?: ProjectMemberRole;
+  role?: string;
 
   @ApiProperty({
     name: 'fields',

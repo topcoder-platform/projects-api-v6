@@ -39,8 +39,8 @@ async function bootstrap() {
   // Add swagger docs module
   const config = new DocumentBuilder()
     .setTitle('Projects API')
-    .setDescription('TopCoder Projects API v5 Document')
-    .setVersion('v5')
+    .setDescription('TopCoder Projects API v6 Document')
+    .setVersion('v6')
     .addBearerAuth({
       type: 'http',
       scheme: 'bearer',
@@ -51,7 +51,7 @@ async function bootstrap() {
     })
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('/api-docs', app, document);
+  SwaggerModule.setup(`${AppConfig.prefix}/projects/api-docs`, app, document);
 
   await app.listen(AppConfig.port);
 }
