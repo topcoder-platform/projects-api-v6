@@ -173,8 +173,6 @@ app.get('/identity/roles', (req, res) => {
   res.json(resp)
 })
 
-
-
 // Identity users
 app.get('/identity/users', (req, res) => {
   logger.info(`Identity received message: ${JSON.stringify(req.query)}`);
@@ -192,7 +190,71 @@ app.get('/identity/users', (req, res) => {
   res.json(resp)
 })
 
+// File
+app.post('/file/downloadurl', (req, res) => {
+  logger.info(`File service received message: ${JSON.stringify(req.body)}`);
+  const bucket = req.body.bucket
+  const key = req.body.key
+  res.statusCode = 200;
 
+  const resp = {
+    url: `http://localhost/files/${bucket}/${key}`
+  };
+  res.json(resp)
+})
+
+app.post('/file/deletefile', (req, res) => {
+  logger.info(`File service received message: ${JSON.stringify(req.body)}`);
+  res.statusCode = 200;
+
+  res.json({})
+})
+
+// Salesforce
+app.post('/salesforce/services/oauth2/token', (req, res) => {
+  logger.info(`Salesforce oauth token received message: ${JSON.stringify(req.body)}`);
+  res.statusCode = 200;
+
+  res.json({
+    access_token: 'ABCDEF',
+    instance_url: 'http://localhost:4000/salesforce'
+  })
+})
+
+app.get('/salesforce/services/data/v37.0/query', (req, res) => {
+  logger.info(`Salesforce service received message: ${JSON.stringify(req.query)}`);
+  res.statusCode = 200;
+
+  res.json({
+    records: [{
+      Topcoder_Billing_Account__r: {
+        Id: 123,
+        TopCoder_Billing_Account_Id__c: '456',
+        Billing_Account_name__c: 'name1',
+        Start_Date__c: '2020-05-06T10:10:47.008Z',
+        End_Date__c: '2024-05-16T10:10:47.008Z',
+      },
+      TopCoder_Billing_Account_Id__c: '123',
+      Mark_Up__c: 'markup01',
+      Active__c: true,
+      Start_Date__c: '2020-05-06T10:10:47.008Z',
+      End_Date__c: '2024-05-16T10:10:47.008Z',
+    }, {
+      Topcoder_Billing_Account__r: {
+        Id: 124,
+        TopCoder_Billing_Account_Id__c: '457',
+        Billing_Account_name__c: 'name2',
+        Start_Date__c: '2020-05-15T10:10:47.008Z',
+        End_Date__c: '2024-05-15T10:10:47.008Z',
+      },
+      TopCoder_Billing_Account_Id__c: '124',
+      Mark_Up__c: 'markup02',
+      Active__c: false,
+      Start_Date__c: '2020-05-05T10:10:47.008Z',
+      End_Date__c: '2024-05-15T10:10:47.008Z',
+    }]
+  })
+})
 
 app.listen(app.get('port'), '0.0.0.0', () => {
   logger.info(`Express server listening on port ${app.get('port')}`)

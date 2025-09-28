@@ -31,7 +31,12 @@ import { ProjectMemberService } from './project-member.service';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Scopes } from 'src/auth/decorators/scopes.decorator';
 import { RolesScopesGuard } from 'src/auth/guards/roles-scopes.guard';
-import { MANAGER_ROLES, USER_ROLE, M2M_SCOPES } from 'src/shared/constants';
+import {
+  MANAGER_ROLES,
+  PROJECT_MEMBER_ROLE,
+  USER_ROLE,
+  M2M_SCOPES,
+} from 'src/shared/constants';
 
 /**
  * Controller for managing project members.
@@ -84,7 +89,13 @@ export class ProjectMemberController {
    */
   @Get('/:projectId/members')
   @UseGuards(RolesScopesGuard)
-  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Roles(
+    PROJECT_MEMBER_ROLE.MANAGER,
+    PROJECT_MEMBER_ROLE.ACCOUNT_MANAGER,
+    PROJECT_MEMBER_ROLE.COPILOT,
+    PROJECT_MEMBER_ROLE.CUSTOMER,
+    PROJECT_MEMBER_ROLE.OBSERVER,
+  )
   @Scopes(M2M_SCOPES.PROJECT_MEMBERS.READ)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project member with given parameters' })

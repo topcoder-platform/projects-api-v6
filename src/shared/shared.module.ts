@@ -4,6 +4,7 @@ import { M2MService } from './services/m2m.service';
 import { PrismaService } from './services/prisma.service';
 import { EventBusService } from './services/event-bus.service';
 import { UtilService } from './services/util.service';
+import { SalesforceService } from './services/salesforce.service';
 @Global()
 @Module({
   imports: [
@@ -12,7 +13,19 @@ import { UtilService } from './services/util.service';
       maxRedirects: 3,
     }),
   ],
-  providers: [M2MService, PrismaService, EventBusService, UtilService],
-  exports: [M2MService, PrismaService, EventBusService, UtilService],
+  providers: [
+    M2MService,
+    PrismaService,
+    EventBusService,
+    UtilService,
+    SalesforceService,
+  ],
+  exports: [
+    M2MService,
+    PrismaService,
+    EventBusService,
+    UtilService,
+    SalesforceService,
+  ],
 })
 export class SharedModule {}

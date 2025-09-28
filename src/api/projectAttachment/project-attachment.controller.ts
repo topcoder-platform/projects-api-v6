@@ -3,19 +3,31 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import {
   AttachmentResponseDto,
   CreateAttachmentDto,
   UpdateAttachmentDto,
 } from './project-attachment.dto';
-import { JwtUser } from 'src/auth/auth.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Scopes } from 'src/auth/decorators/scopes.decorator';
+import { RolesScopesGuard } from 'src/auth/guards/roles-scopes.guard';
+import { MANAGER_ROLES, USER_ROLE, M2M_SCOPES } from 'src/shared/constants';
 import { ProjectAttachmentService } from './project-attachment.service';
 
 /**
@@ -35,6 +47,10 @@ export class ProjectAttachmentController {
    * @returns The created attachment response
    */
   @Post('/:projectId/attachments')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.WRITE)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create project attachment' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({ status: HttpStatus.CREATED, type: AttachmentResponseDto })
@@ -48,11 +64,10 @@ export class ProjectAttachmentController {
   })
   async createAttachment(
     @Req() req: Request,
-    @Param('projectId') projectId: string,
+    @Param('projectId') projectId: number,
     @Body() dto: CreateAttachmentDto,
   ): Promise<AttachmentResponseDto> {
-    const authUser = req['user'] as JwtUser;
-    return this.service.createAttachment(authUser, projectId, dto);
+    return this.service.createAttachment(req, projectId, dto);
   }
 
   /**
@@ -61,6 +76,10 @@ export class ProjectAttachmentController {
    * @returns Array of attachment responses
    */
   @Get('/:projectId/attachments')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECTS.READ)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Search project attachment' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({
@@ -77,9 +96,10 @@ export class ProjectAttachmentController {
     description: 'Internal Server Error',
   })
   async searchAttachment(
-    @Param('projectId') projectId: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
   ): Promise<AttachmentResponseDto[]> {
-    return this.service.searchAttachment(projectId);
+    return this.service.searchAttachment(req, projectId);
   }
 
   /**
@@ -89,6 +109,10 @@ export class ProjectAttachmentController {
    * @returns The requested attachment response
    */
   @Get('/:projectId/attachments/:id')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT, USER_ROLE.TOPCODER_USER)
+  @Scopes(M2M_SCOPES.PROJECTS.READ)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get project attachment by project id and attachment id',
   })
@@ -104,10 +128,11 @@ export class ProjectAttachmentController {
     description: 'Internal Server Error',
   })
   async getAttachment(
-    @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
+    @Param('id') id: number,
   ): Promise<AttachmentResponseDto> {
-    return this.service.getAttachment(projectId, id);
+    return this.service.getAttachment(req, projectId, id);
   }
 
   /**
@@ -119,6 +144,10 @@ export class ProjectAttachmentController {
    * @returns The updated attachment response
    */
   @Patch('/:projectId/attachments/:id')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.WRITE)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update project attachment' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiParam({ name: 'id', description: 'attachment id', type: Number })
@@ -133,12 +162,11 @@ export class ProjectAttachmentController {
   })
   async updateAttachment(
     @Req() req: Request,
-    @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Param('projectId') projectId: number,
+    @Param('id') id: number,
     @Body() dto: UpdateAttachmentDto,
   ): Promise<AttachmentResponseDto> {
-    const authUser = req['user'] as JwtUser;
-    return this.service.updateAttachment(authUser, projectId, id, dto);
+    return this.service.updateAttachment(req, projectId, id, dto);
   }
 
   /**
@@ -148,6 +176,11 @@ export class ProjectAttachmentController {
    * @returns Empty promise indicating successful deletion
    */
   @Delete('/:projectId/attachments/:id')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.WRITE)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete project attachment by project id and attachment id',
   })
@@ -166,9 +199,10 @@ export class ProjectAttachmentController {
     description: 'Internal Server Error',
   })
   async deleteAttachment(
-    @Param('projectId') projectId: string,
-    @Param('id') id: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
+    @Param('id') id: number,
   ): Promise<void> {
-    await this.service.deleteAttachment(projectId, id);
+    await this.service.deleteAttachment(req, projectId, id);
   }
 }

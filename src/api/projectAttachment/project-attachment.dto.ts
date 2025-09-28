@@ -74,6 +74,7 @@ export class CreateAttachmentDto {
   })
   @IsArray()
   @IsString({ each: true })
+  @ArrayMinSize(1)
   @IsOptional()
   tags?: string[];
 
@@ -254,7 +255,7 @@ export class UpdateAttachmentDto {
   })
   @IsArray()
   @IsString({ each: true })
-  @ArrayMinSize(1, { each: true })
+  @ArrayMinSize(1)
   @IsOptional()
   tags?: string[];
 

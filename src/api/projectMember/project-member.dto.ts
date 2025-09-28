@@ -28,6 +28,14 @@ const allowedUpdateRoles = [
 // Use PROJECT_MEMBER_ROLE values directly instead of duplicating enum
 const ProjectMemberRoleValues = Object.values(PROJECT_MEMBER_ROLE);
 
+const allowedSearchRoles = [
+  PROJECT_MEMBER_ROLE.MANAGER,
+  PROJECT_MEMBER_ROLE.ACCOUNT_MANAGER,
+  PROJECT_MEMBER_ROLE.COPILOT,
+  PROJECT_MEMBER_ROLE.CUSTOMER,
+  PROJECT_MEMBER_ROLE.OBSERVER,
+];
+
 export class CreateProjectMemberDto {
   @ApiPropertyOptional({
     name: 'userId',
@@ -191,10 +199,10 @@ export class ProjectMemberResponseDto {
 export class QueryProjectMemberDto {
   @ApiProperty({
     description: 'project member role',
-    enum: ProjectMemberRoleValues,
+    enum: allowedSearchRoles,
   })
   @IsString()
-  @IsIn(ProjectMemberRoleValues)
+  @IsIn(allowedSearchRoles)
   @IsOptional()
   role?: string;
 

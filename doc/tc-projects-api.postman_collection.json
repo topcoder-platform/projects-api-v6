@@ -2224,6 +2224,619 @@
 			]
 		},
 		{
+			"name": "attachment",
+			"item": [
+				{
+					"name": "get project attachments with admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get project attachments with user",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessTokenUser}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get project attachment by id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments/5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments",
+								"5"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get project attachment by id with user",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessTokenUser}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments/8",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments",
+								"8"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get project attachment by id with not exist attachment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 404\", function () { pm.response.to.have.status(404); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessTokenUser}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments/999",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments",
+								"999"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create project attachment link",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"new link\",\n    \"type\": \"link\",\n    \"tags\": [\n        \"tag1\",\n        \"tag2\"\n    ],\n    \"size\": 150,\n    \"category\": \"new category\",\n    \"description\": \"new description\",\n    \"path\": \"new_link\",\n    \"allowedUsers\": [\n        40152856\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "create project attachment file",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"new file\",\n    \"type\": \"file\",\n    \"tags\": [\n        \"tag1\",\n        \"tag2\"\n    ],\n    \"size\": 150,\n    \"category\": \"new category\",\n    \"description\": \"new description\",\n    \"path\": \"test1.txt\",\n    \"s3Bucket\": \"demo-bucket\",\n    \"contentType\": \"doc\",\n    \"allowedUsers\": [\n        40152856\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update project attachment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"update file\",\n    \"tags\": [\n        \"tag1-update\",\n        \"tag2\"\n    ],\n    \"description\": \"update description\",\n    \"path\": \"update_file1\",\n    \"allowedUsers\": [\n        40152856,\n        9999\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments/5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments",
+								"5"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update project attachment with not exist attachment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 404\", function () { pm.response.to.have.status(404); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"update file\",\n    \"tags\": [\n        \"tag1-update\",\n        \"tag2\"\n    ],\n    \"description\": \"update description\",\n    \"path\": \"update_file1\",\n    \"allowedUsers\": [\n        40152856,\n        9999\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments/999",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments",
+								"999"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete project attachment file",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments/11",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments",
+								"11"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete project attachment file with not exist attachment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/attachments/999",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"attachments",
+								"999"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "billing account",
+			"item": [
+				{
+					"name": "get project billing accounts",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/billingAccounts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"billingAccounts"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get project billing account",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/103/billingAccount",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"103",
+								"billingAccount"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "get project billing account with billing account null",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/101/billingAccount",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								"101",
+								"billingAccount"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "check project health",
 			"event": [
 				{

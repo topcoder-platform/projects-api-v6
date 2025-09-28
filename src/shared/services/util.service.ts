@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { Injectable, Logger } from '@nestjs/common';
-import { firstValueFrom } from 'rxjs';
 import {
+  Injectable,
+  Logger,
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { firstValueFrom } from 'rxjs';
+import * as AWS from 'aws-sdk';
 import { M2MService } from 'src/shared/services/m2m.service';
 import { EventBusService } from 'src/shared/services/event-bus.service';
 import { HttpService } from '@nestjs/axios';
 import Utils from 'src/shared/utils';
 import { EVENT, RESOURCES } from 'src/shared/constants';
-import { AppConfig } from '../../../config/config';
+import { AppConfig, AwsS3Config } from '../../../config/config';
 import {
   concat,
   isEmpty,
@@ -486,5 +488,123 @@ export class UtilService {
     );
 
     return newMember;
+  }
+
+  /**
+   * Get the download url
+   * @param  {String} bucket  bucket
+   * @param  {String} key  the file key
+   */
+  async getDownloadUrl(bucket, key) {
+    try {
+      const token = await this.m2mService.getM2mToken();
+      const res: any = await firstValueFrom(
+        this.httpService.post(
+          `${AppConfig.fileServiceEndpoint}/downloadurl`,
+          {
+            bucket,
+            key,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        ),
+      );
+
+      this.logger.debug(
+        `Download url for bucket ${bucket}, key ${key}: ${res.data.url}`,
+      );
+      return get(res, 'data.url');
+    } catch (err) {
+      this.logger.error('Error occurs while getting download url', err);
+      throw new InternalServerErrorException(
+        'Error occurs while getting download url',
+      );
+    }
+  }
+
+  /**
+   * Get the download url
+   * @param  {String} bucket  bucket
+   * @param  {String} key  the file key
+   */
+  async deleteFile(bucket, key) {
+    try {
+      const token = await this.m2mService.getM2mToken();
+      await firstValueFrom(
+        this.httpService.post(
+          `${AppConfig.fileServiceEndpoint}/deletefile`,
+          {
+            bucket,
+            key,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        ),
+      );
+
+      this.logger.debug(`Delete file for bucket ${bucket}, key ${key}`);
+    } catch (err) {
+      this.logger.error('Error occurs while deleting file', err);
+      throw new InternalServerErrorException(
+        'Error occurs while deleting file',
+      );
+    }
+  }
+
+  /**
+   * Moves file from source to destination
+   * @param  {string} sourceBucket source bucket
+   * @param  {string} sourceKey    source key
+   * @param  {string} destBucket   destination bucket
+   * @param  {string} destKey      destination key
+   * @return {promise}       promise
+   */
+  async s3FileTransfer(sourceBucket, sourceKey, destBucket, destKey) {
+    // Make sure set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY in Environment Variables
+    const s3 = new AWS.S3(AwsS3Config());
+
+    try {
+      const sourceParam = {
+        Bucket: sourceBucket,
+        Key: sourceKey,
+      };
+
+      const copyParam = {
+        Bucket: destBucket,
+        Key: destKey,
+        CopySource: `${sourceBucket}/${sourceKey}`,
+      };
+
+      await s3.copyObject(copyParam).promise();
+      this.logger.debug(
+        `s3FileTransfer: copyObject successfully: ${sourceBucket}/${sourceKey}`,
+      );
+      // we don't want deleteObject to block the request as it's not critical operation
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      (async () => {
+        try {
+          await s3.deleteObject(sourceParam).promise();
+          this.logger.debug(
+            `s3FileTransfer: deleteObject successfully: ${sourceBucket}/${sourceKey}`,
+          );
+        } catch (e) {
+          this.logger.error(
+            `s3FileTransfer: deleteObject failed: ${sourceBucket}/${sourceKey} : ${e.message}`,
+          );
+        }
+      })();
+      return { success: true };
+    } catch (e) {
+      this.logger.error(`s3FileTransfer: error: ${e.message}`);
+      throw e;
+    }
   }
 }

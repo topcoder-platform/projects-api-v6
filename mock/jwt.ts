@@ -13,7 +13,7 @@ const m2mPayload = {
   iat: 1550906388,
   exp,
   azp: 'enjw1810eDz3XTwSO2Rn2Y9cQTrspn3B',
-  scopes: 'all:connect_project all:projects all:project-members all:project-invites all:customer-payments',
+  scopes: 'all:connect_project all:projects all:project-members all:project-invites all:customer-payments all:project-attachments',
   gty: 'client-credentials'
 }
 

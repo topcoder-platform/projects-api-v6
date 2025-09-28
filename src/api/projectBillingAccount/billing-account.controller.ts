@@ -1,9 +1,27 @@
-import { Controller, Get, HttpStatus, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   BillingAccountResponseDto,
   ListBillingAccountItem,
 } from './billing-account.dto';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
+import {
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Scopes } from 'src/auth/decorators/scopes.decorator';
+import { RolesScopesGuard } from 'src/auth/guards/roles-scopes.guard';
+import { MANAGER_ROLES, USER_ROLE, M2M_SCOPES } from 'src/shared/constants';
 import { BillingAccountService } from './billing-account.service';
 
 /**
@@ -21,6 +39,10 @@ export class BillingAccountController {
    * @returns A single billing account response DTO
    */
   @Get('/:projectId/billingAccount')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.READ_PROJECT_BILLING_ACCOUNT_DETAILS)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get project billing account' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({ status: HttpStatus.OK, type: BillingAccountResponseDto })
@@ -33,9 +55,10 @@ export class BillingAccountController {
     description: 'Internal Server Error',
   })
   async getAccount(
-    @Param('projectId') projectId: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
   ): Promise<BillingAccountResponseDto> {
-    return this.service.getAccount(projectId);
+    return this.service.getAccount(req, projectId);
   }
 
   /**
@@ -44,6 +67,10 @@ export class BillingAccountController {
    * @returns An array of billing account items
    */
   @Get('/:projectId/billingAccounts')
+  @UseGuards(RolesScopesGuard)
+  @Roles(...MANAGER_ROLES, USER_ROLE.COPILOT)
+  @Scopes(M2M_SCOPES.PROJECTS.READ_USER_BILLING_ACCOUNTS)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'List project billing accounts' })
   @ApiParam({ name: 'projectId', description: 'project id', type: Number })
   @ApiResponse({
@@ -60,8 +87,9 @@ export class BillingAccountController {
     description: 'Internal Server Error',
   })
   async listAccounts(
-    @Param('projectId') projectId: string,
+    @Req() req: Request,
+    @Param('projectId') projectId: number,
   ): Promise<ListBillingAccountItem[]> {
-    return this.service.listAccounts(projectId);
+    return this.service.listAccounts(req, projectId);
   }
 }

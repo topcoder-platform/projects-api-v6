@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-argument */
 import * as _ from 'lodash';
 import * as querystring from 'querystring';
 import { Request, Response } from 'express';
@@ -232,7 +232,10 @@ class Utils {
       const userId = !_.isNumber(user.userId)
         ? parseInt(String(user.userId), 10)
         : user.userId;
-      const member = _.find(projectMembers, { userId });
+      const member = _.find(
+        projectMembers,
+        (item) => userId === Number(item.userId),
+      );
 
       // check if user has one of allowed Project roles
       if (permissionRule.projectRoles.length > 0) {
@@ -292,7 +295,7 @@ class Utils {
    */
   static getPageLink(req: Request, page: number) {
     const q = _.assignIn({}, req.query, { page });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     return `${req.protocol}://${req.get('Host')}${req.baseUrl}${req.path}?${querystring.stringify(q)}`;
   }
 
@@ -409,7 +412,7 @@ class Utils {
    */
   static addUserDetailsFieldsIfAllowed(fields, req) {
     // Only Topcoder Admins can get email
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     if (Utils.hasPermissionByReq(PERMISSION.READ_PROJECT_MEMBER_DETAILS, req)) {
       return _.concat(fields, ['email', 'firstName', 'lastName']);
     }
@@ -529,7 +532,7 @@ class Utils {
 
     const isAdmin = Utils.hasPermissionByReq(
       new PermissionRule({ topcoderRoles: [USER_ROLE.TOPCODER_ADMIN] }),
-      req, // eslint-disable-line @typescript-eslint/no-unsafe-argument
+      req,
     );
     const currentUserId = req.authUser.userId;
     const currentUserEmail = req.authUser.email;
@@ -584,6 +587,80 @@ class Utils {
     });
 
     return dataClone;
+  }
+
+  /**
+   * Check if request from the user has permission to READ attachment
+   *
+   * @param {Object}          attachment attachment
+   * @param {express.Request} req        request
+   *
+   * @returns {Boolean} true if has permission
+   */
+  static hasReadAccessToAttachment(attachment, req) {
+    if (!attachment) {
+      return false;
+    }
+
+    const authUserId = Number(req.authUser.userId);
+    const isOwnAttachment = Number(attachment.createdBy) === authUserId;
+    const isAllowedAttachment =
+      attachment.allowedUsers === null ||
+      !!_.find(
+        attachment.allowedUsers,
+        (allowedUser) => Number(allowedUser) === authUserId,
+      );
+
+    if (
+      this.hasPermissionByReq(
+        PERMISSION.READ_PROJECT_ATTACHMENT_OWN_OR_ALLOWED,
+        req,
+      ) &&
+      (isOwnAttachment || isAllowedAttachment)
+    ) {
+      return true;
+    }
+
+    if (
+      this.hasPermissionByReq(
+        PERMISSION.READ_PROJECT_ATTACHMENT_NOT_OWN_AND_NOT_ALLOWED,
+        req,
+      ) &&
+      !isOwnAttachment &&
+      !isAllowedAttachment
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Parse integer value inside string or return fallback value.
+   * Unlike original parseInt, this method parses the whole string
+   * and fails if there are non-integer characters inside the string.
+   *
+   * @param {String} str           number to parse
+   * @param {Number} radix       radix of the number to parse
+   * @param {Any}    fallbackValue value to return if we cannot parse successfully
+   *
+   * @returns {Number} parsed number
+   */
+  static parseIntStrictly(str: string, radix: number, fallbackValue: any) {
+    const int = parseInt(str, radix);
+
+    if (_.isNaN(int)) {
+      return fallbackValue;
+    }
+
+    // if we parsed only the part of value and it's not the same as intial value
+    // example: "12x" => 12 which is not the same as initial value "12x", which means
+    // we cannot parse the full value successfully and treat it like we cannot parse at all
+    if (int.toString() !== str) {
+      return fallbackValue;
+    }
+
+    return int;
   }
 }
 
