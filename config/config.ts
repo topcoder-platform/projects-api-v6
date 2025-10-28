@@ -19,6 +19,7 @@ export const AppConfig = {
   inviteEmailSubject: process.env.INVITE_EMAIL_SUBJECT || 'You are invited to Topcoder',
   inviteEmailSectionTitle: process.env.INVITE_EMAIL_SECTION_TITLE || 'Project Invitation',
   SSO_REFCODES: process.env.SSO_REFCODES || '[]',
+  PROJECT_SERVICE_PRISMA_TIMEOUT: process.env.PROJECT_SERVICE_PRISMA_TIMEOUT ? parseInt(process.env.PROJECT_SERVICE_PRISMA_TIMEOUT) : 10000
 }
 
 export const Auth0Config = {

@@ -1,6 +1,7 @@
 // prisma.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { AppConfig } from 'config/config';
 
 @Injectable()
 export class PrismaService
@@ -9,6 +10,9 @@ export class PrismaService
 {
   constructor() {
     super({
+      transactionOptions: {
+        timeout: AppConfig.PROJECT_SERVICE_PRISMA_TIMEOUT,
+      },
       log: [
         { level: 'query', emit: 'event' },
         { level: 'info', emit: 'event' },
