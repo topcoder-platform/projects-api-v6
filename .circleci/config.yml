@@ -108,7 +108,7 @@ workflows:
           filters:
             branches:
               only:
-                - develop
+                - dev
       - deployment-validation-dev:
           context: org-global
           requires:
@@ -116,7 +116,7 @@ workflows:
           filters:
             branches:
               only:
-                - develop
+                - dev
 
   build-prod:
     jobs:
