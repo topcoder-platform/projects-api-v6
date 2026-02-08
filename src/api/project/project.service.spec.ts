@@ -6,7 +6,6 @@ import { ProjectService } from './project.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({
   publishProjectEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
 }));
 
 const eventUtils = jest.requireMock('src/shared/utils/event.utils');
@@ -344,7 +343,7 @@ describe('ProjectService', () => {
     expect(eventUtils.publishProjectEvent).toHaveBeenCalled();
   });
 
-  it('creates project and publishes created notification', async () => {
+  it('creates project and publishes project.created event', async () => {
     prismaMock.projectType.findFirst.mockResolvedValue({
       key: 'app',
     });
@@ -415,19 +414,12 @@ describe('ProjectService', () => {
     );
 
     expect(eventUtils.publishProjectEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_DRAFT_CREATED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
       KAFKA_TOPIC.PROJECT_CREATED,
-      expect.objectContaining({
-        projectId: '1001',
-        projectName: 'Demo Project',
-      }),
+      expect.any(Object),
     );
   });
 
-  it('publishes status and billing notifications during update', async () => {
+  it('publishes project.updated event during update', async () => {
     prismaMock.project.findFirst
       .mockResolvedValueOnce({
         id: BigInt(1001),
@@ -518,19 +510,8 @@ describe('ProjectService', () => {
       },
     );
 
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_ACTIVE,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_BILLING_ACCOUNT_UPDATED,
-      expect.objectContaining({
-        oldBillingAccountId: '11',
-        newBillingAccountId: '22',
-      }),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_UPDATED_NOTIFICATION,
+    expect(eventUtils.publishProjectEvent).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_UPDATED,
       expect.any(Object),
     );
   });

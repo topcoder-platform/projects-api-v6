@@ -1,16 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { ProjectPhaseService } from './project-phase.service';
-
-jest.mock('src/shared/utils/event.utils', () => ({
-  publishPhaseEvent: jest.fn(() => Promise.resolve()),
-  publishWorkEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
-}));
-
-const eventUtils = jest.requireMock('src/shared/utils/event.utils');
 
 type TxPhaseOrder = {
   id: bigint;
@@ -277,15 +268,6 @@ describe('ProjectPhaseService', () => {
         }),
       }),
     );
-    expect(eventUtils.publishPhaseEvent).toHaveBeenCalled();
-    expect(eventUtils.publishWorkEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_WORK_ADDED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_PLAN_UPDATED,
-      expect.any(Object),
-    );
   });
 
   it('reorders sibling phases when updating order', async () => {
@@ -379,10 +361,6 @@ describe('ProjectPhaseService', () => {
           order: 3,
         }),
       }),
-    );
-    expect(eventUtils.publishWorkEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_WORK_UPDATED,
-      expect.any(Object),
     );
   });
 
@@ -519,15 +497,6 @@ describe('ProjectPhaseService', () => {
           order: 2,
         }),
       }),
-    );
-    expect(eventUtils.publishPhaseEvent).toHaveBeenCalled();
-    expect(eventUtils.publishWorkEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_WORK_REMOVED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_PLAN_UPDATED,
-      expect.any(Object),
     );
   });
 

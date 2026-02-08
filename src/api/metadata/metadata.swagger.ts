@@ -67,7 +67,7 @@ export const EVENT_SWAGGER_EXAMPLES = {
   resourceInviteCreated: {
     summary: 'Resource event: invite created',
     value: {
-      topic: 'project.member.invite.created',
+      topic: 'project.member.added',
       originator: 'project-service-v6',
       timestamp: '2026-02-07T12:01:00.000Z',
       'mime-type': 'application/json',
@@ -87,7 +87,7 @@ export const EVENT_SWAGGER_EXAMPLES = {
   notificationProjectUpdated: {
     summary: 'Notification event: project updated',
     value: {
-      topic: 'connect.notification.project.updated',
+      topic: 'project.created',
       originator: 'project-service-v6',
       timestamp: '2026-02-07T12:02:00.000Z',
       'mime-type': 'application/json',
@@ -103,7 +103,7 @@ export const EVENT_SWAGGER_EXAMPLES = {
   notificationInviteSent: {
     summary: 'Notification event: invite sent',
     value: {
-      topic: 'connect.notification.project.member.invite.sent',
+      topic: 'project.member.removed',
       originator: 'project-service-v6',
       timestamp: '2026-02-07T12:03:00.000Z',
       'mime-type': 'application/json',
@@ -120,7 +120,7 @@ export const EVENT_SWAGGER_EXAMPLES = {
   notificationInviteAccepted: {
     summary: 'Notification event: invite accepted',
     value: {
-      topic: 'connect.notification.project.member.invite.accepted',
+      topic: 'project.deleted',
       originator: 'project-service-v6',
       timestamp: '2026-02-07T12:04:00.000Z',
       'mime-type': 'application/json',
@@ -211,7 +211,7 @@ export class NotificationEventPayloadSchema {
 }
 
 export class NotificationEventSchema {
-  @ApiProperty({ example: 'connect.notification.project.updated' })
+  @ApiProperty({ example: 'project.created' })
   topic: string;
 
   @ApiProperty({ example: 'project-service-v6' })

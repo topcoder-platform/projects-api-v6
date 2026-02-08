@@ -14,15 +14,8 @@ import {
 } from '@prisma/client';
 import { MilestoneResponseDto } from 'src/api/milestone/dto/milestone-response.dto';
 import { StatusHistoryResponseDto } from 'src/api/milestone/dto/status-history-response.dto';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import {
-  publishMilestoneEvent,
-  publishNotificationEvent,
-  publishTimelineEvent,
-} from 'src/shared/utils/event.utils';
 import { toSerializable } from '../metadata/utils/metadata-utils';
 import { CreateTimelineDto } from './dto/create-timeline.dto';
 import { TimelineListQueryDto } from './dto/timeline-list-query.dto';
@@ -40,8 +33,6 @@ type TimelineWithMilestones = Timeline & {
 
 @Injectable()
 export class TimelineService {
-  private readonly logger = LoggerService.forRoot('TimelineService');
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly timelineReferenceService: TimelineReferenceService,
@@ -92,11 +83,10 @@ export class TimelineService {
     const templateId =
       typeof dto.templateId === 'number' ? BigInt(dto.templateId) : null;
 
-    const resolvedContext =
-      await this.timelineReferenceService.resolveProjectContextByReference(
-        dto.reference,
-        referenceId,
-      );
+    await this.timelineReferenceService.resolveProjectContextByReference(
+      dto.reference,
+      referenceId,
+    );
 
     let createdTimelineId = BigInt(0);
     let createdMilestones: Milestone[] = [];
@@ -138,30 +128,8 @@ export class TimelineService {
     }
 
     const response = this.toTimelineDto(createdTimeline);
-
-    this.publishTimelineAction(KAFKA_TOPIC.TIMELINE_ADDED, response);
-
-    for (const milestone of createdMilestones) {
-      this.publishMilestoneAction(
-        KAFKA_TOPIC.MILESTONE_ADDED,
-        this.toMilestoneDto({
-          ...milestone,
-          statusHistory: [],
-        }),
-      );
-    }
-
-    if (createdMilestones.length > 0) {
-      await this.publishTimelineAdjustedNotification(
-        resolvedContext.projectId,
-        {
-          ...response,
-          milestones: [],
-        },
-        response,
-        user,
-      );
-    }
+    void createdMilestones;
+    void user;
 
     return response;
   }
@@ -265,25 +233,8 @@ export class TimelineService {
     }
 
     const updatedResponse = this.toTimelineDto(updatedTimeline);
-    const originalResponse = this.toTimelineDto(existingTimeline);
-
-    this.publishTimelineAction(KAFKA_TOPIC.TIMELINE_UPDATED, {
-      updated: updatedResponse,
-      original: originalResponse,
-    });
-
-    const context =
-      await this.timelineReferenceService.resolveProjectContextByReference(
-        updatedTimeline.reference,
-        updatedTimeline.referenceId,
-      );
-
-    await this.publishTimelineAdjustedNotification(
-      context.projectId,
-      originalResponse,
-      updatedResponse,
-      user,
-    );
+    void existingTimeline;
+    void user;
 
     return updatedResponse;
   }
@@ -339,16 +290,9 @@ export class TimelineService {
       return milestones;
     });
 
-    this.publishTimelineAction(KAFKA_TOPIC.TIMELINE_REMOVED, {
-      id: timelineId,
-    });
-
-    for (const milestone of deletedMilestones) {
-      this.publishMilestoneAction(KAFKA_TOPIC.MILESTONE_REMOVED, {
-        id: milestone.id.toString(),
-        timelineId: milestone.timelineId.toString(),
-      });
-    }
+    void deletedMilestones;
+    void timelineId;
+    void user;
   }
 
   private async createTemplateMilestones(
@@ -629,87 +573,5 @@ export class TimelineService {
     }
 
     return parsed;
-  }
-
-  private publishTimelineAction(topic: string, payload: unknown): void {
-    void publishTimelineEvent(topic, toSerializable(payload));
-  }
-
-  private publishMilestoneAction(topic: string, payload: unknown): void {
-    void publishMilestoneEvent(topic, toSerializable(payload));
-  }
-
-  private async publishTimelineAdjustedNotification(
-    projectId: bigint,
-    originalTimeline: TimelineResponseDto,
-    updatedTimeline: TimelineResponseDto,
-    user: JwtUser,
-  ): Promise<void> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        details: true,
-      },
-    });
-
-    if (!project) {
-      this.logger.warn(
-        `Skipping timeline adjustment notification. Project ${projectId.toString()} was not found.`,
-      );
-      return;
-    }
-
-    const userId = this.getNotificationUserId(user);
-
-    const details =
-      project.details &&
-      typeof project.details === 'object' &&
-      !Array.isArray(project.details)
-        ? (project.details as Record<string, unknown>)
-        : {};
-    const utm =
-      details.utm &&
-      typeof details.utm === 'object' &&
-      !Array.isArray(details.utm)
-        ? (details.utm as Record<string, unknown>)
-        : {};
-
-    const payload = {
-      projectId: project.id.toString(),
-      projectName: project.name,
-      refCode: typeof utm.code === 'string' ? utm.code : undefined,
-      projectUrl: this.buildProjectUrl(project.id),
-      originalTimeline: toSerializable(originalTimeline),
-      updatedTimeline: toSerializable(updatedTimeline),
-      userId,
-      initiatorUserId: userId,
-    };
-
-    await publishNotificationEvent(KAFKA_TOPIC.TIMELINE_ADJUSTED, payload);
-  }
-
-  private buildProjectUrl(projectId: bigint): string {
-    const baseUrl =
-      process.env.WORK_MANAGER_URL ||
-      process.env.WORK_MANAGER_APP_URL ||
-      'https://platform.topcoder.com/connect/';
-
-    const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-    return `${normalizedBase}projects/${projectId.toString()}`;
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
   }
 }

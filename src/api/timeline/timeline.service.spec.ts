@@ -1,14 +1,5 @@
 import { ProjectStatus, TimelineReference } from '@prisma/client';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { TimelineService } from './timeline.service';
-
-jest.mock('src/shared/utils/event.utils', () => ({
-  publishMilestoneEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
-  publishTimelineEvent: jest.fn(() => Promise.resolve()),
-}));
-
-const eventUtils = jest.requireMock('src/shared/utils/event.utils');
 
 function buildMilestone(overrides: Record<string, unknown> = {}) {
   return {
@@ -245,15 +236,6 @@ describe('TimelineService', () => {
     expect(response.id).toBe('1');
     expect(txMilestoneCreate).toHaveBeenCalledTimes(2);
     expect(txStatusHistoryCreate).toHaveBeenCalledTimes(2);
-    expect(eventUtils.publishTimelineEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.TIMELINE_ADDED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishMilestoneEvent).toHaveBeenCalledTimes(2);
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.TIMELINE_ADJUSTED,
-      expect.any(Object),
-    );
   });
 
   it('updates timeline startDate and cascades milestone schedule updates', async () => {
@@ -353,13 +335,5 @@ describe('TimelineService', () => {
 
     expect(response.startDate.toISOString()).toBe('2026-02-10T00:00:00.000Z');
     expect(txMilestoneUpdate).toHaveBeenCalledTimes(2);
-    expect(eventUtils.publishTimelineEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.TIMELINE_UPDATED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.TIMELINE_ADJUSTED,
-      expect.any(Object),
-    );
   });
 });

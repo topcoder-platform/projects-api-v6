@@ -9,9 +9,7 @@ import { PermissionService } from 'src/shared/services/permission.service';
 import { ProjectInviteService } from './project-invite.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({
-  publishInviteEvent: jest.fn(() => Promise.resolve()),
   publishMemberEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
 }));
 
 const eventUtils = jest.requireMock('src/shared/utils/event.utils');
@@ -60,7 +58,7 @@ describe('ProjectInviteService', () => {
     );
   });
 
-  it('creates invite and publishes event', async () => {
+  it('creates invite', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       name: 'Demo',
@@ -130,21 +128,9 @@ describe('ProjectInviteService', () => {
     );
 
     expect(response.success).toHaveLength(1);
-    expect(eventUtils.publishInviteEvent).toHaveBeenCalled();
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_SENT,
-      expect.objectContaining({
-        projectId: '1001',
-        inviteId: '1',
-        role: ProjectMemberRole.customer,
-        email: 'member@topcoder.com',
-        userId: '123',
-        initiatorUserId: '99',
-      }),
-    );
   });
 
-  it('publishes invite accepted notification when invite is accepted', async () => {
+  it('publishes member.added when invite is accepted', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [],
@@ -220,16 +206,13 @@ describe('ProjectInviteService', () => {
       undefined,
     );
 
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_ACCEPTED,
+    expect(eventUtils.publishMemberEvent).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_MEMBER_ADDED,
       expect.objectContaining({
         projectId: '1001',
-        inviteId: '10',
+        id: '777',
         role: ProjectMemberRole.customer,
-        email: 'member@topcoder.com',
         userId: '123',
-        initiatorUserId: '123',
-        memberId: '777',
       }),
     );
   });

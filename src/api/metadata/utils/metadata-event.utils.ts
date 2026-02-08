@@ -1,5 +1,4 @@
 import {
-  PROJECT_METADATA_EVENT_TOPIC,
   PROJECT_METADATA_RESOURCE,
   ProjectMetadataResource,
 } from 'src/shared/constants/event.constants';
@@ -10,7 +9,7 @@ export type MetadataEventAction =
   | 'PROJECT_METADATA_UPDATE'
   | 'PROJECT_METADATA_DELETE';
 
-export async function publishMetadataEvent(
+export function publishMetadataEvent(
   eventBus: EventBusService,
   action: MetadataEventAction,
   resource: ProjectMetadataResource,
@@ -18,15 +17,15 @@ export async function publishMetadataEvent(
   data: unknown,
   userId: bigint | number,
 ): Promise<void> {
-  const topic = PROJECT_METADATA_EVENT_TOPIC[action];
-
-  await eventBus.publishProjectEvent(topic, {
-    resource,
-    id: typeof id === 'bigint' ? id.toString() : String(id),
-    data,
-    userId: typeof userId === 'bigint' ? userId.toString() : userId,
-    timestamp: new Date(),
-  });
+  // Metadata Kafka topics were retired. Keep this helper as a no-op to avoid
+  // changing call sites while preventing publication to removed topics.
+  void eventBus;
+  void action;
+  void resource;
+  void id;
+  void data;
+  void userId;
+  return Promise.resolve();
 }
 
 export { PROJECT_METADATA_RESOURCE };

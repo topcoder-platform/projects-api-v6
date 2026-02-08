@@ -1,15 +1,3 @@
-export const PROJECT_METADATA_EVENT_TOPIC = {
-  PROJECT_METADATA_CREATE:
-    process.env.KAFKA_PROJECT_METADATA_CREATE_TOPIC || 'project.action.create',
-  PROJECT_METADATA_UPDATE:
-    process.env.KAFKA_PROJECT_METADATA_UPDATE_TOPIC || 'project.action.update',
-  PROJECT_METADATA_DELETE:
-    process.env.KAFKA_PROJECT_METADATA_DELETE_TOPIC || 'project.action.delete',
-} as const;
-
-export type ProjectMetadataEventTopic =
-  (typeof PROJECT_METADATA_EVENT_TOPIC)[keyof typeof PROJECT_METADATA_EVENT_TOPIC];
-
 export const PROJECT_METADATA_RESOURCE = {
   PROJECT_TEMPLATE: 'project.template',
   PRODUCT_TEMPLATE: 'product.template',

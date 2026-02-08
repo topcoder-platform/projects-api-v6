@@ -1,17 +1,9 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AttachmentType } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { FileService } from 'src/shared/services/file.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { ProjectAttachmentService } from './project-attachment.service';
-
-jest.mock('src/shared/utils/event.utils', () => ({
-  publishAttachmentEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
-}));
-
-const eventUtils = jest.requireMock('src/shared/utils/event.utils');
 
 describe('ProjectAttachmentService', () => {
   const prismaMock = {
@@ -65,7 +57,7 @@ describe('ProjectAttachmentService', () => {
     });
   });
 
-  it('creates link attachment and publishes event', async () => {
+  it('creates link attachment', async () => {
     permissionServiceMock.hasNamedPermission.mockImplementation(
       (permission: Permission): boolean => {
         if (permission === Permission.CREATE_PROJECT_ATTACHMENT) {
@@ -111,11 +103,6 @@ describe('ProjectAttachmentService', () => {
 
     expect(response.id).toBe('77');
     expect(prismaMock.projectAttachment.create).toHaveBeenCalled();
-    expect(eventUtils.publishAttachmentEvent).toHaveBeenCalled();
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_LINK_CREATED,
-      expect.any(Object),
-    );
   });
 
   it('creates file attachment with presigned URL and async transfer', async () => {
@@ -176,11 +163,6 @@ describe('ProjectAttachmentService', () => {
       'tmp/source.zip',
       expect.any(String),
       expect.any(String),
-    );
-    expect(eventUtils.publishAttachmentEvent).toHaveBeenCalled();
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_FILE_UPLOADED,
-      expect.any(Object),
     );
   });
 
@@ -300,10 +282,6 @@ describe('ProjectAttachmentService', () => {
         }),
       }),
     );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_ATTACHMENT_UPDATED_NOTIFICATION,
-      expect.any(Object),
-    );
   });
 
   it('deletes file attachment and triggers async file removal', async () => {
@@ -363,7 +341,6 @@ describe('ProjectAttachmentService', () => {
     });
 
     expect(fileServiceMock.deleteFile).toHaveBeenCalled();
-    expect(eventUtils.publishAttachmentEvent).toHaveBeenCalled();
   });
 
   it('throws forbidden when create permission is missing', async () => {

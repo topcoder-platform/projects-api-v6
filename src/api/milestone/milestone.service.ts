@@ -7,19 +7,12 @@ import {
 import {
   Milestone,
   Prisma,
-  Project,
   ProjectStatus,
   StatusHistory,
   Timeline,
 } from '@prisma/client';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import {
-  publishMilestoneEvent,
-  publishNotificationEvent,
-} from 'src/shared/utils/event.utils';
 import { toSerializable } from '../metadata/utils/metadata-utils';
 import { TimelineReferenceService } from '../timeline/timeline-reference.service';
 import { BulkUpdateMilestoneDto } from './dto/bulk-update-milestone.dto';
@@ -40,8 +33,6 @@ interface MilestoneUpdateResult {
 
 @Injectable()
 export class MilestoneService {
-  private readonly logger = LoggerService.forRoot('MilestoneService');
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly timelineReferenceService: TimelineReferenceService,
@@ -205,15 +196,9 @@ export class MilestoneService {
     const response = this.toMilestoneDto(
       createdWithHistory as MilestoneWithStatusHistory,
     );
-
-    this.publishMilestoneAction(KAFKA_TOPIC.MILESTONE_ADDED, response);
-
-    await this.publishMilestoneAddedNotification(
-      context.projectId,
-      response,
-      user,
-      timeline,
-    );
+    void context;
+    void user;
+    void timeline;
 
     return response;
   }
@@ -416,23 +401,10 @@ export class MilestoneService {
       };
     });
 
-    this.publishMilestoneAction(KAFKA_TOPIC.MILESTONE_UPDATED, {
-      original,
-      updated,
-    });
-
-    const context =
-      await this.timelineReferenceService.resolveProjectContextByTimelineId(
-        parsedTimelineId,
-      );
-
-    await this.publishMilestoneUpdatedNotifications(
-      context.projectId,
-      original,
-      updated,
-      user,
-      timeline,
-    );
+    void parsedTimelineId;
+    void original;
+    void user;
+    void timeline;
 
     return updated;
   }
@@ -729,50 +701,9 @@ export class MilestoneService {
       };
     });
 
-    for (const created of operationResult.created) {
-      this.publishMilestoneAction(KAFKA_TOPIC.MILESTONE_ADDED, created);
-    }
-
-    for (const deleted of operationResult.deleted) {
-      this.publishMilestoneAction(KAFKA_TOPIC.MILESTONE_REMOVED, deleted);
-    }
-
-    for (const updated of operationResult.updated) {
-      this.publishMilestoneAction(KAFKA_TOPIC.MILESTONE_UPDATED, updated);
-    }
-
-    const context =
-      await this.timelineReferenceService.resolveProjectContextByTimelineId(
-        parsedTimelineId,
-      );
-
-    for (const created of operationResult.created) {
-      await this.publishMilestoneAddedNotification(
-        context.projectId,
-        created,
-        user,
-        timeline,
-      );
-    }
-
-    for (const deleted of operationResult.deleted) {
-      await this.publishMilestoneRemovedNotification(
-        context.projectId,
-        deleted,
-        user,
-        timeline,
-      );
-    }
-
-    for (const updated of operationResult.updated) {
-      await this.publishMilestoneUpdatedNotifications(
-        context.projectId,
-        updated.original,
-        updated.updated,
-        user,
-        timeline,
-      );
-    }
+    void parsedTimelineId;
+    void user;
+    void timeline;
 
     return operationResult.milestones;
   }
@@ -836,22 +767,10 @@ export class MilestoneService {
       };
     });
 
-    this.publishMilestoneAction(
-      KAFKA_TOPIC.MILESTONE_REMOVED,
-      deletedMilestone,
-    );
-
-    const context =
-      await this.timelineReferenceService.resolveProjectContextByTimelineId(
-        parsedTimelineId,
-      );
-
-    await this.publishMilestoneRemovedNotification(
-      context.projectId,
-      deletedMilestone,
-      user,
-      timeline,
-    );
+    void deletedMilestone;
+    void parsedTimelineId;
+    void user;
+    void timeline;
   }
 
   private async getTimelineOrFail(timelineId: bigint): Promise<Timeline> {
@@ -1087,323 +1006,5 @@ export class MilestoneService {
     }
 
     return parsed;
-  }
-
-  private publishMilestoneAction(topic: string, payload: unknown): void {
-    void publishMilestoneEvent(topic, toSerializable(payload));
-  }
-
-  private async publishMilestoneAddedNotification(
-    projectId: bigint,
-    createdMilestone: MilestoneResponseDto,
-    user: JwtUser,
-    timeline: Timeline,
-  ): Promise<void> {
-    const project = await this.getProjectForNotifications(projectId);
-    if (!project) {
-      return;
-    }
-
-    const timelinePayload =
-      await this.buildTimelineWithProgressNotificationPayload(timeline);
-
-    await publishNotificationEvent(KAFKA_TOPIC.MILESTONE_NOTIFICATION_ADDED, {
-      ...this.buildNotificationBasePayload(project, user),
-      timeline: timelinePayload,
-      addedMilestone: toSerializable(createdMilestone),
-    });
-
-    await publishNotificationEvent(KAFKA_TOPIC.TIMELINE_ADJUSTED, {
-      ...this.buildNotificationBasePayload(project, user),
-      originalTimeline: this.buildTimelineNotificationPayload(timeline),
-      updatedTimeline: timelinePayload,
-    });
-  }
-
-  private async publishMilestoneRemovedNotification(
-    projectId: bigint,
-    removedMilestone: { id: string; timelineId: string },
-    user: JwtUser,
-    timeline?: Timeline,
-  ): Promise<void> {
-    const project = await this.getProjectForNotifications(projectId);
-    if (!project) {
-      return;
-    }
-
-    await publishNotificationEvent(KAFKA_TOPIC.MILESTONE_NOTIFICATION_REMOVED, {
-      ...this.buildNotificationBasePayload(project, user),
-      removedMilestone,
-    });
-
-    if (timeline) {
-      await publishNotificationEvent(KAFKA_TOPIC.TIMELINE_ADJUSTED, {
-        ...this.buildNotificationBasePayload(project, user),
-        originalTimeline: this.buildTimelineNotificationPayload(timeline),
-        updatedTimeline:
-          await this.buildTimelineWithProgressNotificationPayload(timeline),
-      });
-    }
-  }
-
-  private async publishMilestoneUpdatedNotifications(
-    projectId: bigint,
-    original: MilestoneResponseDto,
-    updated: MilestoneResponseDto,
-    user: JwtUser,
-    timeline: Timeline,
-  ): Promise<void> {
-    const project = await this.getProjectForNotifications(projectId);
-    if (!project) {
-      return;
-    }
-
-    const timelinePayload =
-      await this.buildTimelineWithProgressNotificationPayload(timeline);
-
-    const commonPayload = {
-      ...this.buildNotificationBasePayload(project, user),
-      timeline: timelinePayload,
-      originalMilestone: toSerializable(original),
-      updatedMilestone: toSerializable(updated),
-    };
-
-    await publishNotificationEvent(
-      KAFKA_TOPIC.MILESTONE_NOTIFICATION_UPDATED,
-      commonPayload,
-    );
-
-    const statusTransitionTopic = this.detectMilestoneStatusTransition(
-      original,
-      updated,
-    );
-
-    if (statusTransitionTopic) {
-      await publishNotificationEvent(statusTransitionTopic, commonPayload);
-    }
-
-    const originalWaiting = this.getWaitingForCustomerFlag(original.details);
-    const updatedWaiting = this.getWaitingForCustomerFlag(updated.details);
-
-    if (!originalWaiting && updatedWaiting) {
-      await publishNotificationEvent(
-        KAFKA_TOPIC.MILESTONE_WAITING_CUSTOMER,
-        commonPayload,
-      );
-    }
-
-    if (
-      original.duration !== updated.duration ||
-      original.order !== updated.order ||
-      original.startDate.getTime() !== updated.startDate.getTime() ||
-      original.endDate?.getTime() !== updated.endDate?.getTime()
-    ) {
-      await publishNotificationEvent(KAFKA_TOPIC.TIMELINE_ADJUSTED, {
-        ...this.buildNotificationBasePayload(project, user),
-        originalTimeline: this.buildTimelineNotificationPayload(timeline),
-        updatedTimeline: timelinePayload,
-      });
-    }
-  }
-
-  private detectMilestoneStatusTransition(
-    original: MilestoneResponseDto,
-    updated: MilestoneResponseDto,
-  ): string | undefined {
-    if (original.status === updated.status) {
-      return undefined;
-    }
-
-    if (updated.status === ProjectStatus.active) {
-      return KAFKA_TOPIC.MILESTONE_TRANSITION_ACTIVE;
-    }
-
-    if (updated.status === ProjectStatus.completed) {
-      return KAFKA_TOPIC.MILESTONE_TRANSITION_COMPLETED;
-    }
-
-    if (updated.status === ProjectStatus.paused) {
-      return KAFKA_TOPIC.MILESTONE_TRANSITION_PAUSED;
-    }
-
-    return undefined;
-  }
-
-  private async getProjectForNotifications(
-    projectId: bigint,
-  ): Promise<Pick<Project, 'id' | 'name' | 'details'> | null> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        details: true,
-      },
-    });
-
-    if (!project) {
-      this.logger.warn(
-        `Skipping milestone notification because project ${projectId.toString()} was not found.`,
-      );
-      return null;
-    }
-
-    return project;
-  }
-
-  private buildNotificationBasePayload(
-    project: Pick<Project, 'id' | 'name' | 'details'>,
-    user: JwtUser,
-  ): Record<string, unknown> {
-    const details =
-      project.details &&
-      typeof project.details === 'object' &&
-      !Array.isArray(project.details)
-        ? (project.details as Record<string, unknown>)
-        : {};
-    const utm =
-      details.utm &&
-      typeof details.utm === 'object' &&
-      !Array.isArray(details.utm)
-        ? (details.utm as Record<string, unknown>)
-        : {};
-
-    return {
-      projectId: project.id.toString(),
-      projectName: project.name,
-      refCode: typeof utm.code === 'string' ? utm.code : undefined,
-      projectUrl: this.buildProjectUrl(project.id),
-      userId: this.getNotificationUserId(user),
-      initiatorUserId: this.getNotificationUserId(user),
-    };
-  }
-
-  private buildProjectUrl(projectId: bigint): string {
-    const baseUrl =
-      process.env.WORK_MANAGER_URL ||
-      process.env.WORK_MANAGER_APP_URL ||
-      'https://platform.topcoder.com/connect/';
-
-    const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-    return `${normalizedBase}projects/${projectId.toString()}`;
-  }
-
-  private buildTimelineNotificationPayload(
-    timeline: Timeline,
-  ): Record<string, unknown> {
-    return {
-      id: timeline.id.toString(),
-      name: timeline.name,
-      description: timeline.description,
-      startDate: timeline.startDate,
-      endDate: timeline.endDate,
-      reference: timeline.reference,
-      referenceId: timeline.referenceId.toString(),
-    };
-  }
-
-  private async buildTimelineWithProgressNotificationPayload(
-    timeline: Timeline,
-  ): Promise<Record<string, unknown>> {
-    const milestones = await this.prisma.milestone.findMany({
-      where: {
-        timelineId: timeline.id,
-        deletedAt: null,
-        hidden: false,
-      },
-      orderBy: [{ order: 'asc' }, { id: 'asc' }],
-      select: {
-        duration: true,
-        startDate: true,
-        endDate: true,
-        actualStartDate: true,
-        completionDate: true,
-      },
-    });
-
-    let duration = 0;
-    let progress = 0;
-
-    if (milestones.length > 0) {
-      const first = milestones[0];
-      const last = milestones[milestones.length - 1];
-      const durationStartDate = first.actualStartDate || first.startDate;
-      const durationEndDate =
-        last.completionDate || last.endDate || last.startDate;
-
-      duration =
-        Math.max(
-          0,
-          Math.floor(
-            (durationEndDate.getTime() - durationStartDate.getTime()) /
-              (24 * 60 * 60 * 1000),
-          ),
-        ) + 1;
-
-      let scheduledDuration = 0;
-      let completedDuration = 0;
-
-      for (const milestone of milestones) {
-        if (milestone.completionDate) {
-          const completedStartDate =
-            milestone.actualStartDate || milestone.startDate;
-          const completedValue =
-            Math.max(
-              0,
-              Math.floor(
-                (milestone.completionDate.getTime() -
-                  completedStartDate.getTime()) /
-                  (24 * 60 * 60 * 1000),
-              ),
-            ) + 1;
-
-          scheduledDuration += completedValue;
-          completedDuration += completedValue;
-        } else {
-          scheduledDuration += milestone.duration;
-        }
-      }
-
-      if (scheduledDuration > 0) {
-        progress = Math.round((completedDuration / scheduledDuration) * 100);
-      }
-    }
-
-    return {
-      ...this.buildTimelineNotificationPayload(timeline),
-      duration,
-      progress,
-    };
-  }
-
-  private getWaitingForCustomerFlag(
-    details: Record<string, unknown> | null | undefined,
-  ): boolean {
-    if (!details || typeof details !== 'object') {
-      return false;
-    }
-
-    const metadata = details.metadata;
-    if (!metadata || typeof metadata !== 'object') {
-      return false;
-    }
-
-    const waitingForCustomer = (metadata as Record<string, unknown>)
-      .waitingForCustomer;
-
-    return waitingForCustomer === true;
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
   }
 }

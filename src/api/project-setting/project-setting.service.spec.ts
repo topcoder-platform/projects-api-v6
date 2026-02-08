@@ -1,11 +1,5 @@
 import { ProjectSettingService } from './project-setting.service';
 
-jest.mock('src/shared/utils/event.utils', () => ({
-  publishSettingEvent: jest.fn(() => Promise.resolve()),
-}));
-
-const eventUtils = jest.requireMock('src/shared/utils/event.utils');
-
 describe('ProjectSettingService', () => {
   const prismaMock = {
     project: {
@@ -38,7 +32,7 @@ describe('ProjectSettingService', () => {
     });
   });
 
-  it('publishes setting create event', async () => {
+  it('creates setting', async () => {
     prismaMock.projectSetting.findFirst.mockResolvedValue(null);
     prismaMock.projectSetting.create.mockResolvedValue({
       id: BigInt(11),
@@ -70,13 +64,10 @@ describe('ProjectSettingService', () => {
       [],
     );
 
-    expect(eventUtils.publishSettingEvent).toHaveBeenCalledWith(
-      'project.setting.created',
-      expect.any(Object),
-    );
+    expect(prismaMock.projectSetting.create).toHaveBeenCalled();
   });
 
-  it('publishes setting update and delete events', async () => {
+  it('updates and deletes setting', async () => {
     prismaMock.projectSetting.findFirst.mockResolvedValue({
       id: BigInt(11),
       projectId: BigInt(1001),
@@ -139,20 +130,10 @@ describe('ProjectSettingService', () => {
 
     await service.delete('1001', '11', { userId: '123', isMachine: false }, []);
 
-    expect(eventUtils.publishSettingEvent).toHaveBeenCalledWith(
-      'project.setting.updated',
-      expect.any(Object),
-    );
-    expect(eventUtils.publishSettingEvent).toHaveBeenCalledWith(
-      'project.setting.deleted',
-      expect.any(Object),
-    );
+    expect(prismaMock.projectSetting.update).toHaveBeenCalledTimes(2);
   });
 
-  it('returns response even when event publishing fails', async () => {
-    eventUtils.publishSettingEvent.mockRejectedValueOnce(
-      new Error('event error'),
-    );
+  it('returns created setting response', async () => {
     prismaMock.projectSetting.findFirst.mockResolvedValue(null);
     prismaMock.projectSetting.create.mockResolvedValue({
       id: BigInt(12),

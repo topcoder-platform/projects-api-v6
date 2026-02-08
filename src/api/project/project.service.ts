@@ -24,10 +24,7 @@ import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
-import {
-  publishNotificationEvent,
-  publishProjectEvent,
-} from 'src/shared/utils/event.utils';
+import { publishProjectEvent } from 'src/shared/utils/event.utils';
 import {
   ParsedProjectFields,
   buildProjectIncludeClause,
@@ -413,12 +410,7 @@ export class ProjectService {
     }
 
     const response = this.toDto(createdProject);
-
-    this.publishEvent(KAFKA_TOPIC.PROJECT_DRAFT_CREATED, response);
-    this.publishNotificationEvent(
-      KAFKA_TOPIC.PROJECT_CREATED,
-      this.buildNotificationPayload(response, user),
-    );
+    this.publishEvent(KAFKA_TOPIC.PROJECT_CREATED, response);
 
     return response;
   }
@@ -510,24 +502,6 @@ export class ProjectService {
     const statusChanged =
       typeof dto.status !== 'undefined' &&
       dto.status !== existingProject.status;
-    const nameChanged =
-      typeof dto.name !== 'undefined' && dto.name !== existingProject.name;
-    const descriptionChanged =
-      typeof dto.description !== 'undefined' &&
-      dto.description !== existingProject.description;
-    const detailsChanged =
-      typeof dto.details !== 'undefined' &&
-      JSON.stringify(dto.details ?? null) !==
-        JSON.stringify(existingProject.details ?? null);
-    const bookmarksChanged =
-      typeof dto.bookmarks !== 'undefined' &&
-      JSON.stringify(dto.bookmarks ?? null) !==
-        JSON.stringify(existingProject.bookmarks ?? null);
-    const billingAccountChanged =
-      typeof dto.billingAccountId !== 'undefined' &&
-      String(existingProject.billingAccountId ?? '') !==
-        String(dto.billingAccountId ?? '');
-
     const updatedProject = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.project.update({
         where: {
@@ -627,70 +601,6 @@ export class ProjectService {
     );
 
     this.publishEvent(KAFKA_TOPIC.PROJECT_UPDATED, response);
-
-    if (statusChanged) {
-      this.publishEvent(KAFKA_TOPIC.PROJECT_STATUS_CHANGED, response);
-    }
-
-    const notificationPayload = this.buildNotificationPayload(response, user);
-    let hasNotificationChange = false;
-
-    if (statusChanged && dto.status) {
-      const statusNotificationTopic = this.resolveStatusNotificationTopic(
-        dto.status,
-      );
-
-      if (statusNotificationTopic) {
-        this.publishNotificationEvent(
-          statusNotificationTopic,
-          notificationPayload,
-        );
-        hasNotificationChange = true;
-      }
-    }
-
-    if (
-      !statusChanged &&
-      (nameChanged || descriptionChanged || detailsChanged)
-    ) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_SPECIFICATION_MODIFIED,
-        notificationPayload,
-      );
-      hasNotificationChange = true;
-    }
-
-    if (bookmarksChanged) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_LINK_CREATED,
-        notificationPayload,
-      );
-      hasNotificationChange = true;
-    }
-
-    if (billingAccountChanged) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_BILLING_ACCOUNT_UPDATED,
-        {
-          ...notificationPayload,
-          oldBillingAccountId: existingProject.billingAccountId
-            ? existingProject.billingAccountId.toString()
-            : null,
-          newBillingAccountId:
-            typeof dto.billingAccountId === 'number'
-              ? String(Math.trunc(dto.billingAccountId))
-              : null,
-        },
-      );
-      hasNotificationChange = true;
-    }
-
-    if (hasNotificationChange) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_UPDATED_NOTIFICATION,
-        notificationPayload,
-      );
-    }
 
     return response;
   }
@@ -1105,80 +1015,6 @@ export class ProjectService {
         error instanceof Error ? error.stack : undefined,
       );
     });
-  }
-
-  private publishNotificationEvent(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish notification event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private resolveStatusNotificationTopic(
-    status: ProjectStatus,
-  ): string | undefined {
-    const topicByStatus: Partial<Record<ProjectStatus, string>> = {
-      [ProjectStatus.in_review]: KAFKA_TOPIC.PROJECT_SUBMITTED_FOR_REVIEW,
-      [ProjectStatus.reviewed]: KAFKA_TOPIC.PROJECT_APPROVED,
-      [ProjectStatus.active]: KAFKA_TOPIC.PROJECT_ACTIVE,
-      [ProjectStatus.paused]: KAFKA_TOPIC.PROJECT_PAUSED,
-      [ProjectStatus.completed]: KAFKA_TOPIC.PROJECT_COMPLETED,
-      [ProjectStatus.cancelled]: KAFKA_TOPIC.PROJECT_CANCELED,
-    };
-
-    return topicByStatus[status];
-  }
-
-  private buildNotificationPayload(
-    project: ProjectWithRelationsDto,
-    user: JwtUser,
-  ): Record<string, unknown> {
-    const details =
-      project.details &&
-      typeof project.details === 'object' &&
-      !Array.isArray(project.details)
-        ? project.details
-        : {};
-    const detailsUtm =
-      details.utm &&
-      typeof details.utm === 'object' &&
-      !Array.isArray(details.utm)
-        ? (details.utm as Record<string, unknown>)
-        : {};
-
-    const userId = this.getNotificationUserId(user);
-
-    return {
-      projectId: project.id,
-      projectName: project.name,
-      projectUrl: this.buildProjectUrl(project.id),
-      userId,
-      initiatorUserId: userId,
-      refCode:
-        typeof detailsUtm.code === 'string' ? detailsUtm.code : undefined,
-    };
-  }
-
-  private buildProjectUrl(projectId: string): string {
-    const baseUrl =
-      process.env.WORK_MANAGER_URL ||
-      process.env.WORK_MANAGER_APP_URL ||
-      'https://platform.topcoder.com/connect/';
-    const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-
-    return `${normalizedBase}projects/${projectId}`;
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
   }
 
   private toDto(project: ProjectWithRawRelations): ProjectWithRelationsDto {

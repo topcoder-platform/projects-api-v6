@@ -4,13 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, WorkStream } from '@prisma/client';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import {
-  publishNotificationEvent,
-  publishWorkstreamEvent,
-} from 'src/shared/utils/event.utils';
 import {
   CreateWorkStreamDto,
   UpdateWorkStreamDto,
@@ -33,8 +27,6 @@ const WORK_STREAM_SORT_FIELDS = ['name', 'status', 'createdAt', 'updatedAt'];
 
 @Injectable()
 export class WorkStreamService {
-  private readonly logger = LoggerService.forRoot('WorkStreamService');
-
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
@@ -58,28 +50,8 @@ export class WorkStreamService {
     });
 
     const response = this.toDto(created);
-    this.publishWorkstreamResourceEvent(
-      KAFKA_TOPIC.PROJECT_WORKSTREAM_ADDED,
-      response,
-    );
-
-    if (response.status === 'active') {
-      this.publishNotification(KAFKA_TOPIC.PROJECT_WORK_TRANSITION_ACTIVE, {
-        projectId,
-        workstream: response,
-        userId: this.getNotificationUserId(userId),
-        initiatorUserId: this.getNotificationUserId(userId),
-      });
-    }
-
-    if (response.status === 'completed') {
-      this.publishNotification(KAFKA_TOPIC.PROJECT_WORK_TRANSITION_COMPLETED, {
-        projectId,
-        workstream: response,
-        userId: this.getNotificationUserId(userId),
-        initiatorUserId: this.getNotificationUserId(userId),
-      });
-    }
+    void projectId;
+    void userId;
 
     return response;
   }
@@ -197,48 +169,9 @@ export class WorkStreamService {
     });
 
     const response = this.toDto(updated);
-    this.publishWorkstreamResourceEvent(
-      KAFKA_TOPIC.PROJECT_WORKSTREAM_UPDATED,
-      response,
-    );
-
-    if (existing.status !== updated.status) {
-      if (updated.status === 'active') {
-        this.publishNotification(KAFKA_TOPIC.PROJECT_WORK_TRANSITION_ACTIVE, {
-          projectId,
-          workstream: response,
-          userId: this.getNotificationUserId(userId),
-          initiatorUserId: this.getNotificationUserId(userId),
-        });
-      }
-
-      if (updated.status === 'completed') {
-        this.publishNotification(
-          KAFKA_TOPIC.PROJECT_WORK_TRANSITION_COMPLETED,
-          {
-            projectId,
-            workstream: response,
-            userId: this.getNotificationUserId(userId),
-            initiatorUserId: this.getNotificationUserId(userId),
-          },
-        );
-      }
-    }
-
-    if (existing.name !== updated.name || existing.type !== updated.type) {
-      this.publishNotification(KAFKA_TOPIC.PROJECT_WORK_UPDATE_SCOPE, {
-        projectId,
-        originalWorkstream: {
-          id: existing.id.toString(),
-          name: existing.name,
-          type: existing.type,
-          status: existing.status,
-        },
-        updatedWorkstream: response,
-        userId: this.getNotificationUserId(userId),
-        initiatorUserId: this.getNotificationUserId(userId),
-      });
-    }
+    void projectId;
+    void userId;
+    void existing;
 
     return response;
   }
@@ -282,16 +215,7 @@ export class WorkStreamService {
       },
     });
 
-    this.publishWorkstreamResourceEvent(
-      KAFKA_TOPIC.PROJECT_WORKSTREAM_REMOVED,
-      {
-        id: deleted.id.toString(),
-        projectId: deleted.projectId.toString(),
-        name: deleted.name,
-        type: deleted.type,
-        status: deleted.status,
-      },
-    );
+    void deleted;
   }
 
   async ensureWorkStreamExists(
@@ -491,39 +415,5 @@ export class WorkStreamService {
     }
 
     return -1;
-  }
-
-  private publishWorkstreamResourceEvent(
-    topic: string,
-    payload: unknown,
-  ): void {
-    void publishWorkstreamEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish workstream event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishNotification(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish workstream notification topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private getNotificationUserId(userId: string | number | undefined): string {
-    if (typeof userId === 'number' && Number.isFinite(userId)) {
-      return String(Math.trunc(userId));
-    }
-
-    const normalized = String(userId || '').trim();
-    if (/^\d+$/.test(normalized)) {
-      return normalized;
-    }
-
-    return '-1';
   }
 }

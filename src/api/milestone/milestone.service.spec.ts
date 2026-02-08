@@ -1,13 +1,5 @@
 import { ProjectStatus, TimelineReference } from '@prisma/client';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { MilestoneService } from './milestone.service';
-
-jest.mock('src/shared/utils/event.utils', () => ({
-  publishMilestoneEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
-}));
-
-const eventUtils = jest.requireMock('src/shared/utils/event.utils');
 
 function buildTimeline(overrides: Record<string, unknown> = {}) {
   return {
@@ -173,14 +165,6 @@ describe('MilestoneService', () => {
       }),
     );
     expect(txStatusHistoryCreate).toHaveBeenCalled();
-    expect(eventUtils.publishMilestoneEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.MILESTONE_ADDED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.MILESTONE_NOTIFICATION_ADDED,
-      expect.any(Object),
-    );
   });
 
   it('bulk updates milestones with create, update and delete operations', async () => {
@@ -325,17 +309,5 @@ describe('MilestoneService', () => {
     expect(txMilestoneCreate).toHaveBeenCalled();
     expect(txMilestoneUpdate).toHaveBeenCalled();
     expect(txStatusHistoryCreate).toHaveBeenCalled();
-    expect(eventUtils.publishMilestoneEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.MILESTONE_ADDED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishMilestoneEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.MILESTONE_REMOVED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishMilestoneEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.MILESTONE_UPDATED,
-      expect.any(Object),
-    );
   });
 });

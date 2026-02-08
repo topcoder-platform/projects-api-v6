@@ -16,17 +16,12 @@ import {
   ProjectMember,
   Permission,
 } from 'src/shared/interfaces/permission.interface';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
-import { publishSettingEvent } from 'src/shared/utils/event.utils';
 
 @Injectable()
 export class ProjectSettingService {
-  private readonly logger = LoggerService.forRoot('ProjectSettingService');
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
@@ -124,7 +119,6 @@ export class ProjectSettingService {
       });
 
       const response = this.toDto(created);
-      this.publishEvent(KAFKA_TOPIC.PROJECT_SETTING_CREATED, response);
 
       return response;
     } catch (error) {
@@ -230,7 +224,6 @@ export class ProjectSettingService {
     });
 
     const response = this.toDto(updated);
-    this.publishEvent(KAFKA_TOPIC.PROJECT_SETTING_UPDATED, response);
 
     return response;
   }
@@ -287,7 +280,7 @@ export class ProjectSettingService {
       },
     });
 
-    this.publishEvent(KAFKA_TOPIC.PROJECT_SETTING_DELETED, this.toDto(deleted));
+    void deleted;
   }
 
   private parseBigIntParam(value: string, name: string): bigint {
@@ -345,14 +338,5 @@ export class ProjectSettingService {
       createdBy: setting.createdBy,
       updatedBy: setting.updatedBy,
     };
-  }
-
-  private publishEvent(topic: string, payload: unknown): void {
-    void publishSettingEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish setting event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
   }
 }

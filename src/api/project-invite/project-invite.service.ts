@@ -39,11 +39,7 @@ import {
   enrichInvitesWithUserDetails,
   validateUserHasProjectRole,
 } from 'src/shared/utils/member.utils';
-import {
-  publishInviteEvent,
-  publishMemberEvent,
-  publishNotificationEvent,
-} from 'src/shared/utils/event.utils';
+import { publishMemberEvent } from 'src/shared/utils/event.utils';
 
 interface InviteTargetByUser {
   userId: bigint;
@@ -75,7 +71,6 @@ export class ProjectInviteService {
   ): Promise<InviteBulkResponseDto> {
     const parsedProjectId = this.parseId(projectId, 'Project');
     const auditUserId = this.getAuditUserId(user);
-    const initiatorUserId = this.getActorUserId(user);
 
     const project = await this.prisma.project.findFirst({
       where: {
@@ -171,14 +166,6 @@ export class ProjectInviteService {
       handleTargets.concat(emailTargets.userTargets),
       failed,
     );
-    const inviteHandleByUserId = new Map(
-      validatedUserTargets
-        .filter(
-          (target): target is InviteTargetByUser & { handle: string } =>
-            typeof target.handle === 'string' && target.handle.length > 0,
-        )
-        .map((target) => [String(target.userId), target.handle]),
-    );
 
     const emailOnlyTargets = emailTargets.emailOnlyTargets;
 
@@ -226,22 +213,6 @@ export class ProjectInviteService {
 
     for (const invite of success) {
       const normalizedInvite = this.normalizeEntity(invite);
-      this.publishInvite(KAFKA_TOPIC.PROJECT_MEMBER_INVITE_CREATED, {
-        ...normalizedInvite,
-        source: 'work_manager',
-      });
-      this.publishInviteNotification(
-        KAFKA_TOPIC.PROJECT_MEMBER_INVITE_SENT,
-        this.buildInviteNotificationPayload({
-          projectId: parsedProjectId,
-          invite,
-          handle: invite.userId
-            ? inviteHandleByUserId.get(String(invite.userId))
-            : undefined,
-          initiatorUserId,
-        }),
-      );
-
       if (
         invite.email &&
         !invite.userId &&
@@ -286,7 +257,6 @@ export class ProjectInviteService {
     const parsedProjectId = this.parseId(projectId, 'Project');
     const parsedInviteId = this.parseId(inviteId, 'Invite');
     const auditUserId = this.getAuditUserId(user);
-    const initiatorUserId = this.getActorUserId(user);
 
     const project = await this.prisma.project.findFirst({
       where: {
@@ -434,31 +404,10 @@ export class ProjectInviteService {
       },
     );
 
-    this.publishInvite(
-      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_UPDATED,
-      this.normalizeEntity(updatedInvite),
-    );
-
     if (projectMember) {
       this.publishMember(
         KAFKA_TOPIC.PROJECT_MEMBER_ADDED,
         this.normalizeEntity(projectMember),
-      );
-    }
-
-    if (
-      invite.status !== updatedInvite.status &&
-      (updatedInvite.status === InviteStatus.accepted ||
-        updatedInvite.status === InviteStatus.request_approved)
-    ) {
-      this.publishInviteNotification(
-        KAFKA_TOPIC.PROJECT_MEMBER_INVITE_ACCEPTED,
-        this.buildInviteNotificationPayload({
-          projectId: parsedProjectId,
-          invite: updatedInvite,
-          initiatorUserId,
-          memberId: projectMember ? projectMember.id : undefined,
-        }),
       );
     }
 
@@ -530,7 +479,7 @@ export class ProjectInviteService {
       this.ensureDeleteInvitePermission(invite.role, user, project.members);
     }
 
-    const updatedInvite = await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const updated = await tx.projectMemberInvite.update({
         where: {
           id: parsedInviteId,
@@ -550,11 +499,6 @@ export class ProjectInviteService {
 
       return updated;
     });
-
-    this.publishInvite(
-      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_REMOVED,
-      this.normalizeEntity(updatedInvite),
-    );
   }
 
   async listInvites(
@@ -1345,61 +1289,10 @@ export class ProjectInviteService {
     return walk(payload) as T;
   }
 
-  private buildInviteNotificationPayload(params: {
-    projectId: bigint;
-    invite: ProjectMemberInvite;
-    initiatorUserId: string;
-    handle?: string;
-    memberId?: bigint;
-  }): Record<string, string> {
-    const payload: Record<string, string> = {
-      projectId: params.projectId.toString(),
-      inviteId: params.invite.id.toString(),
-      role: params.invite.role,
-      initiatorUserId: params.initiatorUserId,
-    };
-
-    if (params.invite.email) {
-      payload.email = params.invite.email;
-    }
-
-    if (params.handle) {
-      payload.handle = params.handle;
-    }
-
-    if (params.invite.userId) {
-      payload.userId = params.invite.userId.toString();
-    }
-
-    if (params.memberId) {
-      payload.memberId = params.memberId.toString();
-    }
-
-    return payload;
-  }
-
-  private publishInvite(topic: string, payload: unknown): void {
-    void publishInviteEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish invite event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
   private publishMember(topic: string, payload: unknown): void {
     void publishMemberEvent(topic, payload).catch((error) => {
       this.logger.error(
         `Failed to publish member event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishInviteNotification(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish invite notification topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     });

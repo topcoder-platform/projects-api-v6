@@ -10,17 +10,12 @@ import { CreateAttachmentDto } from 'src/api/project-attachment/dto/create-attac
 import { UpdateAttachmentDto } from 'src/api/project-attachment/dto/update-attachment.dto';
 import { Permission } from 'src/shared/constants/permissions';
 import { APP_CONFIG } from 'src/shared/config/app.config';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { FileService } from 'src/shared/services/file.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { hasAdminRole } from 'src/shared/utils/permission.utils';
-import {
-  publishAttachmentEvent,
-  publishNotificationEvent,
-} from 'src/shared/utils/event.utils';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
 
 interface ProjectPermissionContext {
@@ -152,11 +147,6 @@ export class ProjectAttachmentService {
       });
 
       const response = this.toDto(createdLink);
-      this.publishEvent(KAFKA_TOPIC.PROJECT_ATTACHMENT_ADDED, response);
-      this.publishNotification(
-        KAFKA_TOPIC.PROJECT_LINK_CREATED,
-        this.buildAttachmentNotificationPayload(response, user),
-      );
       return response;
     }
 
@@ -198,12 +188,6 @@ export class ProjectAttachmentService {
     const response = this.toDto(createdFileAttachment, {
       downloadUrl,
     });
-
-    this.publishEvent(KAFKA_TOPIC.PROJECT_ATTACHMENT_ADDED, response);
-    this.publishNotification(
-      KAFKA_TOPIC.PROJECT_FILE_UPLOADED,
-      this.buildAttachmentNotificationPayload(response, user),
-    );
 
     const shouldTransfer =
       process.env.NODE_ENV !== 'development' || APP_CONFIG.enableFileUpload;
@@ -291,11 +275,6 @@ export class ProjectAttachmentService {
     });
 
     const response = this.toDto(updatedAttachment);
-    this.publishEvent(KAFKA_TOPIC.PROJECT_ATTACHMENT_UPDATED, response);
-    this.publishNotification(
-      KAFKA_TOPIC.PROJECT_ATTACHMENT_UPDATED_NOTIFICATION,
-      this.buildAttachmentNotificationPayload(response, user),
-    );
 
     return response;
   }
@@ -330,7 +309,7 @@ export class ProjectAttachmentService {
       );
     }
 
-    const deletedAttachment = await this.prisma.projectAttachment.update({
+    await this.prisma.projectAttachment.update({
       where: {
         id: parsedAttachmentId,
       },
@@ -340,11 +319,6 @@ export class ProjectAttachmentService {
         updatedBy: auditUserId,
       },
     });
-
-    this.publishEvent(
-      KAFKA_TOPIC.PROJECT_ATTACHMENT_REMOVED,
-      this.toDto(deletedAttachment),
-    );
 
     const shouldDeleteFile =
       attachment.type === AttachmentType.file &&
@@ -516,50 +490,5 @@ export class ProjectAttachmentService {
     }
 
     return userId;
-  }
-
-  private publishEvent(topic: string, payload: unknown): void {
-    void publishAttachmentEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish attachment event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishNotification(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish attachment notification topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private buildAttachmentNotificationPayload(
-    attachment: AttachmentResponseDto,
-    user: JwtUser,
-  ): Record<string, unknown> {
-    const userId = this.getNotificationUserId(user);
-
-    return {
-      projectId: attachment.projectId,
-      attachmentId: attachment.id,
-      type: attachment.type,
-      title: attachment.title,
-      path: attachment.path,
-      userId,
-      initiatorUserId: userId,
-    };
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
   }
 }
