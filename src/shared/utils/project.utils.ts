@@ -8,7 +8,6 @@ export interface ParsedProjectFields {
   project_members: boolean;
   project_member_invites: boolean;
   attachments: boolean;
-  project_phases: boolean;
   raw: string[];
 }
 
@@ -17,7 +16,6 @@ const DEFAULT_FIELDS: ParsedProjectFields = {
   project_members: true,
   project_member_invites: true,
   attachments: true,
-  project_phases: false,
   raw: [],
 };
 
@@ -144,8 +142,6 @@ export function parseFieldsParameter(fields?: string): ParsedProjectFields {
       tokens.has('invites') ||
       tokens.has('all'),
     attachments: tokens.has('attachments') || tokens.has('all'),
-    project_phases:
-      tokens.has('project_phases') || tokens.has('phases') || tokens.has('all'),
     raw: parsed,
   };
 }
@@ -354,24 +350,6 @@ export function buildProjectIncludeClause(
       },
       orderBy: {
         id: 'asc',
-      },
-    };
-  }
-
-  if (fields.project_phases) {
-    include.phases = {
-      where: {
-        deletedAt: null,
-      },
-      include: {
-        products: {
-          where: {
-            deletedAt: null,
-          },
-        },
-      },
-      orderBy: {
-        order: 'asc',
       },
     };
   }

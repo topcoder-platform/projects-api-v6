@@ -58,8 +58,7 @@ export class ProjectListQueryDto extends PaginationDto {
   sort?: string;
 
   @ApiPropertyOptional({
-    description:
-      'CSV fields list. Supported: members, invites, attachments, phases',
+    description: 'CSV fields list. Supported: members, invites, attachments',
   })
   @IsOptional()
   @IsString()
@@ -136,8 +135,7 @@ export class ProjectListQueryDto extends PaginationDto {
 
 export class GetProjectQueryDto {
   @ApiPropertyOptional({
-    description:
-      'CSV fields list. Supported: members, invites, attachments, phases',
+    description: 'CSV fields list. Supported: members, invites, attachments',
   })
   @IsOptional()
   @IsString()

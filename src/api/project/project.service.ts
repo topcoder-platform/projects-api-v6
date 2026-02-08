@@ -12,7 +12,6 @@ import {
   ProjectMember,
   ProjectMemberInvite,
   ProjectMemberRole,
-  ProjectPhase,
   ProjectStatus,
 } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
@@ -50,7 +49,6 @@ type ProjectWithRawRelations = Project & {
   members?: ProjectMember[];
   invites?: ProjectMemberInvite[];
   attachments?: ProjectAttachment[];
-  phases?: ProjectPhase[];
 };
 
 @Injectable()
@@ -401,7 +399,7 @@ export class ProjectService {
         deletedAt: null,
       },
       include: buildProjectIncludeClause(
-        parseFieldsParameter('members,invites,attachments,phases'),
+        parseFieldsParameter('members,invites,attachments'),
       ),
     });
 
@@ -580,7 +578,7 @@ export class ProjectService {
         deletedAt: null,
       },
       include: buildProjectIncludeClause(
-        parseFieldsParameter('members,invites,attachments,phases'),
+        parseFieldsParameter('members,invites,attachments'),
       ),
     });
 
@@ -904,10 +902,6 @@ export class ProjectService {
 
     if (!fields.attachments) {
       delete clone.attachments;
-    }
-
-    if (!fields.project_phases) {
-      delete clone.phases;
     }
 
     return clone;

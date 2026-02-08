@@ -91,35 +91,6 @@ export class ProjectAttachmentDto {
   updatedAt: Date;
 }
 
-export class ProjectPhaseDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  projectId: string;
-
-  @ApiPropertyOptional()
-  name?: string | null;
-
-  @ApiPropertyOptional()
-  description?: string | null;
-
-  @ApiPropertyOptional({
-    enum: ProjectStatus,
-    enumName: 'ProjectStatus',
-  })
-  status?: ProjectStatus | null;
-
-  @ApiPropertyOptional()
-  order?: number | null;
-
-  @ApiProperty()
-  createdAt: Date;
-
-  @ApiProperty()
-  updatedAt: Date;
-}
-
 export class ProjectResponseDto {
   @ApiProperty()
   id: string;
@@ -215,7 +186,4 @@ export class ProjectWithRelationsDto extends ProjectResponseDto {
 
   @ApiPropertyOptional({ type: () => [ProjectAttachmentDto] })
   attachments?: ProjectAttachmentDto[];
-
-  @ApiPropertyOptional({ type: () => [ProjectPhaseDto] })
-  phases?: ProjectPhaseDto[];
 }

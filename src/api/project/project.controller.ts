@@ -159,8 +159,7 @@ export class ProjectController {
     name: 'fields',
     required: false,
     type: String,
-    description:
-      'CSV fields list. Supported: members, invites, attachments, phases',
+    description: 'CSV fields list. Supported: members, invites, attachments',
   })
   @ApiResponse({
     status: 200,
