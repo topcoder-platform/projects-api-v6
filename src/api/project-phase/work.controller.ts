@@ -1,0 +1,275 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { WorkStreamService } from 'src/api/workstream/workstream.service';
+import { Permission } from 'src/shared/constants/permissions';
+import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
+import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
+import { Scopes } from 'src/shared/decorators/scopes.decorator';
+import { Scope } from 'src/shared/enums/scopes.enum';
+import { UserRole } from 'src/shared/enums/userRole.enum';
+import { PermissionGuard } from 'src/shared/guards/permission.guard';
+import { Roles } from 'src/shared/guards/tokenRoles.guard';
+import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { CreatePhaseDto } from './dto/create-phase.dto';
+import { PhaseListQueryDto } from './dto/phase-list-query.dto';
+import { PhaseResponseDto } from './dto/phase-response.dto';
+import { UpdatePhaseDto } from './dto/update-phase.dto';
+import { ProjectPhaseService } from './project-phase.service';
+
+const WORK_ALLOWED_ROLES = [
+  UserRole.TOPCODER_ADMIN,
+  UserRole.CONNECT_ADMIN,
+  UserRole.TG_ADMIN,
+  UserRole.MANAGER,
+  UserRole.COPILOT,
+  UserRole.TC_COPILOT,
+  UserRole.COPILOT_MANAGER,
+];
+
+@ApiTags('Work')
+@ApiBearerAuth()
+@Controller('/projects/:projectId/workstreams/:workStreamId/works')
+export class WorkController {
+  constructor(
+    private readonly projectPhaseService: ProjectPhaseService,
+    private readonly workStreamService: WorkStreamService,
+  ) {}
+
+  @Get()
+  @UseGuards(PermissionGuard)
+  @Roles(...WORK_ALLOWED_ROLES)
+  @Scopes(
+    Scope.PROJECTS_READ,
+    Scope.PROJECTS_WRITE,
+    Scope.PROJECTS_ALL,
+    Scope.CONNECT_PROJECT_ADMIN,
+  )
+  @RequirePermission(Permission.WORK_VIEW)
+  @ApiOperation({
+    summary: 'List works',
+    description:
+      'Lists works inside a work stream. Work is implemented as a project phase linked through phase_work_streams.',
+  })
+  @ApiParam({ name: 'projectId', required: true, description: 'Project id' })
+  @ApiParam({
+    name: 'workStreamId',
+    required: true,
+    description: 'Work stream id',
+  })
+  @ApiQuery({ name: 'fields', required: false, type: String })
+  @ApiQuery({ name: 'sort', required: false, type: String })
+  @ApiQuery({ name: 'memberOnly', required: false, type: Boolean })
+  @ApiResponse({ status: 200, type: [PhaseResponseDto] })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Not Found' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async listWorks(
+    @Param('projectId') projectId: string,
+    @Param('workStreamId') workStreamId: string,
+    @Query() query: PhaseListQueryDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<PhaseResponseDto[]> {
+    await this.workStreamService.ensureWorkStreamExists(
+      projectId,
+      workStreamId,
+    );
+    const linkedPhaseIds = await this.workStreamService.listLinkedPhaseIds(
+      projectId,
+      workStreamId,
+    );
+
+    if (linkedPhaseIds.length === 0) {
+      return [];
+    }
+
+    return this.projectPhaseService.listPhases(projectId, query, user, {
+      phaseIds: linkedPhaseIds,
+    });
+  }
+
+  @Get(':id')
+  @UseGuards(PermissionGuard)
+  @Roles(...WORK_ALLOWED_ROLES)
+  @Scopes(
+    Scope.PROJECTS_READ,
+    Scope.PROJECTS_WRITE,
+    Scope.PROJECTS_ALL,
+    Scope.CONNECT_PROJECT_ADMIN,
+  )
+  @RequirePermission(Permission.WORK_VIEW)
+  @ApiOperation({
+    summary: 'Get work',
+    description:
+      'Returns one work by id. Work is implemented as a project phase linked to the work stream.',
+  })
+  @ApiParam({ name: 'projectId', required: true, description: 'Project id' })
+  @ApiParam({
+    name: 'workStreamId',
+    required: true,
+    description: 'Work stream id',
+  })
+  @ApiParam({ name: 'id', required: true, description: 'Work id' })
+  @ApiResponse({ status: 200, type: PhaseResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Not Found' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async getWork(
+    @Param('projectId') projectId: string,
+    @Param('workStreamId') workStreamId: string,
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<PhaseResponseDto> {
+    await this.workStreamService.ensurePhaseLinkedToWorkStream(
+      projectId,
+      workStreamId,
+      id,
+    );
+
+    return this.projectPhaseService.getPhase(projectId, id, user);
+  }
+
+  @Post()
+  @UseGuards(PermissionGuard)
+  @Roles(...WORK_ALLOWED_ROLES)
+  @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
+  @RequirePermission(Permission.WORK_CREATE)
+  @ApiOperation({
+    summary: 'Create work',
+    description:
+      'Creates a work (project phase) and links it to the work stream via phase_work_streams.',
+  })
+  @ApiParam({ name: 'projectId', required: true, description: 'Project id' })
+  @ApiParam({
+    name: 'workStreamId',
+    required: true,
+    description: 'Work stream id',
+  })
+  @ApiBody({ type: CreatePhaseDto })
+  @ApiResponse({ status: 201, type: PhaseResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Not Found' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async createWork(
+    @Param('projectId') projectId: string,
+    @Param('workStreamId') workStreamId: string,
+    @Body() dto: CreatePhaseDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<PhaseResponseDto> {
+    await this.workStreamService.ensureWorkStreamExists(
+      projectId,
+      workStreamId,
+    );
+    const created = await this.projectPhaseService.createPhase(
+      projectId,
+      dto,
+      user,
+    );
+
+    await this.workStreamService.createLink(workStreamId, created.id);
+
+    return created;
+  }
+
+  @Patch(':id')
+  @UseGuards(PermissionGuard)
+  @Roles(...WORK_ALLOWED_ROLES)
+  @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
+  @RequirePermission(Permission.WORK_EDIT)
+  @ApiOperation({
+    summary: 'Update work',
+    description:
+      'Updates a work (project phase) after validating the work stream linkage.',
+  })
+  @ApiParam({ name: 'projectId', required: true, description: 'Project id' })
+  @ApiParam({
+    name: 'workStreamId',
+    required: true,
+    description: 'Work stream id',
+  })
+  @ApiParam({ name: 'id', required: true, description: 'Work id' })
+  @ApiBody({ type: UpdatePhaseDto })
+  @ApiResponse({ status: 200, type: PhaseResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Not Found' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async updateWork(
+    @Param('projectId') projectId: string,
+    @Param('workStreamId') workStreamId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdatePhaseDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<PhaseResponseDto> {
+    await this.workStreamService.ensurePhaseLinkedToWorkStream(
+      projectId,
+      workStreamId,
+      id,
+    );
+
+    return this.projectPhaseService.updatePhase(projectId, id, dto, user);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @UseGuards(PermissionGuard)
+  @Roles(...WORK_ALLOWED_ROLES)
+  @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
+  @RequirePermission(Permission.WORK_DELETE)
+  @ApiOperation({
+    summary: 'Delete work',
+    description:
+      'Soft deletes a work (project phase) after validating work stream linkage.',
+  })
+  @ApiParam({ name: 'projectId', required: true, description: 'Project id' })
+  @ApiParam({
+    name: 'workStreamId',
+    required: true,
+    description: 'Work stream id',
+  })
+  @ApiParam({ name: 'id', required: true, description: 'Work id' })
+  @ApiResponse({ status: 204, description: 'Deleted' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Not Found' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async deleteWork(
+    @Param('projectId') projectId: string,
+    @Param('workStreamId') workStreamId: string,
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<void> {
+    await this.workStreamService.ensurePhaseLinkedToWorkStream(
+      projectId,
+      workStreamId,
+      id,
+    );
+    await this.projectPhaseService.deletePhase(projectId, id, user);
+  }
+}

@@ -1,0 +1,136 @@
+version: 2.1
+
+parameters:
+  reset-db:
+    type: boolean
+    default: false
+
+defaults: &defaults
+  docker:
+    - image: cimg/python:3.13.2-browsers
+
+node_defaults: &node_defaults
+  docker:
+    - image: cimg/node:22.13
+
+install_dependency: &install_dependency
+  name: Installation of build and deployment dependencies.
+  command: |
+    sudo apt update
+    sudo apt install -y jq python3-pip
+    sudo pip3 install awscli --upgrade
+
+install_deploysuite: &install_deploysuite
+  name: Installation of deploy suite.
+  command: |
+    git clone --branch v1.4.19 https://github.com/topcoder-platform/tc-deploy-scripts ../buildscript
+    cp ./../buildscript/master_deploy.sh .
+    cp ./../buildscript/buildenv.sh .
+    cp ./../buildscript/awsconfiguration.sh .
+    cp ./../buildscript/psvar-processor.sh .
+
+builddeploy_steps: &builddeploy_steps
+  - checkout
+  - setup_remote_docker
+  - run: *install_dependency
+  - run: *install_deploysuite
+  - run: docker buildx build --no-cache=true --build-arg RESET_DB_ARG=<<pipeline.parameters.reset-db>> --build-arg SEED_DATA_ARG=${DEPLOYMENT_ENVIRONMENT} -t ${APPNAME}:latest .
+  - run:
+      name: Running MasterScript.
+      command: |
+        ./awsconfiguration.sh $DEPLOY_ENV
+        source awsenvconf
+        ./psvar-processor.sh -t appenv -p /config/${APPNAME}/deployvar
+        source deployvar_env
+        ./master_deploy.sh -d ECS -e $DEPLOY_ENV -t latest -j /config/${APPNAME}/appvar,/config/common/global-appvar -i ${APPNAME} -p FARGATE
+
+jobs:
+  build-dev:
+    <<: *defaults
+    environment:
+      DEPLOY_ENV: "DEV"
+      LOGICAL_ENV: "dev"
+      APPNAME: "project-service-v6"
+      DEPLOYMENT_ENVIRONMENT: "dev"
+    steps: *builddeploy_steps
+
+  build-prod:
+    <<: *defaults
+    environment:
+      DEPLOY_ENV: "PROD"
+      LOGICAL_ENV: "prod"
+      APPNAME: "project-service-v6"
+      DEPLOYMENT_ENVIRONMENT: "prod"
+    steps: *builddeploy_steps
+
+  deployment-validation-dev:
+    <<: *node_defaults
+    environment:
+      DEPLOYMENT_VALIDATION_ENABLED: "true"
+      DEPLOYMENT_SMOKE_ENABLED: "false"
+      V6_BASE_URL: "${DEPLOYMENT_VALIDATION_DEV_BASE_URL}"
+    steps:
+      - checkout
+      - run:
+          name: Enable pnpm
+          command: corepack enable
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
+      - run:
+          name: Run deployment validation tests
+          command: pnpm test:deployment
+
+  deployment-validation-prod:
+    <<: *node_defaults
+    environment:
+      DEPLOYMENT_VALIDATION_ENABLED: "true"
+      DEPLOYMENT_SMOKE_ENABLED: "false"
+      V6_BASE_URL: "${DEPLOYMENT_VALIDATION_PROD_BASE_URL}"
+    steps:
+      - checkout
+      - run:
+          name: Enable pnpm
+          command: corepack enable
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
+      - run:
+          name: Run deployment validation tests
+          command: pnpm test:deployment
+
+workflows:
+  version: 2
+  build-dev:
+    jobs:
+      - build-dev:
+          context: org-global
+          filters:
+            branches:
+              only:
+                - develop
+      - deployment-validation-dev:
+          context: org-global
+          requires:
+            - build-dev
+          filters:
+            branches:
+              only:
+                - develop
+
+  build-prod:
+    jobs:
+      - build-prod:
+          context: org-global
+          filters:
+            branches:
+              only:
+                - master
+      - deployment-validation-prod:
+          context: org-global
+          requires:
+            - build-prod
+          filters:
+            branches:
+              only:
+                - master

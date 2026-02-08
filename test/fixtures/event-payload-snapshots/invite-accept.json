@@ -1,0 +1,41 @@
+[
+  {
+    "topic": "project.member.invite.updated",
+    "originator": "project-service-v6",
+    "payload": {
+      "resource": "project.member.invite",
+      "data": {
+        "id": "7001",
+        "projectId": "1001",
+        "status": "accepted",
+        "role": "copilot",
+        "userId": "2001"
+      }
+    }
+  },
+  {
+    "topic": "project.member.added",
+    "originator": "project-service-v6",
+    "payload": {
+      "resource": "project.member",
+      "data": {
+        "id": "5002",
+        "projectId": "1001",
+        "role": "copilot",
+        "userId": "2001"
+      }
+    }
+  },
+  {
+    "topic": "connect.notification.project.member.invite.accepted",
+    "originator": "project-service-v6",
+    "payload": {
+      "projectId": "1001",
+      "userId": "2001",
+      "initiatorUserId": "1001",
+      "inviteId": "7001",
+      "memberId": "5002",
+      "role": "copilot"
+    }
+  }
+]

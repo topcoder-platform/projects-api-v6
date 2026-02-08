@@ -1,0 +1,85 @@
+[
+  {
+    "topic": "project.phase.updated",
+    "originator": "project-service-v6",
+    "payload": {
+      "resource": "project.phase",
+      "data": {
+        "id": "5001",
+        "projectId": "1001",
+        "status": "completed",
+        "name": "Discovery"
+      }
+    }
+  },
+  {
+    "topic": "project.work.updated",
+    "originator": "project-service-v6",
+    "payload": {
+      "resource": "project.work",
+      "data": {
+        "id": "5001",
+        "projectId": "1001",
+        "status": "completed",
+        "name": "Discovery"
+      }
+    }
+  },
+  {
+    "topic": "connect.notification.project.phase.transition.completed",
+    "originator": "project-service-v6",
+    "payload": {
+      "projectId": "1001",
+      "userId": "1001",
+      "initiatorUserId": "1001",
+      "originalPhase": {
+        "id": "5001",
+        "projectId": "1001",
+        "status": "active",
+        "name": "Discovery"
+      },
+      "updatedPhase": {
+        "id": "5001",
+        "projectId": "1001",
+        "status": "completed",
+        "name": "Discovery"
+      }
+    }
+  },
+  {
+    "topic": "connect.notification.project.work.transition.completed",
+    "originator": "project-service-v6",
+    "payload": {
+      "projectId": "1001",
+      "userId": "1001",
+      "initiatorUserId": "1001",
+      "originalPhase": {
+        "id": "5001",
+        "projectId": "1001",
+        "status": "active",
+        "name": "Discovery"
+      },
+      "updatedPhase": {
+        "id": "5001",
+        "projectId": "1001",
+        "status": "completed",
+        "name": "Discovery"
+      }
+    }
+  },
+  {
+    "topic": "connect.notification.project.plan.updated",
+    "originator": "project-service-v6",
+    "payload": {
+      "projectId": "1001",
+      "userId": "1001",
+      "initiatorUserId": "1001",
+      "phase": {
+        "id": "5001",
+        "projectId": "1001",
+        "status": "completed",
+        "name": "Discovery"
+      }
+    }
+  }
+]

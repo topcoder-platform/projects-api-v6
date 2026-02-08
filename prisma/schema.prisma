@@ -1,0 +1,1054 @@
+/// Prisma schema for tc-project-service data model.
+///
+/// Notes:
+/// - All primary/foreign identifiers use BigInt to mirror BIGINT columns.
+/// - Most models use soft-delete fields (`deletedAt`, `deletedBy`) plus audit fields.
+/// - `createdBy`/`updatedBy` store Topcoder user ids and are Int or BigInt by table.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  draft
+  in_review
+  reviewed
+  active
+  completed
+  paused
+  cancelled
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  refused
+  requested
+  request_rejected
+  request_approved
+  canceled
+}
+
+enum WorkStreamStatus {
+  draft
+  reviewed
+  active
+  completed
+  paused
+}
+
+enum CopilotRequestStatus {
+  new
+  approved
+  rejected
+  seeking
+  canceled
+  fulfilled
+}
+
+enum CopilotApplicationStatus {
+  pending
+  invited
+  accepted
+  canceled
+}
+
+enum CopilotOpportunityStatus {
+  active
+  completed
+  canceled
+}
+
+enum CopilotOpportunityType {
+  dev
+  qa
+  design
+  ai
+  datascience
+}
+
+enum ScopeChangeRequestStatus {
+  pending
+  approved
+  rejected
+  activated
+  canceled
+}
+
+enum CustomerPaymentStatus {
+  canceled
+  processing
+  requires_action
+  requires_capture
+  requires_confirmation
+  requires_payment_method
+  succeeded
+  refunded
+  refund_failed
+  refund_pending
+}
+
+enum ProjectMemberRole {
+  manager
+  observer
+  customer
+  copilot
+  account_manager
+  program_manager
+  account_executive
+  solution_architect
+  project_manager
+}
+
+enum AttachmentType {
+  file
+  link
+}
+
+enum EstimationType {
+  fee
+  community
+  topcoder_service
+}
+
+enum ValueType {
+  int
+  double
+  string
+  percentage
+}
+
+enum TimelineReference {
+  project
+  phase
+  product
+  work
+}
+
+enum PhaseApprovalDecision {
+  approve
+  reject
+}
+
+enum CustomerPaymentCurrency {
+  USD
+  AED
+  AFN
+  ALL
+  AMD
+  ANG
+  AOA
+  ARS
+  AUD
+  AWG
+  AZN
+  BAM
+  BBD
+  BDT
+  BGN
+  BIF
+  BMD
+  BND
+  BOB
+  BRL
+  BSD
+  BWP
+  BYN
+  BZD
+  CAD
+  CDF
+  CHF
+  CLP
+  CNY
+  COP
+  CRC
+  CVE
+  CZK
+  DJF
+  DKK
+  DOP
+  DZD
+  EGP
+  ETB
+  EUR
+  FJD
+  FKP
+  GBP
+  GEL
+  GIP
+  GMD
+  GNF
+  GTQ
+  GYD
+  HKD
+  HNL
+  HRK
+  HTG
+  HUF
+  IDR
+  ILS
+  INR
+  ISK
+  JMD
+  JPY
+  KES
+  KGS
+  KHR
+  KMF
+  KRW
+  KYD
+  KZT
+  LAK
+  LBP
+  LKR
+  LRD
+  LSL
+  MAD
+  MDL
+  MGA
+  MKD
+  MMK
+  MNT
+  MOP
+  MRO
+  MUR
+  MVR
+  MWK
+  MXN
+  MYR
+  MZN
+  NAD
+  NGN
+  NIO
+  NOK
+  NPR
+  NZD
+  PAB
+  PEN
+  PGK
+  PHP
+  PKR
+  PLN
+  PYG
+  QAR
+  RON
+  RSD
+  RUB
+  RWF
+  SAR
+  SBD
+  SCR
+  SEK
+  SGD
+  SHP
+  SLL
+  SOS
+  SRD
+  STD
+  SZL
+  THB
+  TJS
+  TOP
+  TRY
+  TTD
+  TWD
+  TZS
+  UAH
+  UGX
+  UYU
+  UZS
+  VND
+  VUV
+  WST
+  XAF
+  XCD
+  XOF
+  XPF
+  YER
+  ZAR
+  ZMW
+}
+
+/// Core project entity.
+/// `external`, `bookmarks`, `utm`, `details`, and `challengeEligibility` store flexible metadata.
+model Project {
+  id                   BigInt        @id @default(autoincrement())
+  directProjectId      BigInt?
+  billingAccountId     BigInt?
+  name                 String
+  description          String?       @db.Text
+  external             Json?
+  bookmarks            Json?
+  utm                  Json?
+  estimatedPrice       Decimal?      @db.Decimal(10, 2)
+  actualPrice          Decimal?      @db.Decimal(10, 2)
+  terms                String[]      @default([])
+  groups               String[]      @default([])
+  type                 String
+  status               ProjectStatus
+  details              Json?
+  challengeEligibility Json?
+  cancelReason         String?
+  templateId           BigInt?
+  version              String        @default("v3") @db.VarChar(3)
+  lastActivityAt       DateTime
+  lastActivityUserId   String
+  deletedAt            DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedBy            BigInt?
+  createdBy            Int
+  updatedBy            Int
+
+  members              ProjectMember[]
+  attachments          ProjectAttachment[]
+  phases               ProjectPhase[]
+  invites              ProjectMemberInvite[]
+  scopeChangeRequests  ScopeChangeRequest[]
+  workStreams          WorkStream[]
+  copilotRequests      CopilotRequest[]
+  copilotOpportunities CopilotOpportunity[]
+  settings             ProjectSetting[]
+  estimations          ProjectEstimation[]
+  history              ProjectHistory[]
+
+  @@index([createdAt])
+  @@index([name])
+  @@index([type])
+  @@index([status])
+  @@index([directProjectId])
+  @@map("projects")
+}
+
+/// Project members and roles.
+model ProjectMember {
+  id        BigInt            @id @default(autoincrement())
+  projectId BigInt
+  userId    BigInt
+  role      ProjectMemberRole
+  isPrimary Boolean           @default(false)
+  deletedAt DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  deletedBy BigInt?
+  createdBy Int
+  updatedBy Int
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([deletedAt])
+  @@index([userId])
+  @@index([role])
+  @@index([projectId])
+  @@map("project_members")
+}
+
+/// Invitations for joining a project and/or copilot workflow.
+model ProjectMemberInvite {
+  id            BigInt            @id @default(autoincrement())
+  projectId     BigInt
+  userId        BigInt?
+  email         String?
+  applicationId BigInt?
+  role          ProjectMemberRole
+  status        InviteStatus
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+  createdBy     Int
+  updatedBy     Int
+  deletedBy     BigInt?
+
+  project     Project             @relation(fields: [projectId], references: [id])
+  application CopilotApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("project_member_invites")
+}
+
+/// Project phases.
+model ProjectPhase {
+  id           BigInt    @id @default(autoincrement())
+  projectId    BigInt
+  name         String?
+  description  String?
+  requirements String?
+  status       ProjectStatus?
+  startDate    DateTime?
+  endDate      DateTime?
+  duration     Int?
+  budget       Float     @default(0)
+  spentBudget  Float     @default(0)
+  progress     Float     @default(0)
+  details      Json      @default("{}")
+  order        Int?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedBy    Int?
+  createdBy    Int
+  updatedBy    Int
+
+  project          Project                @relation(fields: [projectId], references: [id])
+  products         PhaseProduct[]
+  members          ProjectPhaseMember[]
+  approvals        ProjectPhaseApproval[]
+  phaseWorkStreams PhaseWorkStream[]
+
+  @@index([projectId])
+  @@map("project_phases")
+}
+
+/// Products inside a phase.
+model PhaseProduct {
+  id               BigInt    @id @default(autoincrement())
+  phaseId          BigInt
+  projectId        BigInt
+  directProjectId  BigInt?
+  billingAccountId BigInt?
+  templateId       BigInt    @default(0)
+  name             String?
+  type             String?
+  estimatedPrice   Float     @default(0)
+  actualPrice      Float     @default(0)
+  details          Json      @default("{}")
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedBy        Int?
+  createdBy        Int
+  updatedBy        Int
+
+  phase ProjectPhase @relation(fields: [phaseId], references: [id])
+
+  @@index([phaseId])
+  @@index([projectId])
+  @@map("phase_products")
+}
+
+/// Assignment of users to phases.
+model ProjectPhaseMember {
+  id        BigInt    @id @default(autoincrement())
+  phaseId   BigInt
+  userId    BigInt
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedBy Int?
+  createdBy Int
+  updatedBy Int
+
+  phase ProjectPhase @relation(fields: [phaseId], references: [id])
+
+  @@unique([phaseId, userId])
+  @@index([phaseId])
+  @@map("project_phase_member")
+}
+
+/// Phase approval decisions.
+model ProjectPhaseApproval {
+  id              BigInt                @id @default(autoincrement())
+  phaseId         BigInt
+  decision        PhaseApprovalDecision
+  comment         String?
+  startDate       DateTime
+  endDate         DateTime?
+  expectedEndDate DateTime
+  deletedAt       DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedBy       Int?
+  createdBy       Int
+  updatedBy       Int
+
+  phase ProjectPhase @relation(fields: [phaseId], references: [id])
+
+  @@index([phaseId])
+  @@map("project_phase_approval")
+}
+
+/// File/link attachments for a project.
+model ProjectAttachment {
+  id           BigInt         @id @default(autoincrement())
+  projectId    BigInt
+  title        String?
+  type         AttachmentType
+  tags         String[]        @default([])
+  size         Int?
+  category     String?
+  description  String?
+  path         String         @db.VarChar(2048)
+  contentType  String?
+  allowedUsers Int[]           @default([])
+  deletedAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedBy    BigInt?
+  createdBy    Int
+  updatedBy    Int
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@map("project_attachments")
+}
+
+/// Timelines are reusable schedule containers for project/phase/product/work references.
+model Timeline {
+  id          BigInt            @id @default(autoincrement())
+  name        String            @db.VarChar(255)
+  description String?           @db.VarChar(255)
+  startDate   DateTime
+  endDate     DateTime?
+  reference   TimelineReference
+  referenceId BigInt
+  deletedAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedBy   BigInt?
+  createdBy   BigInt
+  updatedBy   BigInt
+
+  milestones Milestone[]
+
+  @@index([reference, referenceId])
+  @@map("timelines")
+}
+
+/// Milestones belong to a timeline and capture schedule/progress text for each phase of execution.
+model Milestone {
+  id              BigInt        @id @default(autoincrement())
+  timelineId      BigInt
+  name            String        @db.VarChar(255)
+  description     String?       @db.VarChar(255)
+  duration        Int
+  startDate       DateTime
+  actualStartDate DateTime?
+  endDate         DateTime?
+  completionDate  DateTime?
+  status          ProjectStatus
+  type            String        @db.VarChar(45)
+  details         Json?
+  order           Int
+  plannedText     String?       @db.VarChar(512)
+  activeText      String?       @db.VarChar(512)
+  completedText   String?       @db.VarChar(512)
+  blockedText     String?       @db.VarChar(512)
+  hidden          Boolean       @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedBy       BigInt?
+  createdBy       BigInt
+  updatedBy       BigInt
+
+  timeline      Timeline        @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  statusHistory StatusHistory[] @relation("MilestoneStatusHistory")
+
+  @@index([timelineId])
+  @@index([status])
+  @@map("milestones")
+}
+
+/// Status transitions history for tracked references (currently milestone).
+model StatusHistory {
+  id          BigInt        @id @default(autoincrement())
+  reference   String
+  referenceId BigInt
+  status      ProjectStatus
+  comment     String?       @db.Text
+  createdBy   Int
+  createdAt   DateTime      @default(now())
+  updatedBy   Int
+  updatedAt   DateTime      @updatedAt
+
+  milestone Milestone? @relation("MilestoneStatusHistory", fields: [referenceId], references: [id])
+
+  @@index([reference, referenceId])
+  @@map("status_history")
+}
+
+/// Project template metadata, including JSON blocks that define scope/phases/forms/config references.
+model ProjectTemplate {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @db.VarChar(255)
+  key         String    @db.VarChar(45)
+  category    String    @db.VarChar(45)
+  subCategory String?   @db.VarChar(45)
+  metadata    Json      @default("{}")
+  icon        String    @db.VarChar(255)
+  question    String    @db.VarChar(255)
+  info        String    @db.VarChar(1024)
+  aliases     Json
+  scope       Json?
+  phases      Json?
+  form        Json?
+  planConfig  Json?
+  priceConfig Json?
+  disabled    Boolean   @default(false)
+  hidden      Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedBy   BigInt?
+  createdBy   BigInt
+  updatedBy   BigInt
+
+  workManagementPermissions WorkManagementPermission[]
+
+  @@index([key])
+  @@index([category])
+  @@map("project_templates")
+}
+
+/// Product templates used in phase product setup.
+model ProductTemplate {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @db.VarChar(255)
+  productKey  String    @db.VarChar(45)
+  category    String    @db.VarChar(45)
+  subCategory String    @db.VarChar(45)
+  icon        String    @db.VarChar(255)
+  brief       String    @db.VarChar(45)
+  details     String    @db.VarChar(255)
+  aliases     Json
+  template    Json?
+  form        Json?
+  deletedAt   DateTime?
+  disabled    Boolean   @default(false)
+  hidden      Boolean   @default(false)
+  isAddOn     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedBy   BigInt?
+  createdBy   BigInt
+  updatedBy   BigInt
+
+  @@index([productKey])
+  @@index([category])
+  @@map("product_templates")
+}
+
+/// Default milestone definitions for template-driven generation.
+model MilestoneTemplate {
+  id            BigInt    @id @default(autoincrement())
+  name          String    @db.VarChar(255)
+  description   String?   @db.VarChar(255)
+  duration      Int
+  type          String    @db.VarChar(45)
+  order         Int
+  plannedText   String    @db.VarChar(512)
+  activeText    String    @db.VarChar(512)
+  completedText String    @db.VarChar(512)
+  blockedText   String    @db.VarChar(512)
+  hidden        Boolean   @default(false)
+  reference     String    @db.VarChar(45)
+  referenceId   BigInt
+  metadata      Json      @default("{}")
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedBy     BigInt?
+  createdBy     BigInt
+  updatedBy     BigInt
+
+  @@index([reference, referenceId])
+  @@map("milestone_templates")
+}
+
+/// Project-type taxonomy metadata.
+model ProjectType {
+  key         String    @id @db.VarChar(45)
+  displayName String    @db.VarChar(255)
+  icon        String    @db.VarChar(255)
+  question    String    @db.VarChar(255)
+  info        String    @db.VarChar(1024)
+  aliases     Json
+  disabled    Boolean   @default(false)
+  hidden      Boolean   @default(false)
+  metadata    Json
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedBy   Int?
+  createdBy   Int
+  updatedBy   Int
+
+  @@map("project_types")
+}
+
+/// Product-category taxonomy metadata.
+model ProductCategory {
+  key         String    @id @db.VarChar(45)
+  displayName String    @db.VarChar(255)
+  icon        String    @db.VarChar(255)
+  question    String    @db.VarChar(255)
+  info        String    @db.VarChar(1024)
+  aliases     Json
+  disabled    Boolean   @default(false)
+  hidden      Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedBy   Int?
+  createdBy   Int
+  updatedBy   Int
+
+  @@map("product_categories")
+}
+
+/// Organization-scoped project configuration.
+model OrgConfig {
+  id          BigInt    @id @default(autoincrement())
+  orgId       String    @db.VarChar(45)
+  configName  String    @db.VarChar(45)
+  configValue String?   @db.VarChar(512)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedBy   BigInt?
+  createdBy   BigInt
+  updatedBy   BigInt
+
+  @@map("org_config")
+}
+
+/// Versioned form config.
+/// Versioning pattern: (`key`, `version`, `revision`) unique; newest revision is authoritative within a version.
+model Form {
+  id        BigInt    @id @default(autoincrement())
+  key       String    @db.VarChar(45)
+  version   BigInt    @default(1)
+  revision  BigInt    @default(1)
+  config    Json
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedBy Int?
+  createdBy Int
+  updatedBy Int
+
+  @@unique([key, version, revision])
+  @@index([key])
+  @@map("form")
+}
+
+/// Versioned plan config.
+model PlanConfig {
+  id        BigInt    @id @default(autoincrement())
+  key       String    @db.VarChar(45)
+  version   BigInt    @default(1)
+  revision  BigInt    @default(1)
+  config    Json
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedBy Int?
+  createdBy Int
+  updatedBy Int
+
+  @@unique([key, version, revision])
+  @@index([key])
+  @@map("plan_config")
+}
+
+/// Versioned price config.
+model PriceConfig {
+  id        BigInt    @id @default(autoincrement())
+  key       String    @db.VarChar(45)
+  version   BigInt    @default(1)
+  revision  BigInt    @default(1)
+  config    Json
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedBy Int?
+  createdBy Int
+  updatedBy Int
+
+  @@unique([key, version, revision])
+  @@index([key])
+  @@map("price_config")
+}
+
+/// Work stream under a project.
+model WorkStream {
+  id        BigInt           @id @default(autoincrement())
+  projectId BigInt
+  name      String           @db.VarChar(255)
+  type      String           @db.VarChar(45)
+  status    WorkStreamStatus
+  deletedAt DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  deletedBy Int?
+  createdBy BigInt
+  updatedBy BigInt
+
+  project          Project           @relation(fields: [projectId], references: [id])
+  phaseWorkStreams PhaseWorkStream[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("work_streams")
+}
+
+/// Junction table between project phases and work streams.
+model PhaseWorkStream {
+  workStreamId BigInt
+  phaseId      BigInt
+
+  workStream WorkStream   @relation(fields: [workStreamId], references: [id])
+  phase      ProjectPhase @relation(fields: [phaseId], references: [id])
+
+  @@id([workStreamId, phaseId])
+  @@map("phase_work_streams")
+}
+
+/// Work management policy records attached to project templates.
+model WorkManagementPermission {
+  id                BigInt    @id @default(autoincrement())
+  policy            String    @db.VarChar(255)
+  permission        Json
+  projectTemplateId BigInt
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedBy         Int?
+  createdBy         Int
+  updatedBy         Int
+
+  projectTemplate ProjectTemplate @relation(fields: [projectTemplateId], references: [id])
+
+  @@unique([policy, projectTemplateId])
+  @@index([projectTemplateId])
+  @@map("work_management_permissions")
+}
+
+/// Copilot request associated with a project.
+model CopilotRequest {
+  id        BigInt               @id @default(autoincrement())
+  projectId BigInt?
+  status    CopilotRequestStatus @default(new)
+  data      Json                 @default("{}")
+  deletedAt DateTime?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  deletedBy Int?
+  createdBy Int
+  updatedBy Int
+
+  project       Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  opportunities CopilotOpportunity[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("copilot_requests")
+}
+
+/// Copilot opportunity generated from a copilot request.
+model CopilotOpportunity {
+  id               BigInt                   @id @default(autoincrement())
+  projectId        BigInt?
+  copilotRequestId BigInt?
+  status           CopilotOpportunityStatus @default(active)
+  type             CopilotOpportunityType
+  deletedAt        DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  deletedBy        Int?
+  createdBy        Int
+  updatedBy        Int
+
+  project        Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  copilotRequest CopilotRequest?      @relation(fields: [copilotRequestId], references: [id], onDelete: SetNull)
+  applications   CopilotApplication[]
+
+  @@index([projectId])
+  @@index([copilotRequestId])
+  @@index([status])
+  @@map("copilot_opportunities")
+}
+
+/// Applications submitted for a copilot opportunity.
+model CopilotApplication {
+  id            BigInt                   @id @default(autoincrement())
+  opportunityId BigInt
+  userId        BigInt
+  notes         String?                  @db.Text
+  status        CopilotApplicationStatus @default(pending)
+  deletedAt     DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  deletedBy     Int?
+  createdBy     Int
+  updatedBy     Int
+
+  opportunity CopilotOpportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  invites     ProjectMemberInvite[]
+
+  @@index([opportunityId])
+  @@index([userId])
+  @@index([status])
+  @@map("copilot_applications")
+}
+
+/// Per-project settings with structured permission JSON.
+/// `readPermission` and `writePermission` define role/user access policies.
+model ProjectSetting {
+  id              BigInt     @id @default(autoincrement())
+  projectId       BigInt
+  key             String     @db.VarChar(255)
+  value           String?    @db.VarChar(255)
+  valueType       ValueType?
+  metadata        Json       @default("{}")
+  readPermission  Json       @default("{}")
+  writePermission Json       @default("{}")
+  deletedAt       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedBy       Int?
+  createdBy       Int
+  updatedBy       Int
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@unique([key, projectId])
+  @@index([projectId])
+  @@map("project_settings")
+}
+
+/// Project-level estimation groups.
+model ProjectEstimation {
+  id               BigInt    @id @default(autoincrement())
+  projectId        BigInt
+  buildingBlockKey String
+  conditions       String
+  price            Float
+  quantity         Int?
+  minTime          Int
+  maxTime          Int
+  metadata         Json      @default("{}")
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedBy        BigInt?
+  createdBy        Int
+  updatedBy        Int
+
+  project Project                 @relation(fields: [projectId], references: [id])
+  items   ProjectEstimationItem[]
+
+  @@index([projectId])
+  @@map("project_estimations")
+}
+
+/// Individual estimation items under a project estimation group.
+model ProjectEstimationItem {
+  id                    BigInt         @id @default(autoincrement())
+  projectEstimationId   BigInt
+  price                 Float
+  type                  EstimationType
+  markupUsedReference   String
+  markupUsedReferenceId BigInt
+  metadata              Json           @default("{}")
+  deletedAt             DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  deletedBy             Int?
+  createdBy             Int
+  updatedBy             Int
+
+  projectEstimation ProjectEstimation @relation(fields: [projectEstimationId], references: [id])
+
+  @@index([projectEstimationId])
+  @@map("project_estimation_items")
+}
+
+/// Building blocks for estimation logic.
+/// `privateConfig` is sensitive and intended for internal use only.
+model BuildingBlock {
+  id            BigInt    @id @default(autoincrement())
+  key           String    @unique @db.VarChar(255)
+  config        Json      @default("{}")
+  privateConfig Json      @default("{}")
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedBy     BigInt?
+  createdBy     BigInt
+  updatedBy     BigInt
+
+  @@map("building_blocks")
+}
+
+/// Scope change requests for project updates.
+model ScopeChangeRequest {
+  id         BigInt                   @id @default(autoincrement())
+  projectId  BigInt
+  oldScope   Json
+  newScope   Json
+  status     ScopeChangeRequestStatus
+  approvedAt DateTime?
+  approvedBy Int?
+  deletedAt  DateTime?
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  deletedBy  Int?
+  createdBy  Int
+  updatedBy  Int
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@map("scope_change_requests")
+}
+
+/// Status history of project-level lifecycle transitions.
+model ProjectHistory {
+  id           BigInt    @id @default(autoincrement())
+  projectId    BigInt
+  status       String
+  cancelReason String?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  updatedBy    Int
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@map("project_history")
+}
+
+/// Customer payment records.
+model CustomerPayment {
+  id              BigInt                  @id @default(autoincrement())
+  reference       String?                 @db.VarChar(45)
+  referenceId     String?                 @db.VarChar(255)
+  amount          Int
+  currency        CustomerPaymentCurrency
+  paymentIntentId String                  @db.VarChar(255)
+  clientSecret    String?                 @db.VarChar(255)
+  status          CustomerPaymentStatus
+  deletedAt       DateTime?
+  deletedBy       BigInt?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  createdBy       BigInt
+  updatedBy       BigInt
+
+  @@index([paymentIntentId])
+  @@index([status])
+  @@map("customer_payments")
+}
