@@ -1,4 +1,5 @@
 import {
+  applyDecorators,
   CanActivate,
   ExecutionContext,
   ForbiddenException,
@@ -7,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ApiExtension } from '@nestjs/swagger';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { SCOPES_KEY } from '../decorators/scopes.decorator';
 import { AuthenticatedRequest } from '../interfaces/request.interface';
@@ -14,7 +16,12 @@ import { JwtService } from '../modules/global/jwt.service';
 import { M2MService } from '../modules/global/m2m.service';
 
 export const ROLES_KEY = 'roles';
-export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
+export const SWAGGER_REQUIRED_ROLES_KEY = 'x-required-roles';
+export const Roles = (...roles: string[]) =>
+  applyDecorators(
+    SetMetadata(ROLES_KEY, roles),
+    ApiExtension(SWAGGER_REQUIRED_ROLES_KEY, roles),
+  );
 
 @Injectable()
 export class TokenRolesGuard implements CanActivate {

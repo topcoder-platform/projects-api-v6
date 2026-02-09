@@ -34,6 +34,11 @@ describe('ProjectService', () => {
     hasNamedPermission: jest.fn(),
   };
 
+  const billingAccountServiceMock = {
+    getBillingAccountsForProject: jest.fn(),
+    getDefaultBillingAccount: jest.fn(),
+  };
+
   let service: ProjectService;
 
   beforeEach(() => {
@@ -41,6 +46,7 @@ describe('ProjectService', () => {
     service = new ProjectService(
       prismaMock as any,
       permissionServiceMock as unknown as PermissionService,
+      billingAccountServiceMock as any,
     );
   });
 
@@ -138,6 +144,90 @@ describe('ProjectService', () => {
 
     await expect(
       service.getProject('999', undefined, {
+        userId: '123',
+        isMachine: false,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('lists billing accounts for project id', async () => {
+    billingAccountServiceMock.getBillingAccountsForProject.mockResolvedValue([
+      {
+        tcBillingAccountId: '123123',
+      },
+    ]);
+
+    const result = await service.listProjectBillingAccounts('001001', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual([
+      {
+        tcBillingAccountId: '123123',
+      },
+    ]);
+    expect(
+      billingAccountServiceMock.getBillingAccountsForProject,
+    ).toHaveBeenCalledWith('1001', '123');
+  });
+
+  it('returns project billing account and strips markup for user tokens', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: BigInt(12),
+    });
+    billingAccountServiceMock.getDefaultBillingAccount.mockResolvedValue({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
+
+    const result = await service.getProjectBillingAccount('1001', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '12',
+      active: true,
+    });
+    expect(
+      billingAccountServiceMock.getDefaultBillingAccount,
+    ).toHaveBeenCalledWith('12');
+  });
+
+  it('returns project billing account markup for m2m tokens', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: BigInt(12),
+    });
+    billingAccountServiceMock.getDefaultBillingAccount.mockResolvedValue({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
+
+    const result = await service.getProjectBillingAccount('1001', {
+      scopes: ['read:project-billing-account-details'],
+      isMachine: true,
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
+  });
+
+  it('throws when billing account is not attached to the project', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: null,
+    });
+
+    await expect(
+      service.getProjectBillingAccount('1001', {
         userId: '123',
         isMachine: false,
       }),

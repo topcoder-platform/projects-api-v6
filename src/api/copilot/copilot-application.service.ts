@@ -9,7 +9,6 @@ import {
   CopilotApplicationStatus,
   CopilotOpportunity,
   CopilotOpportunityStatus,
-  CopilotRequest,
   ProjectMember,
 } from '@prisma/client';
 import { Permission as NamedPermission } from 'src/shared/constants/permissions';
@@ -30,10 +29,6 @@ import {
 } from './copilot.utils';
 
 const APPLICATION_SORTS = ['createdAt asc', 'createdAt desc'];
-
-type OpportunityWithRequest = CopilotOpportunity & {
-  copilotRequest?: CopilotRequest | null;
-};
 
 type ApplicationWithRelations = CopilotApplication & {
   opportunity?: CopilotOpportunity | null;
@@ -101,7 +96,7 @@ export class CopilotApplicationService {
     });
 
     await this.notificationService.sendCopilotApplicationNotification(
-      opportunity as OpportunityWithRequest,
+      opportunity,
       created,
     );
 

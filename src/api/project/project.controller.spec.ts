@@ -6,6 +6,8 @@ describe('ProjectController', () => {
   const serviceMock = {
     listProjects: jest.fn(),
     getProject: jest.fn(),
+    listProjectBillingAccounts: jest.fn(),
+    getProjectBillingAccount: jest.fn(),
     createProject: jest.fn(),
     updateProject: jest.fn(),
     deleteProject: jest.fn(),
@@ -83,6 +85,50 @@ describe('ProjectController', () => {
     expect(serviceMock.getProject).toHaveBeenCalledWith(
       '101',
       'members,invites',
+      expect.objectContaining({ userId: '123' }),
+    );
+  });
+
+  it('lists billing accounts for project', async () => {
+    serviceMock.listProjectBillingAccounts.mockResolvedValue([
+      {
+        tcBillingAccountId: '1010',
+      },
+    ]);
+
+    const result = await controller.listProjectBillingAccounts('101', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual([
+      {
+        tcBillingAccountId: '1010',
+      },
+    ]);
+    expect(serviceMock.listProjectBillingAccounts).toHaveBeenCalledWith(
+      '101',
+      expect.objectContaining({ userId: '123' }),
+    );
+  });
+
+  it('gets default billing account for project', async () => {
+    serviceMock.getProjectBillingAccount.mockResolvedValue({
+      tcBillingAccountId: '2020',
+      active: true,
+    });
+
+    const result = await controller.getProjectBillingAccount('202', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '2020',
+      active: true,
+    });
+    expect(serviceMock.getProjectBillingAccount).toHaveBeenCalledWith(
+      '202',
       expect.objectContaining({ userId: '123' }),
     );
   });

@@ -183,7 +183,7 @@ export class CopilotOpportunityService {
         : true;
 
     return this.formatOpportunity(
-      opportunity as OpportunityWithRelations,
+      opportunity,
       canApplyAsCopilot,
       members,
       isAdminOrManager(user),

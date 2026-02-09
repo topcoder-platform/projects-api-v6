@@ -228,7 +228,7 @@ export class ProjectPhaseService {
       );
     }
 
-    return this.toDto(phase as PhaseWithRelations);
+    return this.toDto(phase);
   }
 
   async createPhase(
@@ -383,7 +383,7 @@ export class ProjectPhaseService {
       );
     }
 
-    const response = this.toDto(createdPhase as PhaseWithRelations);
+    const response = this.toDto(createdPhase);
 
     return response;
   }
@@ -515,7 +515,7 @@ export class ProjectPhaseService {
       });
     });
 
-    const response = this.toDto(updatedPhase as PhaseWithRelations);
+    const response = this.toDto(updatedPhase);
 
     return response;
   }

@@ -122,7 +122,7 @@ export class WorkStreamService {
       );
     }
 
-    return this.toDto(row as WorkStreamWithRelations);
+    return this.toDto(row);
   }
 
   async update(

@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
 const DB_COMPAT_ENABLED = process.env.DB_COMPAT_TESTS_ENABLED === 'true';
@@ -10,8 +11,31 @@ const DB_MIGRATION_SAFETY_ENABLED =
 const describeIfDbCompat = DB_COMPAT_ENABLED ? describe : describe.skip;
 const projectRoot = path.resolve(__dirname, '..');
 
+function getSchemaFromUrl(url: string | undefined): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    return new URL(url).searchParams.get('schema') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function createPrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL;
+  const schema = getSchemaFromUrl(connectionString);
+  const adapter = new PrismaPg(
+    { connectionString },
+    schema ? { schema } : undefined,
+  );
+
+  return new PrismaClient({ adapter });
+}
+
 describeIfDbCompat('Database compatibility validation', () => {
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
 
   afterAll(async () => {
     await prisma.$disconnect();

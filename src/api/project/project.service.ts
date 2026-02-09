@@ -22,6 +22,10 @@ import { Permission as JsonPermission } from 'src/shared/interfaces/permission.i
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import {
+  BillingAccount,
+  BillingAccountService,
+} from 'src/shared/services/billingAccount.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { publishProjectEvent } from 'src/shared/utils/event.utils';
 import {
@@ -58,6 +62,7 @@ export class ProjectService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
+    private readonly billingAccountService: BillingAccountService,
   ) {}
 
   async listProjects(
@@ -722,6 +727,70 @@ export class ProjectService {
     }
 
     return policyMap;
+  }
+
+  async listProjectBillingAccounts(
+    projectId: string,
+    user: JwtUser,
+  ): Promise<BillingAccount[]> {
+    const normalizedProjectId = this.parseProjectId(projectId).toString();
+    const userId = user.userId ? String(user.userId).trim() : '';
+
+    if (!userId) {
+      this.logger.warn(
+        `Missing userId while listing billing accounts for projectId=${normalizedProjectId}.`,
+      );
+      return [];
+    }
+
+    return this.billingAccountService.getBillingAccountsForProject(
+      normalizedProjectId,
+      userId,
+    );
+  }
+
+  async getProjectBillingAccount(
+    projectId: string,
+    user: JwtUser,
+  ): Promise<BillingAccount> {
+    const parsedProjectId = this.parseProjectId(projectId);
+
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: parsedProjectId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        billingAccountId: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException(
+        `Project with id ${projectId} was not found.`,
+      );
+    }
+
+    if (!project.billingAccountId) {
+      throw new NotFoundException('Billing Account not found');
+    }
+
+    const billingAccount =
+      (await this.billingAccountService.getDefaultBillingAccount(
+        project.billingAccountId.toString(),
+      )) || {};
+
+    if (user.isMachine) {
+      return billingAccount;
+    }
+
+    const sanitizedBillingAccount = {
+      ...billingAccount,
+    };
+    delete sanitizedBillingAccount.markup;
+
+    return sanitizedBillingAccount;
   }
 
   async upgradeProject(
