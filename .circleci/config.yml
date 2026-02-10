@@ -50,7 +50,7 @@ jobs:
     environment:
       DEPLOY_ENV: "DEV"
       LOGICAL_ENV: "dev"
-      APPNAME: "project-api-v6"
+      APPNAME: "projects-api-v6"
       DEPLOYMENT_ENVIRONMENT: "dev"
     steps: *builddeploy_steps
 
@@ -59,7 +59,7 @@ jobs:
     environment:
       DEPLOY_ENV: "PROD"
       LOGICAL_ENV: "prod"
-      APPNAME: "project-api-v6"
+      APPNAME: "projects-api-v6"
       DEPLOYMENT_ENVIRONMENT: "prod"
     steps: *builddeploy_steps
 
