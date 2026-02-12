@@ -91,7 +91,9 @@ async function bootstrap() {
     methods: 'GET, POST, OPTIONS, PUT, DELETE, PATCH',
     origin: (requestOrigin, callback) => {
       if (!requestOrigin) {
-        callback(null, false);
+        // Keep a permissive fallback for non-browser requests so cached variants
+        // do not drop CORS headers for subsequent browser calls.
+        callback(null, '*');
         return;
       }
 

@@ -303,7 +303,7 @@ export class BillingAccountService {
     // Support one-line PEM values where body chunks are separated by spaces.
     // This is used for local dev reading from AWS parameter store via the SSM python script
     // we use for loading configs from parameter store into the local env.
-    // Example:  
+    // Example:
     // -----BEGIN PRIVATE KEY----- ABC... XYZ... -----END PRIVATE KEY-----
     const pemMatch = normalized.match(
       /-----BEGIN ([A-Z0-9 ]+)-----\s*([A-Za-z0-9+/=\s]+)\s*-----END \1-----/s,
