@@ -79,8 +79,9 @@ export class ProjectService {
     );
 
     const where = buildProjectWhereClause(criteria, user, isAdmin);
-    const fields = parseFieldsParameter(criteria.fields);
-    const include = buildProjectIncludeClause(fields);
+    const requestedFields = this.resolveListFields(criteria.fields);
+    const includeFields = this.resolveListIncludeFields(requestedFields);
+    const include = buildProjectIncludeClause(includeFields);
     const orderBy = this.resolveSort(criteria.sort);
 
     const [total, projects] = await Promise.all([
@@ -94,9 +95,19 @@ export class ProjectService {
       }),
     ]);
 
-    const data = projects.map((project) =>
-      this.toDto(this.filterProjectRelations(project, user, isAdmin)),
-    );
+    const data = projects.map((project) => {
+      const filteredProject = this.filterProjectRelations(
+        project,
+        user,
+        isAdmin,
+      );
+      const projectWithRequestedFields = this.filterProjectFields(
+        filteredProject,
+        requestedFields,
+      );
+
+      return this.toDto(projectWithRequestedFields);
+    });
 
     return {
       data,
@@ -901,6 +912,38 @@ export class ProjectService {
     return {
       [prismaField]: direction,
     } as Prisma.ProjectOrderByWithRelationInput;
+  }
+
+  private resolveListFields(fieldsParam?: string): ParsedProjectFields {
+    const parsedFields = parseFieldsParameter(fieldsParam);
+
+    if (fieldsParam && fieldsParam.trim().length > 0) {
+      return parsedFields;
+    }
+
+    return {
+      ...parsedFields,
+      project_members: false,
+      project_member_invites: false,
+      attachments: false,
+    };
+  }
+
+  private resolveListIncludeFields(
+    requestedFields: ParsedProjectFields,
+  ): ParsedProjectFields {
+    if (requestedFields.project_members) {
+      return requestedFields;
+    }
+
+    if (requestedFields.project_member_invites || requestedFields.attachments) {
+      return {
+        ...requestedFields,
+        project_members: true,
+      };
+    }
+
+    return requestedFields;
   }
 
   private filterProjectRelations(

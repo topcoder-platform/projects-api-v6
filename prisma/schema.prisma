@@ -1019,7 +1019,6 @@ model ProjectHistory {
   projectId    BigInt
   status       String
   cancelReason String?
-  deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   updatedBy    Int
