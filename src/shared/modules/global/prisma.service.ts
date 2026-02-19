@@ -1,4 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { LoggerService } from './logger.service';
 import { PrismaErrorService } from './prisma-error.service';
@@ -35,6 +36,20 @@ function getDatasourceUrl(): string | undefined {
   }
 }
 
+function getSchemaFromDatasourceUrl(
+  datasourceUrl: string | undefined,
+): string | undefined {
+  if (!datasourceUrl) {
+    return undefined;
+  }
+
+  try {
+    return new URL(datasourceUrl).searchParams.get('schema') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -43,7 +58,15 @@ export class PrismaService
   private readonly logger = LoggerService.forRoot('PrismaService');
 
   constructor(private readonly prismaErrorService: PrismaErrorService) {
+    const datasourceUrl = getDatasourceUrl();
+    const schema = getSchemaFromDatasourceUrl(datasourceUrl);
+    const adapter = new PrismaPg(
+      { connectionString: datasourceUrl },
+      schema ? { schema } : undefined,
+    );
+
     super({
+      adapter,
       transactionOptions: {
         timeout: getTransactionTimeout(),
       },
@@ -53,11 +76,6 @@ export class PrismaService
         { level: 'warn', emit: 'event' },
         { level: 'error', emit: 'event' },
       ],
-      datasources: {
-        db: {
-          url: getDatasourceUrl(),
-        },
-      },
     });
 
     this.$on('query' as never, (event: Prisma.QueryEvent) => {

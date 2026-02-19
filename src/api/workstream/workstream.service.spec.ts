@@ -1,14 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { WorkStreamStatus } from '@prisma/client';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { WorkStreamService } from './workstream.service';
-
-jest.mock('src/shared/utils/event.utils', () => ({
-  publishWorkstreamEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
-}));
-
-const eventUtils = jest.requireMock('src/shared/utils/event.utils');
 
 function buildWorkStreamRecord(overrides: Record<string, unknown> = {}) {
   return {
@@ -82,10 +74,6 @@ describe('WorkStreamService', () => {
           updatedBy: BigInt(123),
         }),
       }),
-    );
-    expect(eventUtils.publishWorkstreamEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_WORKSTREAM_ADDED,
-      expect.any(Object),
     );
   });
 

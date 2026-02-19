@@ -1,6 +1,7 @@
 import { ProjectMemberRole } from '../enums/projectMemberRole.enum';
 import { Scope } from '../enums/scopes.enum';
 import { UserRole } from '../enums/userRole.enum';
+import { Permission } from '../constants/permissions';
 import { PermissionService } from './permission.service';
 
 describe('PermissionService', () => {
@@ -170,5 +171,49 @@ describe('PermissionService', () => {
     });
 
     expect(role).toBe(ProjectMemberRole.MANAGER);
+  });
+
+  it('allows available billing accounts permission for copilot project member', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.READ_AVL_PROJECT_BILLING_ACCOUNTS,
+      {
+        userId: '123',
+        roles: [UserRole.TOPCODER_USER],
+        isMachine: false,
+      },
+      [
+        {
+          userId: '123',
+          role: ProjectMemberRole.COPILOT,
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows billing account details permission for matching m2m scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.READ_PROJECT_BILLING_ACCOUNT_DETAILS,
+      {
+        scopes: [Scope.PROJECTS_READ_PROJECT_BILLING_ACCOUNT_DETAILS],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('marks billing account permissions as requiring project member context', () => {
+    expect(
+      service.isNamedPermissionRequireProjectMembers(
+        Permission.READ_AVL_PROJECT_BILLING_ACCOUNTS,
+      ),
+    ).toBe(true);
+    expect(
+      service.isNamedPermissionRequireProjectMembers(
+        Permission.READ_PROJECT_BILLING_ACCOUNT_DETAILS,
+      ),
+    ).toBe(true);
   });
 });

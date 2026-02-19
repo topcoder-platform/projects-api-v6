@@ -7,14 +7,9 @@ import {
   ProjectMemberRole,
 } from '@prisma/client';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { EventBusService } from 'src/shared/modules/global/eventBus.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { MemberService } from 'src/shared/services/member.service';
 import { getCopilotRequestData, getCopilotTypeLabel } from './copilot.utils';
-
-const CONNECT_NOTIFICATION_EVENT = {
-  EXTERNAL_ACTION_EMAIL: 'external.action.email',
-} as const;
 
 const TEMPLATE_IDS = {
   APPLY_COPILOT: 'd-d7c1f48628654798a05c8e09e52db14f',
@@ -39,7 +34,6 @@ export class CopilotNotificationService {
   private readonly logger = LoggerService.forRoot('CopilotNotificationService');
 
   constructor(
-    private readonly eventBusService: EventBusService,
     private readonly prisma: PrismaService,
     private readonly memberService: MemberService,
   ) {}
@@ -241,30 +235,21 @@ export class CopilotNotificationService {
     );
   }
 
-  private async publishEmail(
+  private publishEmail(
     templateId: string,
     recipients: string[],
     data: Record<string, unknown>,
   ): Promise<void> {
     if (recipients.length === 0) {
-      return;
+      return Promise.resolve();
     }
 
-    try {
-      await this.eventBusService.publishProjectEvent(
-        CONNECT_NOTIFICATION_EVENT.EXTERNAL_ACTION_EMAIL,
-        {
-          data,
-          sendgrid_template_id: templateId,
-          recipients,
-          version: 'v3',
-        },
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Failed to publish copilot email event: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    void templateId;
+    void data;
+    this.logger.warn(
+      `Copilot email Kafka publication is disabled. Skipped ${recipients.length} recipient(s).`,
+    );
+    return Promise.resolve();
   }
 
   private getWorkManagerUrl(): string {

@@ -1143,7 +1143,7 @@ describe('Event payload parity against v5 fixture snapshots', () => {
       .send(requestFixtures.createProject)
       .expect(201);
 
-    await waitForEventCount(2);
+    await waitForEventCount(1);
     assertSnapshot('project-create.json');
   });
 
@@ -1156,7 +1156,7 @@ describe('Event payload parity against v5 fixture snapshots', () => {
 
     const createdProjectId = readId(createResponse.body);
 
-    await waitForEventCount(2);
+    await waitForEventCount(1);
     capturedEvents.length = 0;
     postEventMock.mockClear();
 
@@ -1166,7 +1166,7 @@ describe('Event payload parity against v5 fixture snapshots', () => {
       .send(requestFixtures.updateProject)
       .expect(200);
 
-    await waitForEventCount(4);
+    await waitForEventCount(1);
     assertSnapshot('project-update.json');
   });
 
@@ -1177,7 +1177,7 @@ describe('Event payload parity against v5 fixture snapshots', () => {
       .send(requestFixtures.acceptInvite)
       .expect(200);
 
-    await waitForEventCount(3);
+    await waitForEventCount(1);
     assertSnapshot('invite-accept.json');
   });
 
@@ -1190,7 +1190,7 @@ describe('Event payload parity against v5 fixture snapshots', () => {
       })
       .expect(200);
 
-    await waitForEventCount(5);
+    await waitForEventCount(0);
     assertSnapshot('phase-transition.json');
   });
 

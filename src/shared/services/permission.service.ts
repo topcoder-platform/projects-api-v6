@@ -233,6 +233,27 @@ export class PermissionService {
       case NamedPermission.MANAGE_PROJECT_DIRECT_PROJECT_ID:
         return isAdmin;
 
+      case NamedPermission.READ_AVL_PROJECT_BILLING_ACCOUNTS:
+        return (
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          this.hasProjectBillingTopcoderRole(user) ||
+          this.m2mService.hasRequiredScopes(user.scopes || [], [
+            Scope.CONNECT_PROJECT_ADMIN,
+            Scope.PROJECTS_READ_USER_BILLING_ACCOUNTS,
+          ])
+        );
+
+      case NamedPermission.READ_PROJECT_BILLING_ACCOUNT_DETAILS:
+        return (
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          this.hasProjectBillingTopcoderRole(user) ||
+          this.m2mService.hasRequiredScopes(user.scopes || [], [
+            Scope.PROJECTS_READ_PROJECT_BILLING_ACCOUNT_DETAILS,
+          ])
+        );
+
       case NamedPermission.MANAGE_COPILOT_REQUEST:
       case NamedPermission.ASSIGN_COPILOT_OPPORTUNITY:
       case NamedPermission.CANCEL_COPILOT_OPPORTUNITY:
@@ -337,6 +358,8 @@ export class PermissionService {
       NamedPermission.DELETE_PROJECT_INVITE_NOT_OWN_COPILOT,
       NamedPermission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
       NamedPermission.MANAGE_PROJECT_DIRECT_PROJECT_ID,
+      NamedPermission.READ_AVL_PROJECT_BILLING_ACCOUNTS,
+      NamedPermission.READ_PROJECT_BILLING_ACCOUNT_DETAILS,
       NamedPermission.VIEW_PROJECT_ATTACHMENT,
       NamedPermission.CREATE_PROJECT_ATTACHMENT,
       NamedPermission.EDIT_PROJECT_ATTACHMENT,
@@ -451,5 +474,16 @@ export class PermissionService {
 
   private hasCopilotManagerRole(user: JwtUser): boolean {
     return this.hasIntersection(user.roles || [], [UserRole.COPILOT_MANAGER]);
+  }
+
+  private hasProjectBillingTopcoderRole(user: JwtUser): boolean {
+    return this.hasIntersection(user.roles || [], [
+      ...ADMIN_ROLES,
+      UserRole.PROJECT_MANAGER,
+      UserRole.TASK_MANAGER,
+      UserRole.TOPCODER_TASK_MANAGER,
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
+    ]);
   }
 }

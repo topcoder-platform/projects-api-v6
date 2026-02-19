@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { FormModule } from './form/form.module';
 import { MetadataListController } from './metadata-list.controller';
 import { MetadataListService } from './metadata-list.service';
-import { MilestoneTemplateModule } from './milestone-template/milestone-template.module';
 import { OrgConfigModule } from './org-config/org-config.module';
 import { PlanConfigModule } from './plan-config/plan-config.module';
 import { PriceConfigModule } from './price-config/price-config.module';
@@ -22,7 +21,6 @@ import { WorkManagementPermissionModule } from './work-management-permission/wor
     FormModule,
     PlanConfigModule,
     PriceConfigModule,
-    MilestoneTemplateModule,
     WorkManagementPermissionModule,
   ],
   controllers: [MetadataListController],

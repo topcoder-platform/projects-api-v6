@@ -12,7 +12,6 @@ import {
   ProjectMember,
   ProjectMemberInvite,
   ProjectMemberRole,
-  ProjectPhase,
   ProjectStatus,
 } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
@@ -23,11 +22,12 @@ import { Permission as JsonPermission } from 'src/shared/interfaces/permission.i
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
 import {
-  publishNotificationEvent,
-  publishProjectEvent,
-} from 'src/shared/utils/event.utils';
+  BillingAccount,
+  BillingAccountService,
+} from 'src/shared/services/billingAccount.service';
+import { PermissionService } from 'src/shared/services/permission.service';
+import { publishProjectEvent } from 'src/shared/utils/event.utils';
 import {
   ParsedProjectFields,
   buildProjectIncludeClause,
@@ -49,11 +49,19 @@ interface PaginatedProjectResponse {
   total: number;
 }
 
+type ProjectMemberWithHandle = ProjectMember & {
+  handle?: string | null;
+};
+
+type ProjectInviteWithHandle = ProjectMemberInvite & {
+  handle?: string | null;
+};
+
 type ProjectWithRawRelations = Project & {
-  members?: ProjectMember[];
-  invites?: ProjectMemberInvite[];
+  billingAccountName?: string;
+  members?: ProjectMemberWithHandle[];
+  invites?: ProjectInviteWithHandle[];
   attachments?: ProjectAttachment[];
-  phases?: ProjectPhase[];
 };
 
 @Injectable()
@@ -63,6 +71,7 @@ export class ProjectService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
+    private readonly billingAccountService: BillingAccountService,
   ) {}
 
   async listProjects(
@@ -79,8 +88,9 @@ export class ProjectService {
     );
 
     const where = buildProjectWhereClause(criteria, user, isAdmin);
-    const fields = parseFieldsParameter(criteria.fields);
-    const include = buildProjectIncludeClause(fields);
+    const requestedFields = this.resolveListFields(criteria.fields);
+    const includeFields = this.resolveListIncludeFields(requestedFields);
+    const include = buildProjectIncludeClause(includeFields);
     const orderBy = this.resolveSort(criteria.sort);
 
     const [total, projects] = await Promise.all([
@@ -93,10 +103,34 @@ export class ProjectService {
         take: perPage,
       }),
     ]);
-
-    const data = projects.map((project) =>
-      this.toDto(this.filterProjectRelations(project, user, isAdmin)),
+    const projectsWithMemberHandles =
+      await this.enrichProjectsWithMemberHandles(projects);
+    const billingAccountNamesById = await this.getBillingAccountNamesById(
+      projectsWithMemberHandles,
     );
+
+    const data = projectsWithMemberHandles.map((project) => {
+      const billingAccountId = this.toOptionalBigintString(
+        project.billingAccountId,
+      );
+      const filteredProject = this.filterProjectRelations(
+        project,
+        user,
+        isAdmin,
+      );
+      const projectWithRequestedFields = this.filterProjectFields(
+        filteredProject,
+        requestedFields,
+      );
+
+      return this.toDto({
+        ...projectWithRequestedFields,
+        billingAccountName:
+          billingAccountId && billingAccountNamesById.has(billingAccountId)
+            ? billingAccountNamesById.get(billingAccountId)
+            : undefined,
+      });
+    });
 
     return {
       data,
@@ -133,11 +167,15 @@ export class ProjectService {
       );
     }
 
+    const [projectWithMemberHandles] =
+      await this.enrichProjectsWithMemberHandles([project]);
+    const projectWithRelations = projectWithMemberHandles || project;
+
     const canViewProject = this.permissionService.hasNamedPermission(
       Permission.VIEW_PROJECT,
       user,
-      project.members || [],
-      (project.invites || []).map((invite) => ({
+      projectWithRelations.members || [],
+      (projectWithRelations.invites || []).map((invite) => ({
         ...invite,
         status: String(invite.status),
       })),
@@ -150,16 +188,32 @@ export class ProjectService {
     const isAdmin = this.permissionService.hasNamedPermission(
       Permission.READ_PROJECT_ANY,
       user,
-      project.members || [],
+      projectWithRelations.members || [],
     );
 
-    const filteredProject = this.filterProjectRelations(project, user, isAdmin);
+    const filteredProject = this.filterProjectRelations(
+      projectWithRelations,
+      user,
+      isAdmin,
+    );
     const projectWithRequestedFields = this.filterProjectFields(
       filteredProject,
       fields,
     );
+    const billingAccountId = this.toOptionalBigintString(
+      projectWithRelations.billingAccountId,
+    );
+    const billingAccountNamesById = billingAccountId
+      ? await this.getBillingAccountNamesById([projectWithRelations])
+      : new Map<string, string>();
 
-    return this.toDto(projectWithRequestedFields);
+    return this.toDto({
+      ...projectWithRequestedFields,
+      billingAccountName:
+        billingAccountId && billingAccountNamesById.has(billingAccountId)
+          ? billingAccountNamesById.get(billingAccountId)
+          : undefined,
+    });
   }
 
   async createProject(
@@ -404,7 +458,7 @@ export class ProjectService {
         deletedAt: null,
       },
       include: buildProjectIncludeClause(
-        parseFieldsParameter('members,invites,attachments,phases'),
+        parseFieldsParameter('members,invites,attachments'),
       ),
     });
 
@@ -412,13 +466,12 @@ export class ProjectService {
       throw new ConflictException('Failed to create project.');
     }
 
-    const response = this.toDto(createdProject);
-
-    this.publishEvent(KAFKA_TOPIC.PROJECT_DRAFT_CREATED, response);
-    this.publishNotificationEvent(
-      KAFKA_TOPIC.PROJECT_CREATED,
-      this.buildNotificationPayload(response, user),
+    const [createdProjectWithMemberHandles] =
+      await this.enrichProjectsWithMemberHandles([createdProject]);
+    const response = this.toDto(
+      createdProjectWithMemberHandles || createdProject,
     );
+    this.publishEvent(KAFKA_TOPIC.PROJECT_CREATED, response);
 
     return response;
   }
@@ -510,24 +563,6 @@ export class ProjectService {
     const statusChanged =
       typeof dto.status !== 'undefined' &&
       dto.status !== existingProject.status;
-    const nameChanged =
-      typeof dto.name !== 'undefined' && dto.name !== existingProject.name;
-    const descriptionChanged =
-      typeof dto.description !== 'undefined' &&
-      dto.description !== existingProject.description;
-    const detailsChanged =
-      typeof dto.details !== 'undefined' &&
-      JSON.stringify(dto.details ?? null) !==
-        JSON.stringify(existingProject.details ?? null);
-    const bookmarksChanged =
-      typeof dto.bookmarks !== 'undefined' &&
-      JSON.stringify(dto.bookmarks ?? null) !==
-        JSON.stringify(existingProject.bookmarks ?? null);
-    const billingAccountChanged =
-      typeof dto.billingAccountId !== 'undefined' &&
-      String(existingProject.billingAccountId ?? '') !==
-        String(dto.billingAccountId ?? '');
-
     const updatedProject = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.project.update({
         where: {
@@ -606,7 +641,7 @@ export class ProjectService {
         deletedAt: null,
       },
       include: buildProjectIncludeClause(
-        parseFieldsParameter('members,invites,attachments,phases'),
+        parseFieldsParameter('members,invites,attachments'),
       ),
     });
 
@@ -616,81 +651,21 @@ export class ProjectService {
       );
     }
 
+    const [projectWithMemberHandles] =
+      await this.enrichProjectsWithMemberHandles([project]);
+    const projectWithRelations = projectWithMemberHandles || project;
+
     const isAdmin = this.permissionService.hasNamedPermission(
       Permission.READ_PROJECT_ANY,
       user,
-      project.members || [],
+      projectWithRelations.members || [],
     );
 
     const response = this.toDto(
-      this.filterProjectRelations(project, user, isAdmin),
+      this.filterProjectRelations(projectWithRelations, user, isAdmin),
     );
 
     this.publishEvent(KAFKA_TOPIC.PROJECT_UPDATED, response);
-
-    if (statusChanged) {
-      this.publishEvent(KAFKA_TOPIC.PROJECT_STATUS_CHANGED, response);
-    }
-
-    const notificationPayload = this.buildNotificationPayload(response, user);
-    let hasNotificationChange = false;
-
-    if (statusChanged && dto.status) {
-      const statusNotificationTopic = this.resolveStatusNotificationTopic(
-        dto.status,
-      );
-
-      if (statusNotificationTopic) {
-        this.publishNotificationEvent(
-          statusNotificationTopic,
-          notificationPayload,
-        );
-        hasNotificationChange = true;
-      }
-    }
-
-    if (
-      !statusChanged &&
-      (nameChanged || descriptionChanged || detailsChanged)
-    ) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_SPECIFICATION_MODIFIED,
-        notificationPayload,
-      );
-      hasNotificationChange = true;
-    }
-
-    if (bookmarksChanged) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_LINK_CREATED,
-        notificationPayload,
-      );
-      hasNotificationChange = true;
-    }
-
-    if (billingAccountChanged) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_BILLING_ACCOUNT_UPDATED,
-        {
-          ...notificationPayload,
-          oldBillingAccountId: existingProject.billingAccountId
-            ? existingProject.billingAccountId.toString()
-            : null,
-          newBillingAccountId:
-            typeof dto.billingAccountId === 'number'
-              ? String(Math.trunc(dto.billingAccountId))
-              : null,
-        },
-      );
-      hasNotificationChange = true;
-    }
-
-    if (hasNotificationChange) {
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_UPDATED_NOTIFICATION,
-        notificationPayload,
-      );
-    }
 
     return response;
   }
@@ -816,6 +791,70 @@ export class ProjectService {
     return policyMap;
   }
 
+  async listProjectBillingAccounts(
+    projectId: string,
+    user: JwtUser,
+  ): Promise<BillingAccount[]> {
+    const normalizedProjectId = this.parseProjectId(projectId).toString();
+    const userId = user.userId ? String(user.userId).trim() : '';
+
+    if (!userId) {
+      this.logger.warn(
+        `Missing userId while listing billing accounts for projectId=${normalizedProjectId}.`,
+      );
+      return [];
+    }
+
+    return this.billingAccountService.getBillingAccountsForProject(
+      normalizedProjectId,
+      userId,
+    );
+  }
+
+  async getProjectBillingAccount(
+    projectId: string,
+    user: JwtUser,
+  ): Promise<BillingAccount> {
+    const parsedProjectId = this.parseProjectId(projectId);
+
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: parsedProjectId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        billingAccountId: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException(
+        `Project with id ${projectId} was not found.`,
+      );
+    }
+
+    if (!project.billingAccountId) {
+      throw new NotFoundException('Billing Account not found');
+    }
+
+    const billingAccount =
+      (await this.billingAccountService.getDefaultBillingAccount(
+        project.billingAccountId.toString(),
+      )) || {};
+
+    if (user.isMachine) {
+      return billingAccount;
+    }
+
+    const sanitizedBillingAccount = {
+      ...billingAccount,
+    };
+    delete sanitizedBillingAccount.markup;
+
+    return sanitizedBillingAccount;
+  }
+
   async upgradeProject(
     projectId: string,
     dto: UpgradeProjectDto,
@@ -883,6 +922,154 @@ export class ProjectService {
     };
   }
 
+  private async enrichProjectsWithMemberHandles(
+    projects: ProjectWithRawRelations[],
+  ): Promise<ProjectWithRawRelations[]> {
+    if (!projects.length) {
+      return projects;
+    }
+
+    const userIds = this.collectProjectUserIds(projects);
+
+    if (!userIds.length) {
+      return projects;
+    }
+
+    const handlesByUserId = await this.fetchMemberHandlesByUserId(userIds);
+
+    if (!handlesByUserId.size) {
+      return projects;
+    }
+
+    return projects.map((project) => ({
+      ...project,
+      members: Array.isArray(project.members)
+        ? project.members.map((member) => ({
+            ...member,
+            handle:
+              this.toOptionalHandle(member.handle) ||
+              this.getHandleByUserId(member.userId, handlesByUserId),
+          }))
+        : project.members,
+      invites: Array.isArray(project.invites)
+        ? project.invites.map((invite) => ({
+            ...invite,
+            handle:
+              this.toOptionalHandle(invite.handle) ||
+              this.getHandleByUserId(invite.userId, handlesByUserId),
+          }))
+        : project.invites,
+    }));
+  }
+
+  private collectProjectUserIds(projects: ProjectWithRawRelations[]): bigint[] {
+    const userIds = new Set<string>();
+
+    for (const project of projects) {
+      for (const member of project.members || []) {
+        const parsedUserId = this.parseUserIdValue(member.userId);
+
+        if (parsedUserId) {
+          userIds.add(parsedUserId.toString());
+        }
+      }
+
+      for (const invite of project.invites || []) {
+        const parsedUserId = this.parseUserIdValue(invite.userId);
+
+        if (parsedUserId) {
+          userIds.add(parsedUserId.toString());
+        }
+      }
+    }
+
+    return Array.from(userIds).map((userId) => BigInt(userId));
+  }
+
+  private async fetchMemberHandlesByUserId(
+    userIds: bigint[],
+  ): Promise<Map<string, string>> {
+    if (!userIds.length) {
+      return new Map();
+    }
+
+    try {
+      const rows = await this.prisma.$queryRaw<
+        Array<{
+          userId: bigint | number | string;
+          handle: string | null;
+        }>
+      >(Prisma.sql`
+        SELECT
+          m."userId" AS "userId",
+          m.handle AS "handle"
+        FROM members.member m
+        WHERE m."userId" IN (${Prisma.join(userIds)})
+      `);
+
+      return rows.reduce<Map<string, string>>((acc, row) => {
+        const parsedUserId = this.parseUserIdValue(row.userId);
+        const handle = this.toOptionalHandle(row.handle);
+
+        if (parsedUserId && handle) {
+          acc.set(parsedUserId.toString(), handle);
+        }
+
+        return acc;
+      }, new Map());
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch member handles from members.member: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return new Map();
+    }
+  }
+
+  private getHandleByUserId(
+    userId: bigint | number | string | null | undefined,
+    handlesByUserId: Map<string, string>,
+  ): string | null {
+    const parsedUserId = this.parseUserIdValue(userId);
+
+    if (!parsedUserId) {
+      return null;
+    }
+
+    return handlesByUserId.get(parsedUserId.toString()) || null;
+  }
+
+  private parseUserIdValue(
+    userId: bigint | number | string | null | undefined,
+  ): bigint | undefined {
+    if (typeof userId === 'bigint') {
+      return userId;
+    }
+
+    if (typeof userId === 'number' && Number.isFinite(userId)) {
+      return BigInt(Math.trunc(userId));
+    }
+
+    if (typeof userId === 'string') {
+      const normalizedUserId = userId.trim();
+
+      if (/^\d+$/.test(normalizedUserId)) {
+        return BigInt(normalizedUserId);
+      }
+    }
+
+    return undefined;
+  }
+
+  private toOptionalHandle(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalizedHandle = value.trim();
+
+    return normalizedHandle || undefined;
+  }
+
   private resolveSort(sort?: string): Prisma.ProjectOrderByWithRelationInput {
     const defaultOrderBy: Prisma.ProjectOrderByWithRelationInput = {
       createdAt: 'asc',
@@ -924,6 +1111,38 @@ export class ProjectService {
     return {
       [prismaField]: direction,
     } as Prisma.ProjectOrderByWithRelationInput;
+  }
+
+  private resolveListFields(fieldsParam?: string): ParsedProjectFields {
+    const parsedFields = parseFieldsParameter(fieldsParam);
+
+    if (fieldsParam && fieldsParam.trim().length > 0) {
+      return parsedFields;
+    }
+
+    return {
+      ...parsedFields,
+      project_members: false,
+      project_member_invites: false,
+      attachments: false,
+    };
+  }
+
+  private resolveListIncludeFields(
+    requestedFields: ParsedProjectFields,
+  ): ParsedProjectFields {
+    if (requestedFields.project_members) {
+      return requestedFields;
+    }
+
+    if (requestedFields.project_member_invites || requestedFields.attachments) {
+      return {
+        ...requestedFields,
+        project_members: true,
+      };
+    }
+
+    return requestedFields;
   }
 
   private filterProjectRelations(
@@ -994,10 +1213,6 @@ export class ProjectService {
 
     if (!fields.attachments) {
       delete clone.attachments;
-    }
-
-    if (!fields.project_phases) {
-      delete clone.phases;
     }
 
     return clone;
@@ -1107,80 +1322,6 @@ export class ProjectService {
     });
   }
 
-  private publishNotificationEvent(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish notification event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private resolveStatusNotificationTopic(
-    status: ProjectStatus,
-  ): string | undefined {
-    const topicByStatus: Partial<Record<ProjectStatus, string>> = {
-      [ProjectStatus.in_review]: KAFKA_TOPIC.PROJECT_SUBMITTED_FOR_REVIEW,
-      [ProjectStatus.reviewed]: KAFKA_TOPIC.PROJECT_APPROVED,
-      [ProjectStatus.active]: KAFKA_TOPIC.PROJECT_ACTIVE,
-      [ProjectStatus.paused]: KAFKA_TOPIC.PROJECT_PAUSED,
-      [ProjectStatus.completed]: KAFKA_TOPIC.PROJECT_COMPLETED,
-      [ProjectStatus.cancelled]: KAFKA_TOPIC.PROJECT_CANCELED,
-    };
-
-    return topicByStatus[status];
-  }
-
-  private buildNotificationPayload(
-    project: ProjectWithRelationsDto,
-    user: JwtUser,
-  ): Record<string, unknown> {
-    const details =
-      project.details &&
-      typeof project.details === 'object' &&
-      !Array.isArray(project.details)
-        ? project.details
-        : {};
-    const detailsUtm =
-      details.utm &&
-      typeof details.utm === 'object' &&
-      !Array.isArray(details.utm)
-        ? (details.utm as Record<string, unknown>)
-        : {};
-
-    const userId = this.getNotificationUserId(user);
-
-    return {
-      projectId: project.id,
-      projectName: project.name,
-      projectUrl: this.buildProjectUrl(project.id),
-      userId,
-      initiatorUserId: userId,
-      refCode:
-        typeof detailsUtm.code === 'string' ? detailsUtm.code : undefined,
-    };
-  }
-
-  private buildProjectUrl(projectId: string): string {
-    const baseUrl =
-      process.env.WORK_MANAGER_URL ||
-      process.env.WORK_MANAGER_APP_URL ||
-      'https://platform.topcoder.com/connect/';
-    const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-
-    return `${normalizedBase}projects/${projectId}`;
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
-  }
-
   private toDto(project: ProjectWithRawRelations): ProjectWithRelationsDto {
     return this.normalizeProjectEntity(
       project,
@@ -1247,5 +1388,56 @@ export class ProjectService {
     };
 
     return walk(payload) as T;
+  }
+
+  private toOptionalBigintString(
+    value: bigint | null | undefined,
+  ): string | undefined {
+    if (typeof value !== 'bigint') {
+      return undefined;
+    }
+
+    return value.toString();
+  }
+
+  private async getBillingAccountNamesById(
+    projects: Project[],
+  ): Promise<Map<string, string>> {
+    const billingAccountIds = Array.from(
+      new Set(
+        projects
+          .map((project) =>
+            this.toOptionalBigintString(project.billingAccountId),
+          )
+          .filter((billingAccountId): billingAccountId is string =>
+            Boolean(billingAccountId),
+          ),
+      ),
+    );
+
+    if (billingAccountIds.length === 0) {
+      return new Map();
+    }
+
+    const billingAccountsById =
+      await this.billingAccountService.getBillingAccountsByIds(
+        billingAccountIds,
+      );
+
+    return Object.entries(billingAccountsById).reduce<Map<string, string>>(
+      (acc, [billingAccountId, billingAccount]) => {
+        const billingAccountName =
+          typeof billingAccount?.name === 'string'
+            ? billingAccount.name.trim()
+            : '';
+
+        if (billingAccountName) {
+          acc.set(billingAccountId, billingAccountName);
+        }
+
+        return acc;
+      },
+      new Map(),
+    );
   }
 }

@@ -10,39 +10,5 @@
         "name": "fixture-v6-work-manager-project-updated"
       }
     }
-  },
-  {
-    "topic": "project.status.changed",
-    "originator": "project-service-v6",
-    "payload": {
-      "resource": "project",
-      "data": {
-        "id": "2001",
-        "status": "active",
-        "name": "fixture-v6-work-manager-project-updated"
-      }
-    }
-  },
-  {
-    "topic": "connect.notification.project.active",
-    "originator": "project-service-v6",
-    "payload": {
-      "projectId": "2001",
-      "projectName": "fixture-v6-work-manager-project-updated",
-      "projectUrl": "https://platform.topcoder.com/connect/projects/2001",
-      "userId": "1001",
-      "initiatorUserId": "1001"
-    }
-  },
-  {
-    "topic": "connect.notification.project.updated",
-    "originator": "project-service-v6",
-    "payload": {
-      "projectId": "2001",
-      "projectName": "fixture-v6-work-manager-project-updated",
-      "projectUrl": "https://platform.topcoder.com/connect/projects/2001",
-      "userId": "1001",
-      "initiatorUserId": "1001"
-    }
   }
 ]

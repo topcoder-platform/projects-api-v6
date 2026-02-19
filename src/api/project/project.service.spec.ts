@@ -6,7 +6,6 @@ import { ProjectService } from './project.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({
   publishProjectEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
 }));
 
 const eventUtils = jest.requireMock('src/shared/utils/event.utils');
@@ -28,6 +27,7 @@ describe('ProjectService', () => {
     projectMemberInvite: {
       findMany: jest.fn(),
     },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 
@@ -35,13 +35,21 @@ describe('ProjectService', () => {
     hasNamedPermission: jest.fn(),
   };
 
+  const billingAccountServiceMock = {
+    getBillingAccountsForProject: jest.fn(),
+    getBillingAccountsByIds: jest.fn(),
+    getDefaultBillingAccount: jest.fn(),
+  };
+
   let service: ProjectService;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue([]);
     service = new ProjectService(
       prismaMock as any,
       permissionServiceMock as unknown as PermissionService,
+      billingAccountServiceMock as any,
     );
   });
 
@@ -121,6 +129,7 @@ describe('ProjectService', () => {
       {
         page: 1,
         perPage: 20,
+        fields: 'invites',
       },
       {
         userId: '100',
@@ -132,6 +141,195 @@ describe('ProjectService', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0].invites).toHaveLength(1);
     expect(result.data[0].invites?.[0].userId).toBe('100');
+    expect(prismaMock.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          members: expect.any(Object),
+          invites: expect.any(Object),
+        }),
+      }),
+    );
+  });
+
+  it('does not load relation payloads by default in project listing', async () => {
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean =>
+        permission === Permission.READ_PROJECT_ANY ||
+        permission === Permission.READ_PROJECT_MEMBER,
+    );
+
+    const now = new Date();
+
+    prismaMock.project.count.mockResolvedValue(1);
+    prismaMock.project.findMany.mockResolvedValue([
+      {
+        id: BigInt(1001),
+        name: 'Demo',
+        description: null,
+        type: 'app',
+        status: 'active',
+        billingAccountId: null,
+        directProjectId: null,
+        estimatedPrice: null,
+        actualPrice: null,
+        terms: [],
+        groups: [],
+        external: null,
+        bookmarks: null,
+        utm: null,
+        details: null,
+        challengeEligibility: null,
+        cancelReason: null,
+        templateId: null,
+        version: 'v3',
+        lastActivityAt: now,
+        lastActivityUserId: '100',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: 100,
+        updatedBy: 100,
+      },
+    ]);
+
+    const result = await service.listProjects(
+      {
+        page: 1,
+        perPage: 20,
+      },
+      {
+        userId: '100',
+        roles: ['administrator'],
+        isMachine: false,
+      },
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].members).toBeUndefined();
+    expect(result.data[0].invites).toBeUndefined();
+    expect(result.data[0].attachments).toBeUndefined();
+    expect(prismaMock.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {},
+      }),
+    );
+  });
+
+  it('adds billing account name to project listing when available', async () => {
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean =>
+        permission === Permission.READ_PROJECT_ANY ||
+        permission === Permission.READ_PROJECT_MEMBER,
+    );
+
+    const now = new Date();
+
+    prismaMock.project.count.mockResolvedValue(1);
+    prismaMock.project.findMany.mockResolvedValue([
+      {
+        id: BigInt(1001),
+        name: 'Demo',
+        description: null,
+        type: 'app',
+        status: 'active',
+        billingAccountId: BigInt(80001063),
+        directProjectId: null,
+        estimatedPrice: null,
+        actualPrice: null,
+        terms: [],
+        groups: [],
+        external: null,
+        bookmarks: null,
+        utm: null,
+        details: null,
+        challengeEligibility: null,
+        cancelReason: null,
+        templateId: null,
+        version: 'v3',
+        lastActivityAt: now,
+        lastActivityUserId: '100',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: 100,
+        updatedBy: 100,
+      },
+    ]);
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({
+      '80001063': {
+        name: 'Acme BA',
+        tcBillingAccountId: '80001063',
+      },
+    });
+
+    const result = await service.listProjects(
+      {
+        page: 1,
+        perPage: 20,
+      },
+      {
+        userId: '100',
+        roles: ['administrator'],
+        isMachine: false,
+      },
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].billingAccountName).toBe('Acme BA');
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).toHaveBeenCalledWith(['80001063']);
+  });
+
+  it('adds billing account name to project details when available', async () => {
+    const now = new Date();
+
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      name: 'Demo',
+      description: null,
+      type: 'app',
+      status: 'active',
+      billingAccountId: BigInt(80001063),
+      directProjectId: null,
+      estimatedPrice: null,
+      actualPrice: null,
+      terms: [],
+      groups: [],
+      external: null,
+      bookmarks: null,
+      utm: null,
+      details: null,
+      challengeEligibility: null,
+      cancelReason: null,
+      templateId: null,
+      version: 'v3',
+      lastActivityAt: now,
+      lastActivityUserId: '100',
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 100,
+      updatedBy: 100,
+      members: [],
+      invites: [],
+      attachments: [],
+    });
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({
+      '80001063': {
+        name: 'Acme BA',
+        tcBillingAccountId: '80001063',
+      },
+    });
+
+    const result = await service.getProject('1001', undefined, {
+      userId: '100',
+      roles: ['administrator'],
+      isMachine: false,
+    });
+
+    expect(result.billingAccountName).toBe('Acme BA');
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).toHaveBeenCalledWith(['80001063']);
   });
 
   it('throws NotFoundException when project is missing', async () => {
@@ -139,6 +337,90 @@ describe('ProjectService', () => {
 
     await expect(
       service.getProject('999', undefined, {
+        userId: '123',
+        isMachine: false,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('lists billing accounts for project id', async () => {
+    billingAccountServiceMock.getBillingAccountsForProject.mockResolvedValue([
+      {
+        tcBillingAccountId: '123123',
+      },
+    ]);
+
+    const result = await service.listProjectBillingAccounts('001001', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual([
+      {
+        tcBillingAccountId: '123123',
+      },
+    ]);
+    expect(
+      billingAccountServiceMock.getBillingAccountsForProject,
+    ).toHaveBeenCalledWith('1001', '123');
+  });
+
+  it('returns project billing account and strips markup for user tokens', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: BigInt(12),
+    });
+    billingAccountServiceMock.getDefaultBillingAccount.mockResolvedValue({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
+
+    const result = await service.getProjectBillingAccount('1001', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '12',
+      active: true,
+    });
+    expect(
+      billingAccountServiceMock.getDefaultBillingAccount,
+    ).toHaveBeenCalledWith('12');
+  });
+
+  it('returns project billing account markup for m2m tokens', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: BigInt(12),
+    });
+    billingAccountServiceMock.getDefaultBillingAccount.mockResolvedValue({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
+
+    const result = await service.getProjectBillingAccount('1001', {
+      scopes: ['read:project-billing-account-details'],
+      isMachine: true,
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
+  });
+
+  it('throws when billing account is not attached to the project', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: null,
+    });
+
+    await expect(
+      service.getProjectBillingAccount('1001', {
         userId: '123',
         isMachine: false,
       }),
@@ -344,7 +626,7 @@ describe('ProjectService', () => {
     expect(eventUtils.publishProjectEvent).toHaveBeenCalled();
   });
 
-  it('creates project and publishes created notification', async () => {
+  it('creates project and publishes project.created event', async () => {
     prismaMock.projectType.findFirst.mockResolvedValue({
       key: 'app',
     });
@@ -415,19 +697,12 @@ describe('ProjectService', () => {
     );
 
     expect(eventUtils.publishProjectEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_DRAFT_CREATED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
       KAFKA_TOPIC.PROJECT_CREATED,
-      expect.objectContaining({
-        projectId: '1001',
-        projectName: 'Demo Project',
-      }),
+      expect.any(Object),
     );
   });
 
-  it('publishes status and billing notifications during update', async () => {
+  it('publishes project.updated event during update', async () => {
     prismaMock.project.findFirst
       .mockResolvedValueOnce({
         id: BigInt(1001),
@@ -518,19 +793,8 @@ describe('ProjectService', () => {
       },
     );
 
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_ACTIVE,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_BILLING_ACCOUNT_UPDATED,
-      expect.objectContaining({
-        oldBillingAccountId: '11',
-        newBillingAccountId: '22',
-      }),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_UPDATED_NOTIFICATION,
+    expect(eventUtils.publishProjectEvent).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_UPDATED,
       expect.any(Object),
     );
   });

@@ -9,16 +9,9 @@ import { CreatePhaseProductDto } from 'src/api/phase-product/dto/create-phase-pr
 import { UpdatePhaseProductDto } from 'src/api/phase-product/dto/update-phase-product.dto';
 import { Permission } from 'src/shared/constants/permissions';
 import { APP_CONFIG } from 'src/shared/config/app.config';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
-import {
-  publishNotificationEvent,
-  publishPhaseProductEvent,
-  publishWorkItemEvent,
-} from 'src/shared/utils/event.utils';
 import { PhaseProductResponseDto } from './dto/phase-product-response.dto';
 
 interface ProjectPermissionContext {
@@ -34,8 +27,6 @@ interface ProjectPermissionContext {
 
 @Injectable()
 export class PhaseProductService {
-  private readonly logger = LoggerService.forRoot('PhaseProductService');
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
@@ -176,15 +167,6 @@ export class PhaseProductService {
     });
 
     const response = this.toDto(createdProduct);
-    this.publishEvent(KAFKA_TOPIC.PROJECT_PHASE_PRODUCT_ADDED, response);
-    this.publishWorkItemEvent(KAFKA_TOPIC.PROJECT_WORKITEM_ADDED, response);
-    this.publishNotificationEvent(KAFKA_TOPIC.PROJECT_PLAN_UPDATED, {
-      projectId,
-      phaseId,
-      workItem: response,
-      userId: this.getNotificationUserId(user),
-      initiatorUserId: this.getNotificationUserId(user),
-    });
 
     return response;
   }
@@ -259,42 +241,10 @@ export class PhaseProductService {
     });
 
     const response = this.toDto(updatedProduct);
-    this.publishEvent(KAFKA_TOPIC.PROJECT_PHASE_PRODUCT_UPDATED, response);
-    this.publishWorkItemEvent(KAFKA_TOPIC.PROJECT_WORKITEM_UPDATED, response);
-
-    const specificationChanged =
-      typeof dto.name !== 'undefined' ||
-      typeof dto.type !== 'undefined' ||
-      typeof dto.templateId !== 'undefined' ||
-      typeof dto.details !== 'undefined';
-
-    if (specificationChanged) {
-      const notificationPayload = {
-        projectId,
-        phaseId,
-        originalProduct: this.toDto(existingProduct),
-        updatedProduct: response,
-        userId: this.getNotificationUserId(user),
-        initiatorUserId: this.getNotificationUserId(user),
-      };
-
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_PRODUCT_SPECIFICATION_MODIFIED,
-        notificationPayload,
-      );
-      this.publishNotificationEvent(
-        KAFKA_TOPIC.PROJECT_WORKITEM_SPECIFICATION_MODIFIED,
-        notificationPayload,
-      );
-    } else {
-      this.publishNotificationEvent(KAFKA_TOPIC.PROJECT_PLAN_UPDATED, {
-        projectId,
-        phaseId,
-        workItem: response,
-        userId: this.getNotificationUserId(user),
-        initiatorUserId: this.getNotificationUserId(user),
-      });
-    }
+    void projectId;
+    void phaseId;
+    void user;
+    void existingProduct;
 
     return response;
   }
@@ -349,23 +299,10 @@ export class PhaseProductService {
       },
     });
 
-    this.publishEvent(KAFKA_TOPIC.PROJECT_PHASE_PRODUCT_REMOVED, {
-      id: deletedProduct.id.toString(),
-      projectId: deletedProduct.projectId.toString(),
-      phaseId: deletedProduct.phaseId.toString(),
-    });
-    this.publishWorkItemEvent(KAFKA_TOPIC.PROJECT_WORKITEM_REMOVED, {
-      id: deletedProduct.id.toString(),
-      projectId: deletedProduct.projectId.toString(),
-      phaseId: deletedProduct.phaseId.toString(),
-    });
-    this.publishNotificationEvent(KAFKA_TOPIC.PROJECT_PLAN_UPDATED, {
-      projectId,
-      phaseId,
-      workItemId: deletedProduct.id.toString(),
-      userId: this.getNotificationUserId(user),
-      initiatorUserId: this.getNotificationUserId(user),
-    });
+    void projectId;
+    void phaseId;
+    void user;
+    void deletedProduct;
   }
 
   private async ensurePhaseExists(
@@ -508,42 +445,5 @@ export class PhaseProductService {
     }
 
     return userId;
-  }
-
-  private publishEvent(topic: string, payload: unknown): void {
-    void publishPhaseProductEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish phase-product event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishWorkItemEvent(topic: string, payload: unknown): void {
-    void publishWorkItemEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish workitem event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishNotificationEvent(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish phase-product notification topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
   }
 }

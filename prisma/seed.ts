@@ -1,6 +1,30 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+function getSchemaFromUrl(url: string | undefined): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    return new URL(url).searchParams.get('schema') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function createPrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL;
+  const schema = getSchemaFromUrl(connectionString);
+  const adapter = new PrismaPg(
+    { connectionString },
+    schema ? { schema } : undefined,
+  );
+
+  return new PrismaClient({ adapter });
+}
+
+const prisma = createPrismaClient();
 
 async function seedProjectTypes() {
   console.log('Seeding project types...');

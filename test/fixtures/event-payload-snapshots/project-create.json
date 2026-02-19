@@ -1,6 +1,6 @@
 [
   {
-    "topic": "project.draft.created",
+    "topic": "project.created",
     "originator": "project-service-v6",
     "payload": {
       "resource": "project",
@@ -9,17 +9,6 @@
         "status": "draft",
         "name": "fixture-v6-work-manager-project"
       }
-    }
-  },
-  {
-    "topic": "connect.notification.project.created",
-    "originator": "project-service-v6",
-    "payload": {
-      "projectId": "2001",
-      "projectName": "fixture-v6-work-manager-project",
-      "projectUrl": "https://platform.topcoder.com/connect/projects/2001",
-      "userId": "1001",
-      "initiatorUserId": "1001"
     }
   }
 ]

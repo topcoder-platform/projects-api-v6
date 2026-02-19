@@ -32,6 +32,7 @@ import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { BillingAccount } from 'src/shared/services/billingAccount.service';
 import { setProjectPaginationHeaders } from 'src/shared/utils/pagination.utils';
 import { CreateProjectDto } from './dto/create-project.dto';
 import {
@@ -70,6 +71,7 @@ export class ProjectController {
   @ApiQuery({ name: 'fields', required: false, type: String })
   @ApiQuery({ name: 'id', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'billingAccountId', required: false, type: String })
   @ApiQuery({ name: 'memberOnly', required: false, type: Boolean })
   @ApiQuery({ name: 'keyword', required: false, type: String })
   @ApiQuery({ name: 'type', required: false, type: String })
@@ -159,8 +161,7 @@ export class ProjectController {
     name: 'fields',
     required: false,
     type: String,
-    description:
-      'CSV fields list. Supported: members, invites, attachments, phases',
+    description: 'CSV fields list. Supported: members, invites, attachments',
   })
   @ApiResponse({
     status: 200,
@@ -178,6 +179,79 @@ export class ProjectController {
     @CurrentUser() user: JwtUser,
   ): Promise<ProjectWithRelationsDto> {
     return this.service.getProject(projectId, query.fields, user);
+  }
+
+  @Get(':projectId/billingAccounts')
+  @UseGuards(PermissionGuard)
+  @Roles(...Object.values(UserRole))
+  @Scopes(
+    Scope.CONNECT_PROJECT_ADMIN,
+    Scope.PROJECTS_READ_USER_BILLING_ACCOUNTS,
+  )
+  @RequirePermission(Permission.READ_AVL_PROJECT_BILLING_ACCOUNTS)
+  @ApiOperation({
+    summary: 'List available billing accounts for project',
+    description:
+      'Returns billing accounts available to the caller in the context of a project.',
+  })
+  @ApiParam({
+    name: 'projectId',
+    required: true,
+    description: 'Project numeric id',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Billing accounts list',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async listProjectBillingAccounts(
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<BillingAccount[]> {
+    return this.service.listProjectBillingAccounts(projectId, user);
+  }
+
+  @Get(':projectId/billingAccount')
+  @UseGuards(PermissionGuard)
+  @Roles(...Object.values(UserRole))
+  @Scopes(Scope.PROJECTS_READ_PROJECT_BILLING_ACCOUNT_DETAILS)
+  @RequirePermission(Permission.READ_PROJECT_BILLING_ACCOUNT_DETAILS)
+  @ApiOperation({
+    summary: 'Get default billing account for project',
+    description:
+      'Returns billing account details for the project-level default billing account.',
+  })
+  @ApiParam({
+    name: 'projectId',
+    required: true,
+    description: 'Project numeric id',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Billing account details',
+    schema: {
+      type: 'object',
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Not Found' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async getProjectBillingAccount(
+    @Param('projectId') projectId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<BillingAccount> {
+    return this.service.getProjectBillingAccount(projectId, user);
   }
 
   @Get(':projectId/permissions')

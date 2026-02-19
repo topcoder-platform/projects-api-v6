@@ -1,16 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { PhaseProductService } from './phase-product.service';
-
-jest.mock('src/shared/utils/event.utils', () => ({
-  publishPhaseProductEvent: jest.fn(() => Promise.resolve()),
-  publishWorkItemEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
-}));
-
-const eventUtils = jest.requireMock('src/shared/utils/event.utils');
 
 describe('PhaseProductService', () => {
   const prismaMock = {
@@ -61,7 +52,7 @@ describe('PhaseProductService', () => {
     });
   });
 
-  it('creates phase product with inherited project fields and publishes event', async () => {
+  it('creates phase product with inherited project fields', async () => {
     permissionServiceMock.hasNamedPermission.mockImplementation(
       (permission: Permission): boolean => {
         if (permission === Permission.ADD_PHASE_PRODUCT) {
@@ -119,15 +110,6 @@ describe('PhaseProductService', () => {
         }),
       }),
     );
-    expect(eventUtils.publishPhaseProductEvent).toHaveBeenCalled();
-    expect(eventUtils.publishWorkItemEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_WORKITEM_ADDED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_PLAN_UPDATED,
-      expect.any(Object),
-    );
   });
 
   it('enforces max products per phase', async () => {
@@ -159,7 +141,7 @@ describe('PhaseProductService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('soft deletes phase product and emits minimal payload', async () => {
+  it('soft deletes phase product', async () => {
     permissionServiceMock.hasNamedPermission.mockImplementation(
       (permission: Permission): boolean => {
         if (permission === Permission.DELETE_PHASE_PRODUCT) {
@@ -202,22 +184,6 @@ describe('PhaseProductService', () => {
     });
 
     expect(prismaMock.phaseProduct.update).toHaveBeenCalled();
-    expect(eventUtils.publishPhaseProductEvent).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        id: '91',
-        projectId: '1001',
-        phaseId: '10',
-      }),
-    );
-    expect(eventUtils.publishWorkItemEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_WORKITEM_REMOVED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_PLAN_UPDATED,
-      expect.any(Object),
-    );
   });
 
   it('throws forbidden when create permission is missing', async () => {

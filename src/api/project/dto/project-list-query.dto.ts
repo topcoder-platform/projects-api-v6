@@ -58,8 +58,7 @@ export class ProjectListQueryDto extends PaginationDto {
   sort?: string;
 
   @ApiPropertyOptional({
-    description:
-      'CSV fields list. Supported: members, invites, attachments, phases',
+    description: 'CSV fields list. Supported: members, invites, attachments',
   })
   @IsOptional()
   @IsString()
@@ -78,6 +77,13 @@ export class ProjectListQueryDto extends PaginationDto {
   @IsOptional()
   @Transform(({ value }) => parseFilterInput(value))
   status?: string | string[] | Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    description: 'Filter by billing account id (exact or $in pattern)',
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseFilterInput(value))
+  billingAccountId?: string | string[] | Record<string, unknown>;
 
   @ApiPropertyOptional({
     description:
@@ -136,8 +142,7 @@ export class ProjectListQueryDto extends PaginationDto {
 
 export class GetProjectQueryDto {
   @ApiPropertyOptional({
-    description:
-      'CSV fields list. Supported: members, invites, attachments, phases',
+    description: 'CSV fields list. Supported: members, invites, attachments',
   })
   @IsOptional()
   @IsString()

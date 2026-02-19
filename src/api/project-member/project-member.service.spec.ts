@@ -8,7 +8,6 @@ import { ProjectMemberService } from './project-member.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({
   publishMemberEvent: jest.fn(() => Promise.resolve()),
-  publishNotificationEvent: jest.fn(() => Promise.resolve()),
 }));
 
 const eventUtils = jest.requireMock('src/shared/utils/event.utils');
@@ -45,7 +44,7 @@ describe('ProjectMemberService', () => {
     );
   });
 
-  it('adds member and publishes event', async () => {
+  it('adds member and publishes member.added event', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [],
@@ -102,13 +101,8 @@ describe('ProjectMemberService', () => {
     );
 
     expect(txMock.projectMember.create).toHaveBeenCalled();
-    expect(eventUtils.publishMemberEvent).toHaveBeenCalled();
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.MEMBER_JOINED,
-      expect.any(Object),
-    );
-    expect(eventUtils.publishNotificationEvent).toHaveBeenCalledWith(
-      KAFKA_TOPIC.PROJECT_TEAM_UPDATED,
+    expect(eventUtils.publishMemberEvent).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_MEMBER_ADDED,
       expect.any(Object),
     );
     expect((result as any).id).toBe('1');

@@ -1,3 +1,4 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import {
   AttachmentType,
   CopilotOpportunityStatus,
@@ -21,6 +22,29 @@ export interface DatabaseSeedSummary {
   workStreamIds: string[];
   copilotRequestIds: string[];
   copilotOpportunityIds: string[];
+}
+
+function getSchemaFromUrl(url: string | undefined): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    return new URL(url).searchParams.get('schema') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function createPrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL;
+  const schema = getSchemaFromUrl(connectionString);
+  const adapter = new PrismaPg(
+    { connectionString },
+    schema ? { schema } : undefined,
+  );
+
+  return new PrismaClient({ adapter });
 }
 
 async function ensureReferenceMetadata(prisma: PrismaClient): Promise<{
@@ -686,7 +710,7 @@ export async function seedDatabaseFixtures(
 }
 
 if (require.main === module) {
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
 
   void seedDatabaseFixtures(prisma)
     .then((summary) => {

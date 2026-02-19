@@ -227,7 +227,7 @@ export class JwtService implements OnModuleInit {
       user.isMachine = true;
     }
 
-    const userId = this.extractString(payload, ['userId', 'sub']);
+    const userId = this.extractUserId(payload);
     if (userId) {
       user.userId = userId;
     }
@@ -245,9 +245,14 @@ export class JwtService implements OnModuleInit {
     for (const key of Object.keys(payload)) {
       const lowerKey = key.toLowerCase();
 
-      if (!user.userId && lowerKey.endsWith('userid')) {
-        const value = payload[key];
-        if (typeof value === 'string' && value.trim().length > 0) {
+      if (lowerKey.endsWith('userid')) {
+        const value = this.extractIdentifier(payload[key]);
+        if (
+          value &&
+          (!user.userId ||
+            (!this.isNumericIdentifier(user.userId) &&
+              this.isNumericIdentifier(value)))
+        ) {
           user.userId = value;
         }
       }
@@ -318,6 +323,35 @@ export class JwtService implements OnModuleInit {
     }
 
     return undefined;
+  }
+
+  private extractUserId(payload: JwtPayloadRecord): string | undefined {
+    const userId = this.extractIdentifier(payload.userId);
+    if (userId) {
+      return userId;
+    }
+
+    return this.extractIdentifier(payload.sub);
+  }
+
+  private extractIdentifier(value: unknown): string | undefined {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+
+    if (typeof value === 'number' && Number.isSafeInteger(value)) {
+      return String(value);
+    }
+
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+
+    return undefined;
+  }
+
+  private isNumericIdentifier(value: string): boolean {
+    return /^\d+$/.test(value.trim());
   }
 
   private getValidIssuers(): string[] {

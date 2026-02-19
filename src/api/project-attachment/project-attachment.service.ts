@@ -10,17 +10,13 @@ import { CreateAttachmentDto } from 'src/api/project-attachment/dto/create-attac
 import { UpdateAttachmentDto } from 'src/api/project-attachment/dto/update-attachment.dto';
 import { Permission } from 'src/shared/constants/permissions';
 import { APP_CONFIG } from 'src/shared/config/app.config';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { FileService } from 'src/shared/services/file.service';
+import { MemberService } from 'src/shared/services/member.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { hasAdminRole } from 'src/shared/utils/permission.utils';
-import {
-  publishAttachmentEvent,
-  publishNotificationEvent,
-} from 'src/shared/utils/event.utils';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
 
 interface ProjectPermissionContext {
@@ -40,6 +36,7 @@ export class ProjectAttachmentService {
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
     private readonly fileService: FileService,
+    private readonly memberService: MemberService,
   ) {}
 
   async listAttachments(
@@ -67,11 +64,17 @@ export class ProjectAttachmentService {
       },
     });
 
-    return attachments
-      .filter((attachment) =>
-        this.hasReadAccessToAttachment(attachment, user, isAdmin),
-      )
-      .map((attachment) => this.toDto(attachment));
+    const visibleAttachments = attachments.filter((attachment) =>
+      this.hasReadAccessToAttachment(attachment, user, isAdmin),
+    );
+    const creatorHandleMap = await this.getCreatorHandleMap(visibleAttachments);
+
+    return visibleAttachments.map((attachment) =>
+      this.toDto(attachment, {
+        creatorHandleMap,
+        currentUser: user,
+      }),
+    );
   }
 
   async getAttachment(
@@ -109,7 +112,11 @@ export class ProjectAttachmentService {
       throw new NotFoundException('Record not found');
     }
 
-    const response = this.toDto(attachment);
+    const creatorHandleMap = await this.getCreatorHandleMap([attachment]);
+    const response = this.toDto(attachment, {
+      creatorHandleMap,
+      currentUser: user,
+    });
 
     if (attachment.type === AttachmentType.file) {
       response.url = await this.resolveDownloadUrl(attachment.path);
@@ -132,6 +139,7 @@ export class ProjectAttachmentService {
       user,
       project.members,
     );
+    const createdAt = new Date();
 
     if (dto.type === AttachmentType.link) {
       const createdLink = await this.prisma.projectAttachment.create({
@@ -146,17 +154,17 @@ export class ProjectAttachmentService {
           tags: dto.tags || [],
           contentType: dto.contentType || null,
           allowedUsers: dto.allowedUsers || [],
+          createdAt,
           createdBy: auditUserId,
           updatedBy: auditUserId,
         },
       });
 
-      const response = this.toDto(createdLink);
-      this.publishEvent(KAFKA_TOPIC.PROJECT_ATTACHMENT_ADDED, response);
-      this.publishNotification(
-        KAFKA_TOPIC.PROJECT_LINK_CREATED,
-        this.buildAttachmentNotificationPayload(response, user),
-      );
+      const creatorHandleMap = await this.getCreatorHandleMap([createdLink]);
+      const response = this.toDto(createdLink, {
+        creatorHandleMap,
+        currentUser: user,
+      });
       return response;
     }
 
@@ -189,21 +197,21 @@ export class ProjectAttachmentService {
         tags: dto.tags || [],
         contentType: dto.contentType,
         allowedUsers: dto.allowedUsers || [],
+        createdAt,
         createdBy: auditUserId,
         updatedBy: auditUserId,
       },
     });
 
     const downloadUrl = await this.resolveDownloadUrl(destinationPath);
+    const creatorHandleMap = await this.getCreatorHandleMap([
+      createdFileAttachment,
+    ]);
     const response = this.toDto(createdFileAttachment, {
+      creatorHandleMap,
+      currentUser: user,
       downloadUrl,
     });
-
-    this.publishEvent(KAFKA_TOPIC.PROJECT_ATTACHMENT_ADDED, response);
-    this.publishNotification(
-      KAFKA_TOPIC.PROJECT_FILE_UPLOADED,
-      this.buildAttachmentNotificationPayload(response, user),
-    );
 
     const shouldTransfer =
       process.env.NODE_ENV !== 'development' || APP_CONFIG.enableFileUpload;
@@ -290,12 +298,13 @@ export class ProjectAttachmentService {
       },
     });
 
-    const response = this.toDto(updatedAttachment);
-    this.publishEvent(KAFKA_TOPIC.PROJECT_ATTACHMENT_UPDATED, response);
-    this.publishNotification(
-      KAFKA_TOPIC.PROJECT_ATTACHMENT_UPDATED_NOTIFICATION,
-      this.buildAttachmentNotificationPayload(response, user),
-    );
+    const creatorHandleMap = await this.getCreatorHandleMap([
+      updatedAttachment,
+    ]);
+    const response = this.toDto(updatedAttachment, {
+      creatorHandleMap,
+      currentUser: user,
+    });
 
     return response;
   }
@@ -330,7 +339,7 @@ export class ProjectAttachmentService {
       );
     }
 
-    const deletedAttachment = await this.prisma.projectAttachment.update({
+    await this.prisma.projectAttachment.update({
       where: {
         id: parsedAttachmentId,
       },
@@ -340,11 +349,6 @@ export class ProjectAttachmentService {
         updatedBy: auditUserId,
       },
     });
-
-    this.publishEvent(
-      KAFKA_TOPIC.PROJECT_ATTACHMENT_REMOVED,
-      this.toDto(deletedAttachment),
-    );
 
     const shouldDeleteFile =
       attachment.type === AttachmentType.file &&
@@ -478,9 +482,16 @@ export class ProjectAttachmentService {
 
   private toDto(
     attachment: ProjectAttachment,
-    extra: Partial<Pick<AttachmentResponseDto, 'url' | 'downloadUrl'>> = {},
+    extra: {
+      url?: string;
+      downloadUrl?: string;
+      creatorHandleMap?: Map<number, string>;
+      currentUser?: JwtUser;
+    } = {},
   ): AttachmentResponseDto {
-    return {
+    const creatorHandleMap =
+      extra.creatorHandleMap || new Map<number, string>();
+    const response: AttachmentResponseDto = {
       id: attachment.id.toString(),
       projectId: attachment.projectId.toString(),
       title: attachment.title,
@@ -494,10 +505,76 @@ export class ProjectAttachmentService {
       allowedUsers: attachment.allowedUsers,
       createdAt: attachment.createdAt,
       updatedAt: attachment.updatedAt,
-      createdBy: attachment.createdBy,
+      createdBy: this.resolveCreatedByHandle(
+        attachment,
+        creatorHandleMap,
+        extra.currentUser,
+      ),
       updatedBy: attachment.updatedBy,
-      ...extra,
     };
+
+    if (typeof extra.url !== 'undefined') {
+      response.url = extra.url;
+    }
+
+    if (typeof extra.downloadUrl !== 'undefined') {
+      response.downloadUrl = extra.downloadUrl;
+    }
+
+    return response;
+  }
+
+  private async getCreatorHandleMap(
+    attachments: ProjectAttachment[],
+  ): Promise<Map<number, string>> {
+    const creatorIds = Array.from(
+      new Set(attachments.map((attachment) => attachment.createdBy)),
+    );
+
+    if (creatorIds.length === 0) {
+      return new Map<number, string>();
+    }
+
+    const details =
+      await this.memberService.getMemberDetailsByUserIds(creatorIds);
+    const map = new Map<number, string>();
+
+    for (const detail of details) {
+      const userId = Number.parseInt(String(detail.userId || ''), 10);
+      const handle = String(detail.handle || '').trim();
+
+      if (Number.isNaN(userId) || !handle) {
+        continue;
+      }
+
+      map.set(userId, handle);
+    }
+
+    return map;
+  }
+
+  private resolveCreatedByHandle(
+    attachment: ProjectAttachment,
+    creatorHandleMap: Map<number, string>,
+    user?: JwtUser,
+  ): string {
+    const handle = creatorHandleMap.get(attachment.createdBy);
+    if (handle) {
+      return handle;
+    }
+
+    const currentUserId = Number.parseInt(String(user?.userId || ''), 10);
+    const currentUserHandle = String(user?.handle || '').trim();
+
+    if (
+      !Number.isNaN(currentUserId) &&
+      currentUserId === attachment.createdBy &&
+      currentUserHandle.length > 0
+    ) {
+      return currentUserHandle;
+    }
+
+    return '';
   }
 
   private parseId(value: string, entityName: string): bigint {
@@ -516,50 +593,5 @@ export class ProjectAttachmentService {
     }
 
     return userId;
-  }
-
-  private publishEvent(topic: string, payload: unknown): void {
-    void publishAttachmentEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish attachment event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishNotification(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish attachment notification topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private buildAttachmentNotificationPayload(
-    attachment: AttachmentResponseDto,
-    user: JwtUser,
-  ): Record<string, unknown> {
-    const userId = this.getNotificationUserId(user);
-
-    return {
-      projectId: attachment.projectId,
-      attachmentId: attachment.id,
-      type: attachment.type,
-      title: attachment.title,
-      path: attachment.path,
-      userId,
-      initiatorUserId: userId,
-    };
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
   }
 }

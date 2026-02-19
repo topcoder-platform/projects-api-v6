@@ -50,7 +50,7 @@ jobs:
     environment:
       DEPLOY_ENV: "DEV"
       LOGICAL_ENV: "dev"
-      APPNAME: "project-service-v6"
+      APPNAME: "projects-api-v6"
       DEPLOYMENT_ENVIRONMENT: "dev"
     steps: *builddeploy_steps
 
@@ -59,7 +59,7 @@ jobs:
     environment:
       DEPLOY_ENV: "PROD"
       LOGICAL_ENV: "prod"
-      APPNAME: "project-service-v6"
+      APPNAME: "projects-api-v6"
       DEPLOYMENT_ENVIRONMENT: "prod"
     steps: *builddeploy_steps
 
@@ -108,7 +108,7 @@ workflows:
           filters:
             branches:
               only:
-                - develop
+                - dev
       - deployment-validation-dev:
           context: org-global
           requires:
@@ -116,7 +116,7 @@ workflows:
           filters:
             branches:
               only:
-                - develop
+                - dev
 
   build-prod:
     jobs:

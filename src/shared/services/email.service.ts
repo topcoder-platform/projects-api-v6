@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getBusApiClient } from 'src/shared/utils/event.utils';
+import { EventBusService } from 'src/shared/modules/global/eventBus.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 
 export interface InviteEmailPayload {
@@ -18,9 +18,15 @@ export interface InviteEmailInitiator {
   email?: string;
 }
 
+const EXTERNAL_ACTION_EMAIL_TOPIC = 'external.action.email';
+const DEFAULT_INVITE_EMAIL_SUBJECT = 'You are invited to Topcoder';
+const DEFAULT_INVITE_EMAIL_SECTION_TITLE = 'Project Invitation';
+
 @Injectable()
 export class EmailService {
   private readonly logger = LoggerService.forRoot('EmailService');
+
+  constructor(private readonly eventBusService: EventBusService) {}
 
   async sendInviteEmail(
     projectId: string,
@@ -28,7 +34,9 @@ export class EmailService {
     initiator: InviteEmailInitiator,
     projectName?: string,
   ): Promise<void> {
-    if (!invite.email) {
+    const recipient = invite.email?.trim().toLowerCase();
+
+    if (!recipient) {
       return;
     }
 
@@ -40,50 +48,59 @@ export class EmailService {
       return;
     }
 
-    const workManagerUrl = process.env.WORK_MANAGER_URL || '';
-    const accountsAppUrl = process.env.ACCOUNTS_APP_URL || '';
-    const invitePath = `${workManagerUrl.replace(/\/$/, '')}/projects/${projectId}`;
-
-    try {
-      const client = await getBusApiClient();
-
-      await client.postEvent({
-        topic: 'external.action.email',
-        originator: 'project-service-v6',
-        timestamp: new Date().toISOString(),
-        'mime-type': 'application/json',
-        payload: {
-          data: {
-            workManagerUrl,
-            accountsAppURL: accountsAppUrl,
-            subject: process.env.INVITE_EMAIL_SUBJECT,
-            projects: [
+    const normalizedProjectName = projectName?.trim() || `Project ${projectId}`;
+    const payload = {
+      data: {
+        workManagerUrl: process.env.WORK_MANAGER_URL || '',
+        accountsAppURL: process.env.ACCOUNTS_APP_URL || '',
+        subject:
+          process.env.INVITE_EMAIL_SUBJECT || DEFAULT_INVITE_EMAIL_SUBJECT,
+        projects: [
+          {
+            name: normalizedProjectName,
+            projectId,
+            sections: [
               {
-                name: projectName || `Project ${projectId}`,
+                EMAIL_INVITES: true,
+                title:
+                  process.env.INVITE_EMAIL_SECTION_TITLE ||
+                  DEFAULT_INVITE_EMAIL_SECTION_TITLE,
+                projectName: normalizedProjectName,
                 projectId,
-                sections: [
-                  {
-                    EMAIL_INVITES: true,
-                    title: process.env.INVITE_EMAIL_SECTION_TITLE,
-                    projectName: projectName || `Project ${projectId}`,
-                    projectId,
-                    inviteLink: invitePath,
-                    role: invite.role,
-                    initiator,
-                  },
-                ],
+                initiator: this.normalizeInitiator(initiator),
+                isSSO: false,
               },
             ],
           },
-          sendgrid_template_id: templateId,
-          recipients: [invite.email],
-          version: 'v3',
-        },
-      });
+        ],
+      },
+      sendgrid_template_id: templateId,
+      recipients: [recipient],
+      version: 'v3',
+    };
+
+    try {
+      await this.eventBusService.publishProjectEvent(
+        EXTERNAL_ACTION_EMAIL_TOPIC,
+        payload,
+      );
     } catch (error) {
-      this.logger.warn(
-        `Failed to send invite email for projectId=${projectId}: ${error instanceof Error ? error.message : String(error)}`,
+      this.logger.error(
+        `Failed to publish invite email event to ${EXTERNAL_ACTION_EMAIL_TOPIC} for projectId=${projectId} recipient=${recipient}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
+  }
+
+  private normalizeInitiator(
+    initiator: InviteEmailInitiator,
+  ): InviteEmailInitiator {
+    return {
+      userId: initiator.userId,
+      handle: initiator.handle,
+      firstName: initiator.firstName || 'Connect',
+      lastName: initiator.lastName || 'User',
+      email: initiator.email,
+    };
   }
 }

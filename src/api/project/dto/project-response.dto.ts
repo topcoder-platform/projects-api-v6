@@ -14,6 +14,9 @@ export class ProjectMemberDto {
   @ApiProperty()
   role: string;
 
+  @ApiPropertyOptional()
+  handle?: string | null;
+
   @ApiProperty()
   isPrimary: boolean;
 
@@ -45,6 +48,9 @@ export class ProjectInviteDto {
 
   @ApiProperty()
   role: string;
+
+  @ApiPropertyOptional()
+  handle?: string | null;
 
   @ApiProperty()
   createdAt: Date;
@@ -91,35 +97,6 @@ export class ProjectAttachmentDto {
   updatedAt: Date;
 }
 
-export class ProjectPhaseDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  projectId: string;
-
-  @ApiPropertyOptional()
-  name?: string | null;
-
-  @ApiPropertyOptional()
-  description?: string | null;
-
-  @ApiPropertyOptional({
-    enum: ProjectStatus,
-    enumName: 'ProjectStatus',
-  })
-  status?: ProjectStatus | null;
-
-  @ApiPropertyOptional()
-  order?: number | null;
-
-  @ApiProperty()
-  createdAt: Date;
-
-  @ApiProperty()
-  updatedAt: Date;
-}
-
 export class ProjectResponseDto {
   @ApiProperty()
   id: string;
@@ -141,6 +118,9 @@ export class ProjectResponseDto {
 
   @ApiPropertyOptional()
   billingAccountId?: string | null;
+
+  @ApiPropertyOptional()
+  billingAccountName?: string | null;
 
   @ApiPropertyOptional()
   directProjectId?: string | null;
@@ -215,7 +195,4 @@ export class ProjectWithRelationsDto extends ProjectResponseDto {
 
   @ApiPropertyOptional({ type: () => [ProjectAttachmentDto] })
   attachments?: ProjectAttachmentDto[];
-
-  @ApiPropertyOptional({ type: () => [ProjectPhaseDto] })
-  phases?: ProjectPhaseDto[];
 }

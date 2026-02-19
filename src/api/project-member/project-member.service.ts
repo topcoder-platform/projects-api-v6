@@ -32,10 +32,7 @@ import {
   getDefaultProjectRole,
   validateUserHasProjectRole,
 } from 'src/shared/utils/member.utils';
-import {
-  publishMemberEvent,
-  publishNotificationEvent,
-} from 'src/shared/utils/event.utils';
+import { publishMemberEvent } from 'src/shared/utils/event.utils';
 
 @Injectable()
 export class ProjectMemberService {
@@ -170,14 +167,6 @@ export class ProjectMemberService {
       KAFKA_TOPIC.PROJECT_MEMBER_ADDED,
       this.normalizeEntity(createdMember),
     );
-    this.publishMemberNotifications(
-      this.resolveMemberJoinedNotificationTopic(createdMember.role),
-      this.normalizeEntity(createdMember),
-    );
-    this.publishMemberNotifications(
-      KAFKA_TOPIC.PROJECT_TEAM_UPDATED,
-      this.normalizeEntity(createdMember),
-    );
 
     return this.hydrateMemberResponse(createdMember, fields);
   }
@@ -296,21 +285,6 @@ export class ProjectMemberService {
       return updated;
     });
 
-    this.publishEvent(
-      KAFKA_TOPIC.PROJECT_MEMBER_UPDATED,
-      this.normalizeEntity(updatedMember),
-    );
-    if (!existingMember.isPrimary && updatedMember.isPrimary) {
-      this.publishMemberNotifications(
-        KAFKA_TOPIC.MEMBER_ASSIGNED_AS_OWNER,
-        this.normalizeEntity(updatedMember),
-      );
-    }
-    this.publishMemberNotifications(
-      KAFKA_TOPIC.PROJECT_TEAM_UPDATED,
-      this.normalizeEntity(updatedMember),
-    );
-
     return this.hydrateMemberResponse(updatedMember, fields);
   }
 
@@ -409,14 +383,6 @@ export class ProjectMemberService {
 
     this.publishEvent(
       KAFKA_TOPIC.PROJECT_MEMBER_REMOVED,
-      this.normalizeEntity(deletedMember),
-    );
-    this.publishMemberNotifications(
-      isOwnMember ? KAFKA_TOPIC.MEMBER_LEFT : KAFKA_TOPIC.MEMBER_REMOVED,
-      this.normalizeEntity(deletedMember),
-    );
-    this.publishMemberNotifications(
-      KAFKA_TOPIC.PROJECT_TEAM_UPDATED,
       this.normalizeEntity(deletedMember),
     );
   }
@@ -817,35 +783,5 @@ export class ProjectMemberService {
         error instanceof Error ? error.stack : undefined,
       );
     });
-  }
-
-  private publishMemberNotifications(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish member notification topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private resolveMemberJoinedNotificationTopic(
-    role: ProjectMemberRole,
-  ): string {
-    if (role === ProjectMemberRole.copilot) {
-      return KAFKA_TOPIC.MEMBER_JOINED_COPILOT;
-    }
-
-    const managerRoles = new Set<ProjectMemberRole>([
-      ProjectMemberRole.manager,
-      ProjectMemberRole.project_manager,
-      ProjectMemberRole.program_manager,
-      ProjectMemberRole.solution_architect,
-    ]);
-
-    if (managerRoles.has(role)) {
-      return KAFKA_TOPIC.MEMBER_JOINED_MANAGER;
-    }
-
-    return KAFKA_TOPIC.MEMBER_JOINED;
   }
 }

@@ -52,20 +52,6 @@ export class EventBusService {
     }
   }
 
-  async publishProjectCreated(payload: unknown): Promise<void> {
-    await this.publishProjectEvent(
-      process.env.KAFKA_PROJECT_CREATED_TOPIC || 'project.action.create',
-      payload,
-    );
-  }
-
-  async publishProjectUpdated(payload: unknown): Promise<void> {
-    await this.publishProjectEvent(
-      process.env.KAFKA_PROJECT_UPDATED_TOPIC || 'project.action.update',
-      payload,
-    );
-  }
-
   private createClient(): EventBusClient | null {
     const busApiFactory = busApi as unknown as (
       config: Record<string, unknown>,

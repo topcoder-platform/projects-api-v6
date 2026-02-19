@@ -161,10 +161,7 @@ export class CopilotRequestService {
       );
     }
 
-    return this.formatRequest(
-      request as CopilotRequestWithRelations,
-      isAdminOrManager(user),
-    );
+    return this.formatRequest(request, isAdminOrManager(user));
   }
 
   async createRequest(
@@ -238,10 +235,7 @@ export class CopilotRequestService {
       throw new NotFoundException('Unable to create copilot request.');
     }
 
-    return this.formatRequest(
-      created as CopilotRequestWithRelations,
-      isAdminOrManager(user),
-    );
+    return this.formatRequest(created, isAdminOrManager(user));
   }
 
   async updateRequest(
@@ -341,10 +335,7 @@ export class CopilotRequestService {
       return updatedRequest;
     });
 
-    return this.formatRequest(
-      updated as CopilotRequestWithRelations,
-      isAdminOrManager(user),
-    );
+    return this.formatRequest(updated, isAdminOrManager(user));
   }
 
   async approveRequest(

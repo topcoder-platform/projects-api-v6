@@ -45,7 +45,7 @@ export class AttachmentResponseDto {
   updatedAt: Date;
 
   @ApiProperty()
-  createdBy: number;
+  createdBy: string;
 
   @ApiProperty()
   updatedBy: number;

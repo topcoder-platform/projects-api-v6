@@ -22,17 +22,10 @@ import {
 } from 'src/api/project-phase/dto/phase-response.dto';
 import { UpdatePhaseDto } from 'src/api/project-phase/dto/update-phase.dto';
 import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { hasAdminRole } from 'src/shared/utils/permission.utils';
-import {
-  publishNotificationEvent,
-  publishPhaseEvent,
-  publishWorkEvent,
-} from 'src/shared/utils/event.utils';
 
 interface ProjectPermissionContext {
   id: bigint;
@@ -86,8 +79,6 @@ const TERMINAL_PHASE_STATUSES = new Set<ProjectStatus>([
 
 @Injectable()
 export class ProjectPhaseService {
-  private readonly logger = LoggerService.forRoot('ProjectPhaseService');
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
@@ -237,7 +228,7 @@ export class ProjectPhaseService {
       );
     }
 
-    return this.toDto(phase as PhaseWithRelations);
+    return this.toDto(phase);
   }
 
   async createPhase(
@@ -392,15 +383,7 @@ export class ProjectPhaseService {
       );
     }
 
-    const response = this.toDto(createdPhase as PhaseWithRelations);
-    this.publishEvent(KAFKA_TOPIC.PROJECT_PHASE_ADDED, response);
-    this.publishWorkResourceEvent(KAFKA_TOPIC.PROJECT_WORK_ADDED, response);
-    this.publishNotification(KAFKA_TOPIC.PROJECT_PLAN_UPDATED, {
-      projectId,
-      phase: response,
-      userId: this.getNotificationUserId(user),
-      initiatorUserId: this.getNotificationUserId(user),
-    });
+    const response = this.toDto(createdPhase);
 
     return response;
   }
@@ -532,30 +515,7 @@ export class ProjectPhaseService {
       });
     });
 
-    const response = this.toDto(updatedPhase as PhaseWithRelations);
-    this.publishEvent(KAFKA_TOPIC.PROJECT_PHASE_UPDATED, response);
-    this.publishWorkResourceEvent(KAFKA_TOPIC.PROJECT_WORK_UPDATED, response);
-
-    const changeTopics = this.detectPhaseChangeType(
-      existingPhase,
-      updatedPhase,
-    );
-    for (const topic of changeTopics) {
-      this.publishNotification(topic, {
-        projectId,
-        originalPhase: this.toDto(existingPhase as PhaseWithRelations),
-        updatedPhase: response,
-        userId: this.getNotificationUserId(user),
-        initiatorUserId: this.getNotificationUserId(user),
-      });
-    }
-
-    this.publishNotification(KAFKA_TOPIC.PROJECT_PLAN_UPDATED, {
-      projectId,
-      phase: response,
-      userId: this.getNotificationUserId(user),
-      initiatorUserId: this.getNotificationUserId(user),
-    });
+    const response = this.toDto(updatedPhase);
 
     return response;
   }
@@ -620,70 +580,10 @@ export class ProjectPhaseService {
       return deleted;
     });
 
-    this.publishEvent(
-      KAFKA_TOPIC.PROJECT_PHASE_REMOVED,
-      this.toDto(deletedPhase),
-    );
-    this.publishWorkResourceEvent(
-      KAFKA_TOPIC.PROJECT_WORK_REMOVED,
-      this.toDto(deletedPhase),
-    );
-    this.publishNotification(KAFKA_TOPIC.PROJECT_PLAN_UPDATED, {
-      projectId,
-      phaseId,
-      userId: this.getNotificationUserId(user),
-      initiatorUserId: this.getNotificationUserId(user),
-    });
-  }
-
-  private detectPhaseChangeType(
-    original: ProjectPhase,
-    updated: ProjectPhase,
-  ): string[] {
-    const topics: string[] = [];
-
-    if (original.status !== updated.status) {
-      if (updated.status === ProjectStatus.active) {
-        topics.push(KAFKA_TOPIC.PROJECT_PHASE_TRANSITION_ACTIVE);
-        topics.push(KAFKA_TOPIC.PROJECT_WORK_TRANSITION_ACTIVE);
-      }
-
-      if (updated.status === ProjectStatus.completed) {
-        topics.push(KAFKA_TOPIC.PROJECT_PHASE_TRANSITION_COMPLETED);
-        topics.push(KAFKA_TOPIC.PROJECT_WORK_TRANSITION_COMPLETED);
-      }
-    }
-
-    if (
-      original.budget !== updated.budget ||
-      original.spentBudget !== updated.spentBudget
-    ) {
-      topics.push(KAFKA_TOPIC.PROJECT_PHASE_UPDATE_PAYMENT);
-      topics.push(KAFKA_TOPIC.PROJECT_WORK_UPDATE_PAYMENT);
-    }
-
-    if (
-      original.progress !== updated.progress ||
-      original.duration !== updated.duration ||
-      original.startDate?.getTime() !== updated.startDate?.getTime() ||
-      original.endDate?.getTime() !== updated.endDate?.getTime()
-    ) {
-      topics.push(KAFKA_TOPIC.PROJECT_PHASE_UPDATE_PROGRESS);
-      topics.push(KAFKA_TOPIC.PROJECT_WORK_UPDATE_PROGRESS);
-    }
-
-    if (
-      original.name !== updated.name ||
-      original.description !== updated.description ||
-      original.requirements !== updated.requirements ||
-      JSON.stringify(original.details || null) !==
-        JSON.stringify(updated.details || null)
-    ) {
-      topics.push(KAFKA_TOPIC.PROJECT_PHASE_UPDATE_SCOPE);
-      topics.push(KAFKA_TOPIC.PROJECT_WORK_UPDATE_SCOPE);
-    }
-
-    return [...new Set(topics)];
+    void projectId;
+    void phaseId;
+    void user;
+    void deletedPhase;
   }
 
   private parseFieldSelection(fields?: string): {
@@ -1155,42 +1055,5 @@ export class ProjectPhaseService {
     }
 
     return userId;
-  }
-
-  private publishEvent(topic: string, payload: unknown): void {
-    void publishPhaseEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish phase event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishNotification(topic: string, payload: unknown): void {
-    void publishNotificationEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish phase notification topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private publishWorkResourceEvent(topic: string, payload: unknown): void {
-    void publishWorkEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish work event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
-  }
-
-  private getNotificationUserId(user: JwtUser): string {
-    const rawUserId = String(user.userId || '').trim();
-
-    if (/^\d+$/.test(rawUserId)) {
-      return rawUserId;
-    }
-
-    return '-1';
   }
 }

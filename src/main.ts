@@ -9,7 +9,9 @@ import {
   EVENT_SWAGGER_EXAMPLES,
   EVENT_SWAGGER_MODELS,
 } from './api/metadata/metadata.swagger';
+import { WorkStreamModule } from './api/workstream/workstream.module';
 import { AppModule } from './app.module';
+import { enrichSwaggerAuthDocumentation } from './shared/utils/swagger.utils';
 import { LoggerService } from './shared/modules/global/logger.service';
 
 function serializeBigInt(value: unknown): unknown {
@@ -38,6 +40,7 @@ async function bootstrap() {
     rawBody: true,
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+  app.set('query parser', 'extended');
 
   const logger = LoggerService.forRoot('Bootstrap');
   const apiPrefix = process.env.API_PREFIX || 'v6';
@@ -88,7 +91,9 @@ async function bootstrap() {
     methods: 'GET, POST, OPTIONS, PUT, DELETE, PATCH',
     origin: (requestOrigin, callback) => {
       if (!requestOrigin) {
-        callback(null, false);
+        // Keep a permissive fallback for non-browser requests so cached variants
+        // do not drop CORS headers for subsequent browser calls.
+        callback(null, '*');
         return;
       }
 
@@ -202,7 +207,8 @@ curl --request POST \\
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig, {
-    include: [ApiModule],
+    include: [ApiModule, WorkStreamModule],
+    deepScanRoutes: true,
     extraModels: [...EVENT_SWAGGER_MODELS],
   });
 
@@ -212,7 +218,10 @@ curl --request POST \\
     ...EVENT_SWAGGER_EXAMPLES,
   };
 
+  enrichSwaggerAuthDocumentation(swaggerDocument);
+
   SwaggerModule.setup(`/${apiPrefix}/projects/api-docs`, app, swaggerDocument);
+  SwaggerModule.setup(`/${apiPrefix}/projects-api-docs`, app, swaggerDocument);
 
   process.on('unhandledRejection', (reason, promise) => {
     logger.error(
