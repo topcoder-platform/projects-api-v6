@@ -79,6 +79,13 @@ export class ProjectListQueryDto extends PaginationDto {
   status?: string | string[] | Record<string, unknown>;
 
   @ApiPropertyOptional({
+    description: 'Filter by billing account id (exact or $in pattern)',
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseFilterInput(value))
+  billingAccountId?: string | string[] | Record<string, unknown>;
+
+  @ApiPropertyOptional({
     description:
       'When true, return projects where current user is member/invitee',
   })

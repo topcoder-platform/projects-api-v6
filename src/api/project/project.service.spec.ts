@@ -27,6 +27,7 @@ describe('ProjectService', () => {
     projectMemberInvite: {
       findMany: jest.fn(),
     },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 
@@ -36,6 +37,7 @@ describe('ProjectService', () => {
 
   const billingAccountServiceMock = {
     getBillingAccountsForProject: jest.fn(),
+    getBillingAccountsByIds: jest.fn(),
     getDefaultBillingAccount: jest.fn(),
   };
 
@@ -43,6 +45,7 @@ describe('ProjectService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue([]);
     service = new ProjectService(
       prismaMock as any,
       permissionServiceMock as unknown as PermissionService,
@@ -209,6 +212,71 @@ describe('ProjectService', () => {
         include: {},
       }),
     );
+  });
+
+  it('adds billing account name to project listing when available', async () => {
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean =>
+        permission === Permission.READ_PROJECT_ANY ||
+        permission === Permission.READ_PROJECT_MEMBER,
+    );
+
+    const now = new Date();
+
+    prismaMock.project.count.mockResolvedValue(1);
+    prismaMock.project.findMany.mockResolvedValue([
+      {
+        id: BigInt(1001),
+        name: 'Demo',
+        description: null,
+        type: 'app',
+        status: 'active',
+        billingAccountId: BigInt(80001063),
+        directProjectId: null,
+        estimatedPrice: null,
+        actualPrice: null,
+        terms: [],
+        groups: [],
+        external: null,
+        bookmarks: null,
+        utm: null,
+        details: null,
+        challengeEligibility: null,
+        cancelReason: null,
+        templateId: null,
+        version: 'v3',
+        lastActivityAt: now,
+        lastActivityUserId: '100',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: 100,
+        updatedBy: 100,
+      },
+    ]);
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({
+      '80001063': {
+        name: 'Acme BA',
+        tcBillingAccountId: '80001063',
+      },
+    });
+
+    const result = await service.listProjects(
+      {
+        page: 1,
+        perPage: 20,
+      },
+      {
+        userId: '100',
+        roles: ['administrator'],
+        isMachine: false,
+      },
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].billingAccountName).toBe('Acme BA');
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).toHaveBeenCalledWith(['80001063']);
   });
 
   it('throws NotFoundException when project is missing', async () => {

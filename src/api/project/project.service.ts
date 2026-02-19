@@ -49,9 +49,18 @@ interface PaginatedProjectResponse {
   total: number;
 }
 
+type ProjectMemberWithHandle = ProjectMember & {
+  handle?: string | null;
+};
+
+type ProjectInviteWithHandle = ProjectMemberInvite & {
+  handle?: string | null;
+};
+
 type ProjectWithRawRelations = Project & {
-  members?: ProjectMember[];
-  invites?: ProjectMemberInvite[];
+  billingAccountName?: string;
+  members?: ProjectMemberWithHandle[];
+  invites?: ProjectInviteWithHandle[];
   attachments?: ProjectAttachment[];
 };
 
@@ -94,8 +103,16 @@ export class ProjectService {
         take: perPage,
       }),
     ]);
+    const projectsWithMemberHandles =
+      await this.enrichProjectsWithMemberHandles(projects);
+    const billingAccountNamesById = await this.getBillingAccountNamesById(
+      projectsWithMemberHandles,
+    );
 
-    const data = projects.map((project) => {
+    const data = projectsWithMemberHandles.map((project) => {
+      const billingAccountId = this.toOptionalBigintString(
+        project.billingAccountId,
+      );
       const filteredProject = this.filterProjectRelations(
         project,
         user,
@@ -106,7 +123,13 @@ export class ProjectService {
         requestedFields,
       );
 
-      return this.toDto(projectWithRequestedFields);
+      return this.toDto({
+        ...projectWithRequestedFields,
+        billingAccountName:
+          billingAccountId && billingAccountNamesById.has(billingAccountId)
+            ? billingAccountNamesById.get(billingAccountId)
+            : undefined,
+      });
     });
 
     return {
@@ -144,11 +167,15 @@ export class ProjectService {
       );
     }
 
+    const [projectWithMemberHandles] =
+      await this.enrichProjectsWithMemberHandles([project]);
+    const projectWithRelations = projectWithMemberHandles || project;
+
     const canViewProject = this.permissionService.hasNamedPermission(
       Permission.VIEW_PROJECT,
       user,
-      project.members || [],
-      (project.invites || []).map((invite) => ({
+      projectWithRelations.members || [],
+      (projectWithRelations.invites || []).map((invite) => ({
         ...invite,
         status: String(invite.status),
       })),
@@ -161,10 +188,14 @@ export class ProjectService {
     const isAdmin = this.permissionService.hasNamedPermission(
       Permission.READ_PROJECT_ANY,
       user,
-      project.members || [],
+      projectWithRelations.members || [],
     );
 
-    const filteredProject = this.filterProjectRelations(project, user, isAdmin);
+    const filteredProject = this.filterProjectRelations(
+      projectWithRelations,
+      user,
+      isAdmin,
+    );
     const projectWithRequestedFields = this.filterProjectFields(
       filteredProject,
       fields,
@@ -423,7 +454,11 @@ export class ProjectService {
       throw new ConflictException('Failed to create project.');
     }
 
-    const response = this.toDto(createdProject);
+    const [createdProjectWithMemberHandles] =
+      await this.enrichProjectsWithMemberHandles([createdProject]);
+    const response = this.toDto(
+      createdProjectWithMemberHandles || createdProject,
+    );
     this.publishEvent(KAFKA_TOPIC.PROJECT_CREATED, response);
 
     return response;
@@ -604,14 +639,18 @@ export class ProjectService {
       );
     }
 
+    const [projectWithMemberHandles] =
+      await this.enrichProjectsWithMemberHandles([project]);
+    const projectWithRelations = projectWithMemberHandles || project;
+
     const isAdmin = this.permissionService.hasNamedPermission(
       Permission.READ_PROJECT_ANY,
       user,
-      project.members || [],
+      projectWithRelations.members || [],
     );
 
     const response = this.toDto(
-      this.filterProjectRelations(project, user, isAdmin),
+      this.filterProjectRelations(projectWithRelations, user, isAdmin),
     );
 
     this.publishEvent(KAFKA_TOPIC.PROJECT_UPDATED, response);
@@ -869,6 +908,154 @@ export class ProjectService {
     return {
       message: 'Project successfully upgraded',
     };
+  }
+
+  private async enrichProjectsWithMemberHandles(
+    projects: ProjectWithRawRelations[],
+  ): Promise<ProjectWithRawRelations[]> {
+    if (!projects.length) {
+      return projects;
+    }
+
+    const userIds = this.collectProjectUserIds(projects);
+
+    if (!userIds.length) {
+      return projects;
+    }
+
+    const handlesByUserId = await this.fetchMemberHandlesByUserId(userIds);
+
+    if (!handlesByUserId.size) {
+      return projects;
+    }
+
+    return projects.map((project) => ({
+      ...project,
+      members: Array.isArray(project.members)
+        ? project.members.map((member) => ({
+            ...member,
+            handle:
+              this.toOptionalHandle(member.handle) ||
+              this.getHandleByUserId(member.userId, handlesByUserId),
+          }))
+        : project.members,
+      invites: Array.isArray(project.invites)
+        ? project.invites.map((invite) => ({
+            ...invite,
+            handle:
+              this.toOptionalHandle(invite.handle) ||
+              this.getHandleByUserId(invite.userId, handlesByUserId),
+          }))
+        : project.invites,
+    }));
+  }
+
+  private collectProjectUserIds(projects: ProjectWithRawRelations[]): bigint[] {
+    const userIds = new Set<string>();
+
+    for (const project of projects) {
+      for (const member of project.members || []) {
+        const parsedUserId = this.parseUserIdValue(member.userId);
+
+        if (parsedUserId) {
+          userIds.add(parsedUserId.toString());
+        }
+      }
+
+      for (const invite of project.invites || []) {
+        const parsedUserId = this.parseUserIdValue(invite.userId);
+
+        if (parsedUserId) {
+          userIds.add(parsedUserId.toString());
+        }
+      }
+    }
+
+    return Array.from(userIds).map((userId) => BigInt(userId));
+  }
+
+  private async fetchMemberHandlesByUserId(
+    userIds: bigint[],
+  ): Promise<Map<string, string>> {
+    if (!userIds.length) {
+      return new Map();
+    }
+
+    try {
+      const rows = await this.prisma.$queryRaw<
+        Array<{
+          userId: bigint | number | string;
+          handle: string | null;
+        }>
+      >(Prisma.sql`
+        SELECT
+          m."userId" AS "userId",
+          m.handle AS "handle"
+        FROM members.member m
+        WHERE m."userId" IN (${Prisma.join(userIds)})
+      `);
+
+      return rows.reduce<Map<string, string>>((acc, row) => {
+        const parsedUserId = this.parseUserIdValue(row.userId);
+        const handle = this.toOptionalHandle(row.handle);
+
+        if (parsedUserId && handle) {
+          acc.set(parsedUserId.toString(), handle);
+        }
+
+        return acc;
+      }, new Map());
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch member handles from members.member: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return new Map();
+    }
+  }
+
+  private getHandleByUserId(
+    userId: bigint | number | string | null | undefined,
+    handlesByUserId: Map<string, string>,
+  ): string | null {
+    const parsedUserId = this.parseUserIdValue(userId);
+
+    if (!parsedUserId) {
+      return null;
+    }
+
+    return handlesByUserId.get(parsedUserId.toString()) || null;
+  }
+
+  private parseUserIdValue(
+    userId: bigint | number | string | null | undefined,
+  ): bigint | undefined {
+    if (typeof userId === 'bigint') {
+      return userId;
+    }
+
+    if (typeof userId === 'number' && Number.isFinite(userId)) {
+      return BigInt(Math.trunc(userId));
+    }
+
+    if (typeof userId === 'string') {
+      const normalizedUserId = userId.trim();
+
+      if (/^\d+$/.test(normalizedUserId)) {
+        return BigInt(normalizedUserId);
+      }
+    }
+
+    return undefined;
+  }
+
+  private toOptionalHandle(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalizedHandle = value.trim();
+
+    return normalizedHandle || undefined;
   }
 
   private resolveSort(sort?: string): Prisma.ProjectOrderByWithRelationInput {
@@ -1189,5 +1376,56 @@ export class ProjectService {
     };
 
     return walk(payload) as T;
+  }
+
+  private toOptionalBigintString(
+    value: bigint | null | undefined,
+  ): string | undefined {
+    if (typeof value !== 'bigint') {
+      return undefined;
+    }
+
+    return value.toString();
+  }
+
+  private async getBillingAccountNamesById(
+    projects: Project[],
+  ): Promise<Map<string, string>> {
+    const billingAccountIds = Array.from(
+      new Set(
+        projects
+          .map((project) =>
+            this.toOptionalBigintString(project.billingAccountId),
+          )
+          .filter((billingAccountId): billingAccountId is string =>
+            Boolean(billingAccountId),
+          ),
+      ),
+    );
+
+    if (billingAccountIds.length === 0) {
+      return new Map();
+    }
+
+    const billingAccountsById =
+      await this.billingAccountService.getBillingAccountsByIds(
+        billingAccountIds,
+      );
+
+    return Object.entries(billingAccountsById).reduce<Map<string, string>>(
+      (acc, [billingAccountId, billingAccount]) => {
+        const billingAccountName =
+          typeof billingAccount?.name === 'string'
+            ? billingAccount.name.trim()
+            : '';
+
+        if (billingAccountName) {
+          acc.set(billingAccountId, billingAccountName);
+        }
+
+        return acc;
+      },
+      new Map(),
+    );
   }
 }

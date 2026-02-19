@@ -181,6 +181,19 @@ export function buildProjectWhereClause(
     }
   }
 
+  const billingAccountIdFilter = parseFilterValue(criteria.billingAccountId);
+  if (billingAccountIdFilter.length > 0) {
+    const billingAccountIds = toBigIntList(billingAccountIdFilter);
+
+    if (billingAccountIds.length === 1) {
+      where.billingAccountId = billingAccountIds[0];
+    } else if (billingAccountIds.length > 1) {
+      where.billingAccountId = {
+        in: billingAccountIds,
+      };
+    }
+  }
+
   const typeFilter = parseFilterValue(criteria.type);
   if (typeFilter.length > 0) {
     if (typeFilter.length === 1) {

@@ -71,6 +71,7 @@ export class ProjectController {
   @ApiQuery({ name: 'fields', required: false, type: String })
   @ApiQuery({ name: 'id', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'billingAccountId', required: false, type: String })
   @ApiQuery({ name: 'memberOnly', required: false, type: Boolean })
   @ApiQuery({ name: 'keyword', required: false, type: String })
   @ApiQuery({ name: 'type', required: false, type: String })

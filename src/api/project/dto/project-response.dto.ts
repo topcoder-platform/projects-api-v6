@@ -14,6 +14,9 @@ export class ProjectMemberDto {
   @ApiProperty()
   role: string;
 
+  @ApiPropertyOptional()
+  handle?: string | null;
+
   @ApiProperty()
   isPrimary: boolean;
 
@@ -45,6 +48,9 @@ export class ProjectInviteDto {
 
   @ApiProperty()
   role: string;
+
+  @ApiPropertyOptional()
+  handle?: string | null;
 
   @ApiProperty()
   createdAt: Date;
@@ -112,6 +118,9 @@ export class ProjectResponseDto {
 
   @ApiPropertyOptional()
   billingAccountId?: string | null;
+
+  @ApiPropertyOptional()
+  billingAccountName?: string | null;
 
   @ApiPropertyOptional()
   directProjectId?: string | null;

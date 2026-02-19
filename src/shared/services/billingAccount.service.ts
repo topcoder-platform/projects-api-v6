@@ -138,6 +138,75 @@ export class BillingAccountService {
     }
   }
 
+  async getBillingAccountsByIds(
+    billingAccountIds: string[],
+  ): Promise<Record<string, BillingAccount>> {
+    const normalizedBillingAccountIds = Array.from(
+      new Set(
+        billingAccountIds
+          .map((billingAccountId) => this.parseIntStrictly(billingAccountId))
+          .filter((billingAccountId): billingAccountId is string =>
+            Boolean(billingAccountId),
+          ),
+      ),
+    );
+
+    if (normalizedBillingAccountIds.length === 0) {
+      return {};
+    }
+
+    if (!this.isSalesforceConfigured()) {
+      this.logger.warn('Salesforce integration is not configured.');
+      return {};
+    }
+
+    try {
+      const { accessToken, instanceUrl } = await this.authenticate();
+      const inClause = normalizedBillingAccountIds
+        .map(
+          (billingAccountId) => `'${this.escapeSoqlLiteral(billingAccountId)}'`,
+        )
+        .join(',');
+      const sql = `SELECT TopCoder_Billing_Account_Id__c, ${this.sfdcBillingAccountNameField}, Start_Date__c, End_Date__c, ${this.sfdcBillingAccountActiveField} from Topcoder_Billing_Account__c tba where TopCoder_Billing_Account_Id__c IN (${inClause})`;
+      this.logger.debug(sql);
+
+      const records = await this.queryBillingAccountRecords(
+        sql,
+        accessToken,
+        instanceUrl,
+      );
+
+      return records.reduce<Record<string, BillingAccount>>((acc, record) => {
+        const normalizedBillingAccountId = this.parseIntStrictly(
+          this.readAsString(record?.TopCoder_Billing_Account_Id__c),
+        );
+
+        if (!normalizedBillingAccountId) {
+          return acc;
+        }
+
+        acc[normalizedBillingAccountId] = {
+          tcBillingAccountId: normalizedBillingAccountId,
+          name: this.readAsString(record?.[this.sfdcBillingAccountNameField]),
+          startDate: this.readAsString(record?.Start_Date__c),
+          endDate: this.readAsString(record?.End_Date__c),
+          active: this.readAsBoolean(
+            record?.[this.sfdcBillingAccountActiveField],
+          ),
+        };
+
+        return acc;
+      }, {});
+    } catch (error) {
+      this.logger.warn(
+        `Unable to fetch billing accounts by ids: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return {};
+    }
+  }
+
   private isSalesforceConfigured(): boolean {
     return Boolean(
       process.env.SALESFORCE_CLIENT_ID &&
