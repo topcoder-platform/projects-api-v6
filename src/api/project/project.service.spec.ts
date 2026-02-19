@@ -279,6 +279,59 @@ describe('ProjectService', () => {
     ).toHaveBeenCalledWith(['80001063']);
   });
 
+  it('adds billing account name to project details when available', async () => {
+    const now = new Date();
+
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      name: 'Demo',
+      description: null,
+      type: 'app',
+      status: 'active',
+      billingAccountId: BigInt(80001063),
+      directProjectId: null,
+      estimatedPrice: null,
+      actualPrice: null,
+      terms: [],
+      groups: [],
+      external: null,
+      bookmarks: null,
+      utm: null,
+      details: null,
+      challengeEligibility: null,
+      cancelReason: null,
+      templateId: null,
+      version: 'v3',
+      lastActivityAt: now,
+      lastActivityUserId: '100',
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 100,
+      updatedBy: 100,
+      members: [],
+      invites: [],
+      attachments: [],
+    });
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({
+      '80001063': {
+        name: 'Acme BA',
+        tcBillingAccountId: '80001063',
+      },
+    });
+
+    const result = await service.getProject('1001', undefined, {
+      userId: '100',
+      roles: ['administrator'],
+      isMachine: false,
+    });
+
+    expect(result.billingAccountName).toBe('Acme BA');
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).toHaveBeenCalledWith(['80001063']);
+  });
+
   it('throws NotFoundException when project is missing', async () => {
     prismaMock.project.findFirst.mockResolvedValue(null);
 

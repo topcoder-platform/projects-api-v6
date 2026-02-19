@@ -200,8 +200,20 @@ export class ProjectService {
       filteredProject,
       fields,
     );
+    const billingAccountId = this.toOptionalBigintString(
+      projectWithRelations.billingAccountId,
+    );
+    const billingAccountNamesById = billingAccountId
+      ? await this.getBillingAccountNamesById([projectWithRelations])
+      : new Map<string, string>();
 
-    return this.toDto(projectWithRequestedFields);
+    return this.toDto({
+      ...projectWithRequestedFields,
+      billingAccountName:
+        billingAccountId && billingAccountNamesById.has(billingAccountId)
+          ? billingAccountNamesById.get(billingAccountId)
+          : undefined,
+    });
   }
 
   async createProject(
