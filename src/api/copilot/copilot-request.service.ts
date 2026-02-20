@@ -58,12 +58,28 @@ interface PaginatedRequestResponse {
 }
 
 @Injectable()
+/**
+ * Manages the full lifecycle of copilot requests:
+ * create (with auto-approval), list, update, and manual approval.
+ * Request creation atomically creates the request and invokes
+ * approveRequestInternal within the same transaction.
+ */
 export class CopilotRequestService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
   ) {}
 
+  /**
+   * Lists copilot requests with optional project scoping and pagination.
+   *
+   * @param projectId Optional project id path value used to scope requests.
+   * @param query Pagination and sort parameters.
+   * @param user Authenticated JWT user.
+   * @returns Paginated request response payload.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If projectId is non-numeric.
+   */
   async listRequests(
     projectId: string | undefined,
     query: CopilotRequestListQueryDto,
@@ -84,6 +100,7 @@ export class CopilotRequestService {
 
     const includeProjectForSort = sortField.toLowerCase() === 'projectname';
 
+    // TODO [PERF]: This fetches all rows and applies sort/pagination in memory; move to database-level orderBy/skip/take for large datasets.
     const requests = await this.prisma.copilotRequest.findMany({
       where: {
         deletedAt: null,
@@ -131,6 +148,16 @@ export class CopilotRequestService {
     };
   }
 
+  /**
+   * Returns a single copilot request by id.
+   *
+   * @param copilotRequestId Copilot request id path value.
+   * @param user Authenticated JWT user.
+   * @returns One formatted copilot request response.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If id is non-numeric.
+   * @throws NotFoundException If the request does not exist.
+   */
   async getRequest(
     copilotRequestId: string,
     user: JwtUser,
@@ -165,6 +192,19 @@ export class CopilotRequestService {
     return this.formatRequest(request, isAdminOrManager(user));
   }
 
+  /**
+   * Creates a new request and auto-approves it in one transaction.
+   * Transaction flow: create request -> approveRequestInternal -> re-fetch with opportunities.
+   *
+   * @param projectId Project id path value.
+   * @param dto Create request payload.
+   * @param user Authenticated JWT user.
+   * @returns Newly created and formatted request response.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If payload data.projectId mismatches path projectId.
+   * @throws ConflictException If an active request already exists for the same projectType.
+   * @throws NotFoundException If project is not found.
+   */
   async createRequest(
     projectId: string,
     dto: CreateCopilotRequestDto,
@@ -174,6 +214,7 @@ export class CopilotRequestService {
 
     const parsedProjectId = parseNumericId(projectId, 'Project');
     const auditUserId = getAuditUserId(user);
+    // TODO [QUALITY]: projectId is parsed twice (parseNumericId to bigint and Number.parseInt to number); consolidate to a single parse source.
     const payloadData = {
       ...dto.data,
       projectId: Number.parseInt(projectId, 10),
@@ -239,6 +280,20 @@ export class CopilotRequestService {
     return this.formatRequest(created, isAdminOrManager(user));
   }
 
+  /**
+   * Updates an existing request.
+   * Canceled and fulfilled requests are immutable.
+   * If projectType changes, linked opportunities are updated via updateMany.
+   *
+   * @param copilotRequestId Copilot request id path value.
+   * @param dto Patch payload.
+   * @param user Authenticated JWT user.
+   * @returns Updated formatted request response.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If id is non-numeric or request is in terminal status.
+   * @throws NotFoundException If request is not found.
+   * @throws ConflictException If updated projectType conflicts with an existing active request type.
+   */
   async updateRequest(
     copilotRequestId: string,
     dto: UpdateCopilotRequestDto,
@@ -339,6 +394,19 @@ export class CopilotRequestService {
     return this.formatRequest(updated, isAdminOrManager(user));
   }
 
+  /**
+   * Public approval entry point that wraps approveRequestInternal in a transaction.
+   *
+   * @param projectId Project id path value.
+   * @param copilotRequestId Copilot request id path value.
+   * @param type Optional type override.
+   * @param user Authenticated JWT user.
+   * @returns Normalized CopilotOpportunity payload.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If ids or type are invalid.
+   * @throws NotFoundException If project or request are not found.
+   * @throws ConflictException If an active opportunity of the same type already exists.
+   */
   async approveRequest(
     projectId: string,
     copilotRequestId: string,
@@ -364,6 +432,21 @@ export class CopilotRequestService {
     return normalizeEntity(opportunity);
   }
 
+  /**
+   * Core request approval workflow.
+   * Validates project and request, validates type enum, checks for active opportunity conflicts,
+   * marks request approved, and creates an active opportunity.
+   *
+   * @param tx Prisma transaction client.
+   * @param projectId Parsed project id.
+   * @param copilotRequestId Parsed request id.
+   * @param type Optional type override.
+   * @param auditUserId Numeric audit user id.
+   * @returns Created CopilotOpportunity row.
+   * @throws NotFoundException If project or request are missing.
+   * @throws BadRequestException If type is invalid.
+   * @throws ConflictException If active opportunity of same type already exists.
+   */
   private async approveRequestInternal(
     tx: Prisma.TransactionClient,
     projectId: bigint,
@@ -441,6 +524,14 @@ export class CopilotRequestService {
     });
   }
 
+  /**
+   * Ensures a project exists by id.
+   *
+   * @param projectId Project id.
+   * @param tx Optional Prisma transaction client; falls back to this.prisma when omitted.
+   * @returns Resolves when project exists.
+   * @throws NotFoundException If project does not exist.
+   */
   private async ensureProjectExists(
     projectId: bigint,
     tx?: Prisma.TransactionClient,
@@ -464,6 +555,15 @@ export class CopilotRequestService {
     }
   }
 
+  /**
+   * Ensures there is no active request with the same projectType for a project.
+   *
+   * @param projectId Project id.
+   * @param projectType Requested project type.
+   * @param excludeRequestId Optional request id to exclude (used by update flow).
+   * @returns Resolves when no duplicate exists.
+   * @throws ConflictException If duplicate request type exists.
+   */
   private async ensureNoDuplicateRequestType(
     projectId: bigint,
     projectType: string,
@@ -502,6 +602,14 @@ export class CopilotRequestService {
     }
   }
 
+  /**
+   * Formats a request row into API response shape.
+   * projectId and project are included only for admin/manager users.
+   *
+   * @param input Request row with relations.
+   * @param includeProjectInResponse Whether project fields should be included.
+   * @returns Formatted request response DTO.
+   */
   private formatRequest(
     input: CopilotRequestWithRelations,
     includeProjectInResponse: boolean,
@@ -540,11 +648,20 @@ export class CopilotRequestService {
     return response;
   }
 
+  /**
+   * Sorts request rows in memory by requested field/direction.
+   *
+   * @param rows Request rows.
+   * @param field Sort field.
+   * @param direction Sort direction.
+   * @returns Sorted request rows.
+   */
   private sortRequests(
     rows: CopilotRequestWithRelations[],
     field: string,
     direction: 'asc' | 'desc',
   ): CopilotRequestWithRelations[] {
+    // TODO [PERF]: In-memory sort should be replaced with DB orderBy when listRequests moves to DB pagination.
     const factor = direction === 'asc' ? 1 : -1;
 
     return [...rows].sort((left, right) => {
@@ -584,6 +701,14 @@ export class CopilotRequestService {
     });
   }
 
+  /**
+   * Compares two values for sorting.
+   * Uses a Date fast-path, then falls back to case-insensitive string comparison.
+   *
+   * @param left Left value.
+   * @param right Right value.
+   * @returns Comparison result (-1, 0, 1).
+   */
   private compareValues(left: unknown, right: unknown): number {
     if (left instanceof Date && right instanceof Date) {
       return left.getTime() - right.getTime();
@@ -603,13 +728,28 @@ export class CopilotRequestService {
     return 0;
   }
 
+  /**
+   * Enforces a named permission for the current user.
+   *
+   * @param permission Permission constant.
+   * @param user Authenticated JWT user.
+   * @throws ForbiddenException If permission is missing.
+   */
   private ensurePermission(permission: NamedPermission, user: JwtUser): void {
+    // TODO [DRY]: Identical ensurePermission method exists in CopilotOpportunityService and CopilotApplicationService; extract shared utility/base class.
     if (!this.permissionService.hasNamedPermission(permission, user)) {
       throw new ForbiddenException('Insufficient permissions');
     }
   }
 
+  /**
+   * Reads a string-like primitive value.
+   *
+   * @param value Input value.
+   * @returns String value or undefined.
+   */
   private readString(value: unknown): string | undefined {
+    // TODO [DRY]: Identical readString exists in CopilotNotificationService; extract to copilot.utils.ts.
     if (typeof value === 'string') {
       return value;
     }

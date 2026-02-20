@@ -1,5 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+/**
+ * API response payload for project types.
+ *
+ * @property key Project type key.
+ * @property displayName Display name.
+ * @property icon Icon identifier.
+ * @property question Prompt text.
+ * @property info Informational text.
+ * @property aliases Alias list.
+ * @property metadata Metadata object.
+ * @property disabled Disabled flag.
+ * @property hidden Hidden flag.
+ * @property createdAt Creation timestamp.
+ * @property updatedAt Update timestamp.
+ * @property createdBy Creator user id.
+ * @property updatedBy Updater user id.
+ */
 export class ProjectTypeResponseDto {
   @ApiProperty()
   key: string;

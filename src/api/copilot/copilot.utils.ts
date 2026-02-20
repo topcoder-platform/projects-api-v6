@@ -3,8 +3,21 @@ import { CopilotOpportunityType, Prisma } from '@prisma/client';
 import { UserRole } from 'src/shared/enums/userRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 
+/**
+ * Shared pure-function toolkit for the copilot feature.
+ * Handles id parsing, request-data extraction, entity normalization,
+ * role checks, sort parsing, and audit user id parsing.
+ */
 export type CopilotRequestDataRecord = Record<string, unknown>;
 
+/**
+ * Parses a numeric entity id from a raw string.
+ *
+ * @param value Raw id string value.
+ * @param label Entity label used in the error message.
+ * @returns Parsed bigint id.
+ * @throws BadRequestException If the value is not numeric.
+ */
 export function parseNumericId(value: string, label: string): bigint {
   const normalized = String(value || '').trim();
 
@@ -15,6 +28,12 @@ export function parseNumericId(value: string, label: string): bigint {
   return BigInt(normalized);
 }
 
+/**
+ * Reads and safely clones the copilot request data object from Prisma JSON.
+ *
+ * @param value Prisma JsonValue payload.
+ * @returns Safe plain-object copy of request data, or an empty object.
+ */
 export function getCopilotRequestData(
   value: Prisma.JsonValue | null | undefined,
 ): CopilotRequestDataRecord {
@@ -25,6 +44,12 @@ export function getCopilotRequestData(
   return {};
 }
 
+/**
+ * Recursively normalizes entity values for API responses.
+ *
+ * @param payload Prisma entity payload.
+ * @returns Same shape with bigint values converted to string and Decimal values converted to number.
+ */
 export function normalizeEntity<T>(payload: T): T {
   const walk = (input: unknown): unknown => {
     if (typeof input === 'bigint') {
@@ -58,6 +83,12 @@ export function normalizeEntity<T>(payload: T): T {
   return walk(payload) as T;
 }
 
+/**
+ * Converts an opportunity type enum to a human-readable label.
+ *
+ * @param type Copilot opportunity type.
+ * @returns Human-readable type label.
+ */
 export function getCopilotTypeLabel(type: CopilotOpportunityType): string {
   switch (type) {
     case CopilotOpportunityType.dev:
@@ -75,6 +106,12 @@ export function getCopilotTypeLabel(type: CopilotOpportunityType): string {
   }
 }
 
+/**
+ * Returns true if user is admin, project manager, or manager.
+ *
+ * @param user Authenticated JWT user.
+ * @returns Whether the user is admin-or-manager scoped.
+ */
 export function isAdminOrManager(user: JwtUser): boolean {
   const userRoles = user.roles || [];
 
@@ -86,6 +123,12 @@ export function isAdminOrManager(user: JwtUser): boolean {
   ].some((role) => userRoles.includes(role));
 }
 
+/**
+ * Returns true if user is admin or project manager.
+ *
+ * @param user Authenticated JWT user.
+ * @returns Whether the user is admin-or-pm scoped.
+ */
 export function isAdminOrPm(user: JwtUser): boolean {
   const userRoles = user.roles || [];
 
@@ -96,6 +139,15 @@ export function isAdminOrPm(user: JwtUser): boolean {
   ].some((role) => userRoles.includes(role));
 }
 
+/**
+ * Parses a query sort expression and validates it against an allow-list.
+ *
+ * @param sort Raw sort query value.
+ * @param allowedSorts List of allowed sort expressions.
+ * @param defaultValue Default sort expression when none is provided.
+ * @returns Tuple of [field, direction].
+ * @throws BadRequestException If the sort expression is invalid.
+ */
 export function parseSortExpression(
   sort: string | undefined,
   allowedSorts: string[],
@@ -116,6 +168,13 @@ export function parseSortExpression(
   return [field, direction.toLowerCase() === 'asc' ? 'asc' : 'desc'];
 }
 
+/**
+ * Parses the numeric audit user id from an authenticated JWT user.
+ *
+ * @param user Authenticated JWT user.
+ * @returns Numeric user id for audit fields.
+ * @throws BadRequestException If user.userId is not numeric.
+ */
 export function getAuditUserId(user: JwtUser): number {
   const value = Number.parseInt(String(user.userId || '').trim(), 10);
 
@@ -125,3 +184,5 @@ export function getAuditUserId(user: JwtUser): number {
 
   return value;
 }
+
+// TODO [DRY]: Extract and export readString here; it is duplicated in CopilotRequestService and CopilotNotificationService.

@@ -20,7 +20,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+/**
+ * Input/output DTOs for the copilot request lifecycle.
+ */
 function parseOptionalInteger(value: unknown): number | undefined {
+  // TODO [DRY]: parseOptionalInteger is duplicated verbatim in copilot-opportunity.dto.ts and copilot-application.dto.ts; extract to src/shared/utils/dto-transforms.utils.ts (or similar).
   if (typeof value === 'undefined' || value === null || value === '') {
     return undefined;
   }
@@ -53,6 +57,9 @@ export enum CopilotPaymentType {
   OTHER = 'other',
 }
 
+/**
+ * Represents a skill tag attached to a copilot request.
+ */
 export class CopilotSkillDto {
   @ApiProperty()
   @IsString()
@@ -65,6 +72,10 @@ export class CopilotSkillDto {
   name: string;
 }
 
+/**
+ * Validated payload for the data envelope of a new copilot request.
+ * All fields are required except copilotUsername and otherPaymentType.
+ */
 export class CreateCopilotRequestDataDto {
   @ApiProperty({ description: 'Project id' })
   @Type(() => Number)
@@ -141,10 +152,16 @@ export class CreateCopilotRequestDataDto {
   numHoursPerWeek: number;
 }
 
+/**
+ * Partial payload for PATCH operations on copilot request data.
+ */
 export class UpdateCopilotRequestDataDto extends PartialType(
   CreateCopilotRequestDataDto,
 ) {}
 
+/**
+ * Top-level envelope wrapper for create request payloads.
+ */
 export class CreateCopilotRequestDto {
   @ApiProperty({ type: () => CreateCopilotRequestDataDto })
   @ValidateNested()
@@ -152,6 +169,9 @@ export class CreateCopilotRequestDto {
   data: CreateCopilotRequestDataDto;
 }
 
+/**
+ * Top-level envelope wrapper for update request payloads.
+ */
 export class UpdateCopilotRequestDto {
   @ApiProperty({ type: () => UpdateCopilotRequestDataDto })
   @ValidateNested()
@@ -159,6 +179,9 @@ export class UpdateCopilotRequestDto {
   data: UpdateCopilotRequestDataDto;
 }
 
+/**
+ * Embedded opportunity summary returned in request responses.
+ */
 export class CopilotRequestOpportunityResponseDto {
   @ApiProperty()
   id: string;
@@ -182,6 +205,9 @@ export class CopilotRequestOpportunityResponseDto {
   updatedAt: Date;
 }
 
+/**
+ * Full response shape for a copilot request.
+ */
 export class CopilotRequestResponseDto {
   @ApiProperty()
   id: string;
@@ -214,6 +240,9 @@ export class CopilotRequestResponseDto {
   copilotOpportunity?: CopilotRequestOpportunityResponseDto[];
 }
 
+/**
+ * Pagination and sort query parameters for request listing endpoints.
+ */
 export class CopilotRequestListQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()

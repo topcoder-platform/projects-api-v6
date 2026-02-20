@@ -3,7 +3,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
+/**
+ * DTOs for copilot applications (apply, list, assign).
+ */
 function parseOptionalInteger(value: unknown): number | undefined {
+  // TODO [DRY]: parseOptionalInteger is duplicated verbatim in copilot-request.dto.ts and copilot-opportunity.dto.ts; extract shared dto transform utilities.
   if (typeof value === 'undefined' || value === null || value === '') {
     return undefined;
   }
@@ -20,6 +24,10 @@ function parseOptionalInteger(value: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * Request body for applying to an opportunity.
+ * notes is required.
+ */
 export class CreateCopilotApplicationDto {
   @ApiProperty()
   @IsString()
@@ -27,11 +35,18 @@ export class CreateCopilotApplicationDto {
   notes: string;
 }
 
+/**
+ * Embedded membership context when applicant is already in the project.
+ */
 export class ExistingMembershipDto {
   @ApiProperty()
   role: string;
 }
 
+/**
+ * Full copilot application response.
+ * existingMembership is only populated in admin/PM list views.
+ */
 export class CopilotApplicationResponseDto {
   @ApiProperty()
   id: string;
@@ -61,6 +76,9 @@ export class CopilotApplicationResponseDto {
   existingMembership?: ExistingMembershipDto;
 }
 
+/**
+ * Request body for assigning a copilot application.
+ */
 export class AssignCopilotDto {
   @ApiProperty()
   @IsString()
@@ -68,6 +86,9 @@ export class AssignCopilotDto {
   applicationId: string;
 }
 
+/**
+ * Pagination and sort query parameters for application listing endpoints.
+ */
 export class CopilotApplicationListQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()

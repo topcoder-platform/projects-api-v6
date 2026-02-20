@@ -25,9 +25,22 @@ interface UsedVersionsMap {
 }
 
 @Injectable()
+/**
+ * Orchestrates metadata list assembly by querying each metadata table in
+ * parallel and applying version-selection logic for versioned resources
+ * (`form`, `planConfig`, and `priceConfig`).
+ */
 export class MetadataListService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Loads all active metadata and applies the requested version-selection
+   * strategy for versioned config resources.
+   *
+   * @param includeAllReferred Whether template-referenced versions should be
+   * included along with the latest version per key.
+   * @returns Metadata grouped by resource type.
+   */
   async getAllMetadata(
     includeAllReferred: boolean,
   ): Promise<MetadataListResponse> {
@@ -109,6 +122,14 @@ export class MetadataListService {
     };
   }
 
+  /**
+   * Scans template-level metadata references and returns a map of
+   * `key -> used versions` for form/plan/price configs.
+   *
+   * @param projectTemplates Active project templates.
+   * @param productTemplates Active product templates.
+   * @returns Used version lookup map by metadata type.
+   */
   getUsedVersions(
     projectTemplates: ProjectTemplate[],
     productTemplates: ProductTemplate[],
@@ -140,6 +161,12 @@ export class MetadataListService {
     return modelUsed;
   }
 
+  /**
+   * Returns only the latest version per key for versioned metadata resources.
+   *
+   * @returns Tuple of `[forms, planConfigs, priceConfigs]`, each containing one
+   * latest revision record per key.
+   */
   async getLatestVersions(): Promise<
     [
       Record<string, unknown>[],
@@ -147,6 +174,7 @@ export class MetadataListService {
       Record<string, unknown>[],
     ]
   > {
+    // TODO (DRY): getLatestVersions and getLatestVersionIncludeUsed execute identical Prisma queries; extract the three findMany calls into a private fetchAllVersionedRecords() helper.
     const [forms, planConfigs, priceConfigs] = await Promise.all([
       this.prisma.form.findMany({
         where: {
@@ -175,6 +203,14 @@ export class MetadataListService {
     ];
   }
 
+  /**
+   * Returns the latest version per key plus additional versions explicitly
+   * referenced by active templates.
+   *
+   * @param usedVersions Precomputed used-version sets by metadata type.
+   * @returns Tuple of `[forms, planConfigs, priceConfigs]` containing latest and
+   * template-referenced versions.
+   */
   async getLatestVersionIncludeUsed(
     usedVersions: UsedVersionsMap,
   ): Promise<
@@ -184,6 +220,7 @@ export class MetadataListService {
       Record<string, unknown>[],
     ]
   > {
+    // TODO (DRY): getLatestVersions and getLatestVersionIncludeUsed execute identical Prisma queries; extract the three findMany calls into a private fetchAllVersionedRecords() helper.
     const [forms, planConfigs, priceConfigs] = await Promise.all([
       this.prisma.form.findMany({
         where: {
@@ -212,6 +249,14 @@ export class MetadataListService {
     ];
   }
 
+  /**
+   * Parses a template JSON reference field and stores the referenced version in
+   * a destination version map.
+   *
+   * @param destination Target map keyed by metadata key.
+   * @param value Raw Prisma JSON value from template record.
+   * @param name Metadata reference field name.
+   */
   private pushReference(
     destination: Map<string, Set<number>>,
     value: Prisma.JsonValue | null,
@@ -225,6 +270,12 @@ export class MetadataListService {
     this.pushUsedVersion(destination, reference);
   }
 
+  /**
+   * Adds a resolved metadata reference version to a destination map.
+   *
+   * @param destination Target map keyed by metadata key.
+   * @param reference Normalized metadata reference.
+   */
   private pushUsedVersion(
     destination: Map<string, Set<number>>,
     reference: MetadataVersionReference,
@@ -240,6 +291,13 @@ export class MetadataListService {
     destination.get(reference.key)?.add(reference.version);
   }
 
+  /**
+   * Picks one record per key from pre-sorted records (latest version/revision
+   * first) and serializes BigInt fields for JSON response output.
+   *
+   * @param records Sorted versioned metadata records.
+   * @returns Serialized latest record per key.
+   */
   private pickLatestKeyVersions<
     T extends { key: string; version: bigint; revision: bigint },
   >(records: T[]): Record<string, unknown>[] {
@@ -256,6 +314,14 @@ export class MetadataListService {
     );
   }
 
+  /**
+   * Picks latest revision records for all versions included in the
+   * `usedVersions` map and ensures each key's latest version is always present.
+   *
+   * @param records Sorted versioned metadata records.
+   * @param usedVersions Version sets keyed by metadata key.
+   * @returns Serialized records containing latest + referenced versions.
+   */
   private pickLatestAndUsedVersions<
     T extends { key: string; version: bigint; revision: bigint },
   >(

@@ -15,6 +15,16 @@ import {
 import { FormResponseDto } from './dto/form-response.dto';
 
 @Injectable()
+/**
+ * Manages versioned form configurations referenced by project and product
+ * templates.
+ *
+ * Each form is keyed by `key` and versioned with:
+ * - `version`: major version
+ * - `revision`: minor revision within a version
+ *
+ * Soft delete is used for all delete operations.
+ */
 export class FormService {
   constructor(
     private readonly prisma: PrismaService,
@@ -22,6 +32,13 @@ export class FormService {
     private readonly eventBusService: EventBusService,
   ) {}
 
+  /**
+   * Fetches the latest revision from the latest version for a key.
+   *
+   * @param key Metadata key.
+   * @returns Latest form revision DTO.
+   * @throws {NotFoundException} If no form exists for the key.
+   */
   async findLatestRevisionOfLatestVersion(
     key: string,
   ): Promise<FormResponseDto> {
@@ -42,6 +59,13 @@ export class FormService {
     return this.toDto(form);
   }
 
+  /**
+   * Returns one record per version (latest revision of each version).
+   *
+   * @param key Metadata key.
+   * @returns Form DTOs, one per version.
+   * @throws {NotFoundException} If no form exists for the key.
+   */
   async findAllVersions(key: string): Promise<FormResponseDto[]> {
     const normalizedKey = this.normalizeKey(key);
 
@@ -71,6 +95,14 @@ export class FormService {
     );
   }
 
+  /**
+   * Fetches the latest revision for a specific version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @returns Form DTO for the latest revision of the version.
+   * @throws {NotFoundException} If the key/version does not exist.
+   */
   async findLatestRevisionOfVersion(
     key: string,
     version: bigint,
@@ -95,6 +127,14 @@ export class FormService {
     return this.toDto(form);
   }
 
+  /**
+   * Fetches all revisions for a specific version, newest first.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @returns Form revision DTOs.
+   * @throws {NotFoundException} If the key/version does not exist.
+   */
   async findAllRevisions(
     key: string,
     version: bigint,
@@ -119,6 +159,15 @@ export class FormService {
     return forms.map((form) => this.toDto(form));
   }
 
+  /**
+   * Fetches an exact key/version/revision record.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param revision Target revision number.
+   * @returns Form DTO for the exact revision.
+   * @throws {NotFoundException} If the exact revision does not exist.
+   */
   async findSpecificRevision(
     key: string,
     version: bigint,
@@ -144,6 +193,15 @@ export class FormService {
     return this.toDto(form);
   }
 
+  /**
+   * Creates a new version for a key with revision `1`.
+   *
+   * @param key Metadata key.
+   * @param config Form configuration payload.
+   * @param userId Audit user id.
+   * @returns Created form DTO.
+   * @throws {BadRequestException} If key is empty.
+   */
   async createVersion(
     key: string,
     config: Record<string, unknown>,
@@ -191,6 +249,17 @@ export class FormService {
     }
   }
 
+  /**
+   * Creates a new revision under an existing version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param config Form configuration payload.
+   * @param userId Audit user id.
+   * @returns Created form revision DTO.
+   * @throws {NotFoundException} If key/version does not exist.
+   * @throws {BadRequestException} If key is empty.
+   */
   async createRevision(
     key: string,
     version: bigint,
@@ -244,6 +313,16 @@ export class FormService {
     }
   }
 
+  /**
+   * Updates the config on the latest revision of a specific version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param config Replacement configuration payload.
+   * @param userId Audit user id.
+   * @returns Updated form DTO.
+   * @throws {NotFoundException} If key/version does not exist.
+   */
   async updateVersion(
     key: string,
     version: bigint,
@@ -296,6 +375,14 @@ export class FormService {
     }
   }
 
+  /**
+   * Soft deletes all revisions for a version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param userId Audit user id.
+   * @throws {NotFoundException} If key/version does not exist.
+   */
   async deleteVersion(
     key: string,
     version: bigint,
@@ -354,6 +441,15 @@ export class FormService {
     }
   }
 
+  /**
+   * Soft deletes a single revision.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param revision Target revision number.
+   * @param userId Audit user id.
+   * @throws {NotFoundException} If key/version/revision does not exist.
+   */
   async deleteRevision(
     key: string,
     version: bigint,
@@ -405,6 +501,12 @@ export class FormService {
     }
   }
 
+  /**
+   * Maps Prisma entity to API DTO, converting bigint fields to strings.
+   *
+   * @param form Prisma form entity.
+   * @returns Serialized form response DTO.
+   */
   private toDto(form: Form): FormResponseDto {
     return {
       id: form.id.toString(),
@@ -422,6 +524,13 @@ export class FormService {
     };
   }
 
+  /**
+   * Trims and validates metadata key.
+   *
+   * @param key Raw metadata key.
+   * @returns Normalized key.
+   * @throws {BadRequestException} If key is empty.
+   */
   private normalizeKey(key: string): string {
     const normalized = String(key || '').trim();
 
@@ -432,6 +541,14 @@ export class FormService {
     return normalized;
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates Prisma errors to
+   * `PrismaErrorService`.
+   *
+   * @param error Unknown error.
+   * @param operation Operation name for error context.
+   * @throws {HttpException} Re-throws known HTTP errors.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

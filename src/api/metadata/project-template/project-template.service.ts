@@ -32,6 +32,12 @@ import { UpdateProjectTemplateDto } from './dto/update-project-template.dto';
 import { UpgradeProjectTemplateDto } from './dto/upgrade-project-template.dto';
 
 @Injectable()
+/**
+ * Manages project templates, including legacy inline config fields and modern
+ * versioned metadata references (`form`, `planConfig`, `priceConfig`).
+ *
+ * The `upgrade` flow migrates legacy templates into the versioned format.
+ */
 export class ProjectTemplateService {
   constructor(
     private readonly prisma: PrismaService,
@@ -42,6 +48,9 @@ export class ProjectTemplateService {
     private readonly priceConfigService: PriceConfigService,
   ) {}
 
+  /**
+   * Lists project templates, optionally including disabled entries.
+   */
   async findAll(
     includeDisabled = false,
   ): Promise<ProjectTemplateResponseDto[]> {
@@ -56,6 +65,9 @@ export class ProjectTemplateService {
     return Promise.all(records.map((record) => this.toDto(record, false)));
   }
 
+  /**
+   * Loads one project template by id.
+   */
   async findOne(id: bigint): Promise<ProjectTemplateResponseDto> {
     const template = await this.prisma.projectTemplate.findFirst({
       where: {
@@ -73,6 +85,9 @@ export class ProjectTemplateService {
     return this.toDto(template, true);
   }
 
+  /**
+   * Creates a project template and validates metadata references.
+   */
   async create(
     dto: CreateProjectTemplateDto,
     userId: bigint,
@@ -128,6 +143,9 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Updates a project template and validates metadata references.
+   */
   async update(
     id: bigint,
     dto: UpdateProjectTemplateDto,
@@ -240,6 +258,9 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Soft deletes a project template.
+   */
   async delete(id: bigint, userId: bigint): Promise<void> {
     try {
       const existing = await this.prisma.projectTemplate.findFirst({
@@ -282,12 +303,16 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Upgrades a legacy template to versioned metadata references.
+   */
   async upgrade(
     id: bigint,
     dto: UpgradeProjectTemplateDto,
     userId: bigint,
   ): Promise<ProjectTemplateResponseDto> {
     try {
+      // TODO (SECURITY): upgrade() creates form, planConfig, and priceConfig versions in separate DB calls with no wrapping transaction. A failure mid-upgrade leaves the template in a partially upgraded state. Wrap in prisma.$transaction().
       const existing = await this.prisma.projectTemplate.findFirst({
         where: {
           id,
@@ -438,6 +463,10 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Maps Prisma records to API DTOs and optionally resolves full referenced
+   * metadata entities.
+   */
   private async toDto(
     template: ProjectTemplate,
     resolveReferences: boolean,
@@ -486,6 +515,11 @@ export class ProjectTemplateService {
     };
   }
 
+  // TODO (DRY): resolveVersionedReference has three near-identical branches for form/planConfig/priceConfig. Extract a generic resolveReference(key, version, prismaDelegate) helper.
+  /**
+   * Resolves a stored metadata reference into the latest matching versioned
+   * config record.
+   */
   private async resolveVersionedReference(
     value: Prisma.JsonValue | null,
     type: 'form' | 'planConfig' | 'priceConfig',
@@ -577,6 +611,10 @@ export class ProjectTemplateService {
       : null;
   }
 
+  // TODO (DRY): toRecord, mergeJson, toNullableJson, getStoredReference are duplicated in ProductTemplateService. Move to a shared metadata-template.utils.ts file.
+  /**
+   * Converts optional values to a Prisma nullable JSON payload.
+   */
   private toNullableJson(
     value:
       | MetadataVersionReference
@@ -595,6 +633,9 @@ export class ProjectTemplateService {
     return value as Prisma.InputJsonValue;
   }
 
+  /**
+   * Reads and normalizes a stored metadata reference from JSON.
+   */
   private getStoredReference(
     value: Prisma.JsonValue | null,
     type: 'form' | 'planConfig' | 'priceConfig',
@@ -609,6 +650,9 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Converts JSON values to plain object maps when possible.
+   */
   private toRecord(
     value: Prisma.JsonValue | null,
   ): Record<string, unknown> | null {
@@ -619,6 +663,9 @@ export class ProjectTemplateService {
     return value as Record<string, unknown>;
   }
 
+  /**
+   * Merges incoming JSON fields over existing object values.
+   */
   private mergeJson(
     current: Prisma.JsonValue | null,
     next: Record<string, unknown>,
@@ -630,6 +677,9 @@ export class ProjectTemplateService {
     };
   }
 
+  /**
+   * Validates mutually exclusive legacy and versioned config fields.
+   */
   private validateTemplateConfigConstraints(
     dto: CreateProjectTemplateDto | UpdateProjectTemplateDto,
   ): void {
@@ -652,10 +702,18 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Parses a template id route parameter.
+   */
   parseTemplateId(templateId: string): bigint {
     return parseBigIntParam(templateId, 'templateId');
   }
 
+  // TODO (DRY): handleError is duplicated across all metadata services. Consider a shared base class or utility.
+  /**
+   * Re-throws framework HTTP exceptions and delegates unexpected errors to
+   * PrismaErrorService.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

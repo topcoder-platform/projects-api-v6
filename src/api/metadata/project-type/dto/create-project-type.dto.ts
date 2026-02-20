@@ -8,6 +8,19 @@ import {
   IsString,
 } from 'class-validator';
 
+/**
+ * Request payload for creating a project type.
+ *
+ * @property key Project type key.
+ * @property displayName Project type display name.
+ * @property icon Icon identifier.
+ * @property question Prompt text.
+ * @property info Informational text.
+ * @property aliases Alias list.
+ * @property metadata Metadata object.
+ * @property disabled Disabled flag.
+ * @property hidden Hidden flag.
+ */
 export class CreateProjectTypeDto {
   @ApiProperty()
   @IsString()

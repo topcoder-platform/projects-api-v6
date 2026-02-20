@@ -2,6 +2,12 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Min } from 'class-validator';
 
+/**
+ * Query payload for list-or-get permission requests.
+ *
+ * @property id Optional permission id for single-record mode.
+ * @property projectTemplateId Optional project template id for list mode.
+ */
 export class WorkManagementPermissionQueryDto {
   @ApiPropertyOptional({
     description:

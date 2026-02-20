@@ -14,6 +14,7 @@ function parseOptionalInteger(value: unknown): number | undefined {
 
   return Math.trunc(parsed);
 }
+// TODO [DRY]: Duplicated in `create-attachment.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
 
 function parseAllowedUsers(value: unknown): number[] | undefined {
   if (!Array.isArray(value)) {
@@ -24,7 +25,13 @@ function parseAllowedUsers(value: unknown): number[] | undefined {
     .map((entry) => parseOptionalInteger(entry))
     .filter((entry): entry is number => typeof entry === 'number');
 }
+// TODO [DRY]: Duplicated in `create-attachment.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
 
+/**
+ * Update payload for `PATCH /projects/:projectId/attachments/:id`.
+ * `type` and `contentType` are immutable after creation and intentionally
+ * excluded from this DTO.
+ */
 export class UpdateAttachmentDto {
   @ApiPropertyOptional()
   @IsOptional()

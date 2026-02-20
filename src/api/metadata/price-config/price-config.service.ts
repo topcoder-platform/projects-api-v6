@@ -15,13 +15,27 @@ import {
 import { PriceConfigResponseDto } from './dto/price-config-response.dto';
 
 @Injectable()
+/**
+ * Manages versioned price configurations referenced by project templates.
+ *
+ * Records are keyed by `key` and versioned by `version` and `revision`. Soft
+ * delete is used for removal operations.
+ */
 export class PriceConfigService {
+  // TODO (DRY): FormService, PlanConfigService, and PriceConfigService are structurally identical. Consider extracting a generic AbstractVersionedConfigService<T, TDto> base class parameterized on the Prisma delegate and DTO mapper.
   constructor(
     private readonly prisma: PrismaService,
     private readonly prismaErrorService: PrismaErrorService,
     private readonly eventBusService: EventBusService,
   ) {}
 
+  /**
+   * Returns the latest revision from the latest version for a key.
+   *
+   * @param key Metadata key.
+   * @returns Latest price config revision DTO.
+   * @throws {NotFoundException} If the key does not exist.
+   */
   async findLatestRevisionOfLatestVersion(
     key: string,
   ): Promise<PriceConfigResponseDto> {
@@ -44,6 +58,13 @@ export class PriceConfigService {
     return this.toDto(priceConfig);
   }
 
+  /**
+   * Returns one record per version (latest revision for each version).
+   *
+   * @param key Metadata key.
+   * @returns Latest revision DTO per version.
+   * @throws {NotFoundException} If the key does not exist.
+   */
   async findAllVersions(key: string): Promise<PriceConfigResponseDto[]> {
     const normalizedKey = this.normalizeKey(key);
 
@@ -75,6 +96,14 @@ export class PriceConfigService {
     );
   }
 
+  /**
+   * Returns the latest revision for a specific version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @returns Latest revision DTO for the version.
+   * @throws {NotFoundException} If the key/version does not exist.
+   */
   async findLatestRevisionOfVersion(
     key: string,
     version: bigint,
@@ -99,12 +128,21 @@ export class PriceConfigService {
     return this.toDto(priceConfig);
   }
 
+  /**
+   * Returns all revisions for a specific version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @returns Revision DTOs for the version.
+   * @throws {NotFoundException} If the key/version does not exist.
+   */
   async findAllRevisions(
     key: string,
     version: bigint,
   ): Promise<PriceConfigResponseDto[]> {
     const normalizedKey = this.normalizeKey(key);
 
+    // TODO (DRY): variable named 'forms' should be 'priceConfigs' — copy-paste error.
     const forms = await this.prisma.priceConfig.findMany({
       where: {
         key: normalizedKey,
@@ -123,6 +161,15 @@ export class PriceConfigService {
     return forms.map((priceConfig) => this.toDto(priceConfig));
   }
 
+  /**
+   * Returns an exact key/version/revision record.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param revision Target revision number.
+   * @returns Matching revision DTO.
+   * @throws {NotFoundException} If the exact revision does not exist.
+   */
   async findSpecificRevision(
     key: string,
     version: bigint,
@@ -148,6 +195,15 @@ export class PriceConfigService {
     return this.toDto(priceConfig);
   }
 
+  /**
+   * Creates a new version and starts at revision `1`.
+   *
+   * @param key Metadata key.
+   * @param config Configuration payload.
+   * @param userId Audit user id.
+   * @returns Created version DTO.
+   * @throws {BadRequestException} If key is empty.
+   */
   async createVersion(
     key: string,
     config: Record<string, unknown>,
@@ -198,6 +254,17 @@ export class PriceConfigService {
     }
   }
 
+  /**
+   * Creates a new revision under an existing version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param config Configuration payload.
+   * @param userId Audit user id.
+   * @returns Created revision DTO.
+   * @throws {NotFoundException} If key/version does not exist.
+   * @throws {BadRequestException} If key is empty.
+   */
   async createRevision(
     key: string,
     version: bigint,
@@ -251,6 +318,16 @@ export class PriceConfigService {
     }
   }
 
+  /**
+   * Updates the latest revision for a specific version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param config Replacement configuration payload.
+   * @param userId Audit user id.
+   * @returns Updated version DTO.
+   * @throws {NotFoundException} If key/version does not exist.
+   */
   async updateVersion(
     key: string,
     version: bigint,
@@ -303,6 +380,14 @@ export class PriceConfigService {
     }
   }
 
+  /**
+   * Soft deletes all revisions for a specific version.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param userId Audit user id.
+   * @throws {NotFoundException} If key/version does not exist.
+   */
   async deleteVersion(
     key: string,
     version: bigint,
@@ -311,6 +396,7 @@ export class PriceConfigService {
     const normalizedKey = this.normalizeKey(key);
 
     try {
+      // TODO (DRY): variable named 'forms' should be 'priceConfigs' — copy-paste error.
       const forms = await this.prisma.priceConfig.findMany({
         where: {
           key: normalizedKey,
@@ -361,6 +447,15 @@ export class PriceConfigService {
     }
   }
 
+  /**
+   * Soft deletes a single revision.
+   *
+   * @param key Metadata key.
+   * @param version Target version number.
+   * @param revision Target revision number.
+   * @param userId Audit user id.
+   * @throws {NotFoundException} If key/version/revision does not exist.
+   */
   async deleteRevision(
     key: string,
     version: bigint,
@@ -412,6 +507,12 @@ export class PriceConfigService {
     }
   }
 
+  /**
+   * Maps a Prisma entity to the API DTO shape.
+   *
+   * @param priceConfig Prisma entity.
+   * @returns Response DTO with bigint values converted to strings.
+   */
   private toDto(priceConfig: PriceConfig): PriceConfigResponseDto {
     return {
       id: priceConfig.id.toString(),
@@ -429,6 +530,13 @@ export class PriceConfigService {
     };
   }
 
+  /**
+   * Trims and validates metadata key.
+   *
+   * @param key Raw key input.
+   * @returns Normalized key.
+   * @throws {BadRequestException} If key is empty.
+   */
   private normalizeKey(key: string): string {
     const normalized = String(key || '').trim();
 
@@ -439,6 +547,13 @@ export class PriceConfigService {
     return normalized;
   }
 
+  /**
+   * Re-throws HTTP exceptions and delegates unknown errors to PrismaErrorService.
+   *
+   * @param error Unknown error.
+   * @param operation Operation label.
+   * @throws {HttpException} Re-throws HTTP exceptions.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

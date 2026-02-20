@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
+import { Public } from 'src/shared/decorators/public.decorator';
 import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import {
@@ -33,11 +34,18 @@ import { ProjectTemplateService } from './project-template.service';
 @ApiTags('Metadata - Project Templates')
 @ApiBearerAuth()
 @Controller('/projects/metadata/projectTemplates')
+/**
+ * REST controller for project template metadata.
+ *
+ * Read endpoints are public (`@Public()`); write endpoints require
+ * `@AdminOnly`.
+ */
 export class ProjectTemplateController {
   constructor(
     private readonly projectTemplateService: ProjectTemplateService,
   ) {}
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'List project templates',
@@ -51,6 +59,9 @@ export class ProjectTemplateController {
     description: 'Include disabled templates when true.',
   })
   @ApiResponse({ status: 200, type: [ProjectTemplateResponseDto] })
+  /**
+   * Lists project templates.
+   */
   async list(
     @Query('includeDisabled') includeDisabled?: string,
   ): Promise<ProjectTemplateResponseDto[]> {
@@ -59,11 +70,15 @@ export class ProjectTemplateController {
     );
   }
 
+  @Public()
   @Get(':templateId')
   @ApiOperation({ summary: 'Get project template by id' })
   @ApiParam({ name: 'templateId', description: 'Project template id' })
   @ApiResponse({ status: 200, type: ProjectTemplateResponseDto })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Gets one project template by id.
+   */
   async getOne(
     @Param('templateId') templateId: string,
   ): Promise<ProjectTemplateResponseDto> {
@@ -77,6 +92,9 @@ export class ProjectTemplateController {
   @ApiOperation({ summary: 'Create project template' })
   @ApiResponse({ status: 201, type: ProjectTemplateResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  /**
+   * Creates a project template.
+   */
   async create(
     @Body() dto: CreateProjectTemplateDto,
     @CurrentUser() user: JwtUser,
@@ -91,6 +109,9 @@ export class ProjectTemplateController {
   @ApiResponse({ status: 200, type: ProjectTemplateResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Updates a project template by id.
+   */
   async update(
     @Param('templateId') templateId: string,
     @Body() dto: UpdateProjectTemplateDto,
@@ -111,6 +132,9 @@ export class ProjectTemplateController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Soft deletes a project template.
+   */
   async delete(
     @Param('templateId') templateId: string,
     @CurrentUser() user: JwtUser,
@@ -128,6 +152,9 @@ export class ProjectTemplateController {
   @ApiResponse({ status: 201, type: ProjectTemplateResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Upgrades legacy project template configuration to versioned references.
+   */
   async upgrade(
     @Param('templateId') templateId: string,
     @Body() dto: UpgradeProjectTemplateDto,

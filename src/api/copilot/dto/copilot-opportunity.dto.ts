@@ -7,7 +7,11 @@ import { Transform } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { CopilotSkillDto } from './copilot-request.dto';
 
+/**
+ * DTOs for listing and responding with copilot opportunities.
+ */
 function parseOptionalInteger(value: unknown): number | undefined {
+  // TODO [DRY]: parseOptionalInteger is duplicated across copilot-request.dto.ts and copilot-application.dto.ts; extract shared dto transform utilities.
   if (typeof value === 'undefined' || value === null || value === '') {
     return undefined;
   }
@@ -25,6 +29,7 @@ function parseOptionalInteger(value: unknown): number | undefined {
 }
 
 function parseOptionalBoolean(value: unknown): boolean | undefined {
+  // TODO [DRY]: parseOptionalBoolean duplicates query transform logic; extract shared dto transform utilities.
   if (typeof value === 'boolean') {
     return value;
   }
@@ -44,6 +49,10 @@ function parseOptionalBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+/**
+ * Flattened response merging opportunity fields with request data.
+ * canApplyAsCopilot indicates whether the current user is eligible to apply.
+ */
 export class CopilotOpportunityResponseDto {
   @ApiProperty()
   id: string;
@@ -121,6 +130,11 @@ export class CopilotOpportunityResponseDto {
   members?: string[];
 }
 
+/**
+ * Pagination, sort, and noGrouping query parameters for opportunities.
+ * noGrouping=false (default) groups results by status priority:
+ * active -> canceled -> completed.
+ */
 export class ListOpportunitiesQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()

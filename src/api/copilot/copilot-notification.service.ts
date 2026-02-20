@@ -11,6 +11,7 @@ import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { MemberService } from 'src/shared/services/member.service';
 import { getCopilotRequestData, getCopilotTypeLabel } from './copilot.utils';
 
+// TODO [CONFIG]: TEMPLATE_IDS are hardcoded SendGrid template ids; move these values to environment-based configuration.
 const TEMPLATE_IDS = {
   APPLY_COPILOT: 'd-d7c1f48628654798a05c8e09e52db14f',
   COPILOT_APPLICATION_ACCEPTED: 'd-eef5e7568c644940b250e76d026ced5b',
@@ -29,6 +30,11 @@ type ApplicationWithMembership = CopilotApplication & {
   };
 };
 
+/**
+ * Email notification dispatcher for copilot lifecycle events.
+ * Email dispatch is currently disabled: publishEmail is a stub that logs and returns
+ * without sending to Kafka/SendGrid.
+ */
 @Injectable()
 export class CopilotNotificationService {
   private readonly logger = LoggerService.forRoot('CopilotNotificationService');
@@ -38,6 +44,14 @@ export class CopilotNotificationService {
     private readonly memberService: MemberService,
   ) {}
 
+  /**
+   * Sends application notifications to project managers and request creator.
+   * Recipient resolution: manager/project_manager project members + request creator, deduplicated.
+   *
+   * @param opportunity Opportunity that must include copilotRequest relation.
+   * @param application Newly created application.
+   * @returns Resolves after notifications are queued.
+   */
   async sendCopilotApplicationNotification(
     opportunity: OpportunityWithRequest,
     application: CopilotApplication,
@@ -111,6 +125,16 @@ export class CopilotNotificationService {
     );
   }
 
+  /**
+   * Sends assigned notification to the accepted applicant.
+   * Uses COPILOT_ALREADY_PART_OF_PROJECT when existing membership is copilot/manager,
+   * otherwise uses COPILOT_APPLICATION_ACCEPTED.
+   *
+   * @param opportunity Assigned opportunity with optional request relation.
+   * @param application Accepted application with optional existingMembership.
+   * @param copilotRequest Optional request override.
+   * @returns Resolves after notification dispatch.
+   */
   async sendCopilotAssignedNotification(
     opportunity: OpportunityWithRequest,
     application: ApplicationWithMembership,
@@ -156,6 +180,15 @@ export class CopilotNotificationService {
     );
   }
 
+  /**
+   * Sends notifications to non-accepted applicants after assignment.
+   * Uses COPILOT_OPPORTUNITY_COMPLETED template for all provided applications.
+   *
+   * @param opportunity Completed opportunity.
+   * @param applications Non-accepted applications.
+   * @param copilotRequest Optional request override.
+   * @returns Resolves after notification dispatch.
+   */
   async sendCopilotRejectedNotification(
     opportunity: OpportunityWithRequest,
     applications: CopilotApplication[],
@@ -197,6 +230,13 @@ export class CopilotNotificationService {
     );
   }
 
+  /**
+   * Sends canceled notifications to all applicants for an opportunity.
+   *
+   * @param opportunity Canceled opportunity.
+   * @param applications Opportunity applications.
+   * @returns Resolves after notification dispatch.
+   */
   async sendOpportunityCanceledNotification(
     opportunity: OpportunityWithRequest,
     applications: CopilotApplication[],
@@ -235,6 +275,14 @@ export class CopilotNotificationService {
     );
   }
 
+  /**
+   * Publishes a template email notification.
+   *
+   * @param templateId Template identifier.
+   * @param recipients Recipient emails.
+   * @param data Template payload.
+   * @returns Resolved promise (dispatch currently disabled).
+   */
   private publishEmail(
     templateId: string,
     recipients: string[],
@@ -244,6 +292,7 @@ export class CopilotNotificationService {
       return Promise.resolve();
     }
 
+    // TODO [SECURITY/FUNCTIONALITY]: Email dispatch is fully disabled; templateId and data are discarded and nothing is sent. Re-enable Kafka/SendGrid before production use.
     void templateId;
     void data;
     this.logger.warn(
@@ -252,17 +301,37 @@ export class CopilotNotificationService {
     return Promise.resolve();
   }
 
+  /**
+   * Returns the configured Work Manager base URL.
+   *
+   * @returns Work Manager URL string.
+   */
   private getWorkManagerUrl(): string {
+    // TODO [QUALITY]: No startup validation for WORK_MANAGER_URL; empty values can create broken notification links.
     return process.env.WORK_MANAGER_URL || '';
   }
 
+  /**
+   * Returns the configured Copilot portal URL with trailing slash removed.
+   *
+   * @returns Copilot portal URL string.
+   */
   private getCopilotPortalUrl(): string {
+    // TODO [QUALITY]: No startup validation for COPILOT_PORTAL_URL/WORK_MANAGER_URL fallback; empty values can create broken notification links.
     const value =
       process.env.COPILOT_PORTAL_URL || process.env.WORK_MANAGER_URL;
 
     return String(value || '').replace(/\/$/, '');
   }
 
+  /**
+   * Resolves opportunity type with fallback chain:
+   * requestData.projectType -> opportunity.type.
+   *
+   * @param opportunity Opportunity entity.
+   * @param requestData Parsed request data object.
+   * @returns Resolved opportunity type enum.
+   */
   private resolveOpportunityType(
     opportunity: CopilotOpportunity,
     requestData: Record<string, unknown>,
@@ -282,6 +351,13 @@ export class CopilotNotificationService {
     return opportunity.type;
   }
 
+  /**
+   * Formats date-like values into UTC DD-MM-YYYY string.
+   * Returns empty string when value is missing or invalid.
+   *
+   * @param value Date-like value.
+   * @returns Formatted date string or empty string.
+   */
   private formatDate(value: unknown): string {
     if (!value) {
       return '';
@@ -306,7 +382,14 @@ export class CopilotNotificationService {
     return `${day}-${month}-${year}`;
   }
 
+  /**
+   * Reads a string-like primitive value.
+   *
+   * @param value Input value.
+   * @returns String value or undefined.
+   */
   private readString(value: unknown): string | undefined {
+    // TODO [DRY]: Identical readString exists in CopilotRequestService; extract to copilot.utils.ts.
     if (typeof value === 'string') {
       return value;
     }

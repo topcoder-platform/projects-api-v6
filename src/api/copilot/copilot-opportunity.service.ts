@@ -66,6 +66,11 @@ interface PaginatedOpportunityResponse {
 }
 
 @Injectable()
+/**
+ * Manages copilot opportunity visibility, assignment, and cancellation.
+ * listOpportunities and getOpportunity are intentionally open to authenticated users
+ * so copilots can browse opportunities and apply.
+ */
 export class CopilotOpportunityService {
   constructor(
     private readonly prisma: PrismaService,
@@ -73,10 +78,20 @@ export class CopilotOpportunityService {
     private readonly notificationService: CopilotNotificationService,
   ) {}
 
+  /**
+   * Lists opportunities with pagination and status-priority grouping.
+   * Uses a two-phase fetch: opportunities first, then membership lookup to compute canApplyAsCopilot.
+   * Default ordering groups by status priority active -> canceled -> completed unless noGrouping is true.
+   *
+   * @param query Pagination, sort, and noGrouping parameters.
+   * @param user Authenticated JWT user.
+   * @returns Paginated opportunity response payload.
+   */
   async listOpportunities(
     query: ListOpportunitiesQueryDto,
     user: JwtUser,
   ): Promise<PaginatedOpportunityResponse> {
+    // TODO [SECURITY]: No permission check is applied here; this is intentional for authenticated browsing and should remain explicitly documented.
     const [sortField, sortDirection] = parseSortExpression(
       query.sort,
       OPPORTUNITY_SORTS,
@@ -85,6 +100,7 @@ export class CopilotOpportunityService {
 
     const includeProject = isAdminOrManager(user);
 
+    // TODO [PERF]: This fetches the full opportunity set and performs sorting/pagination in memory; move to DB-level orderBy/skip/take for scale.
     const opportunities = await this.prisma.copilotOpportunity.findMany({
       where: {
         deletedAt: null,
@@ -137,10 +153,21 @@ export class CopilotOpportunityService {
     };
   }
 
+  /**
+   * Returns a single opportunity with eligibility context.
+   * canApplyAsCopilot is true when the user is not already a member of the project.
+   *
+   * @param opportunityId Opportunity id path value.
+   * @param user Authenticated JWT user.
+   * @returns One formatted opportunity response.
+   * @throws BadRequestException If id is non-numeric.
+   * @throws NotFoundException If opportunity does not exist.
+   */
   async getOpportunity(
     opportunityId: string,
     user: JwtUser,
   ): Promise<CopilotOpportunityResponseDto> {
+    // TODO [SECURITY]: No permission check is applied; any authenticated user can access any opportunity by id.
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
 
     const opportunity = await this.prisma.copilotOpportunity.findFirst({
@@ -190,6 +217,25 @@ export class CopilotOpportunityService {
     );
   }
 
+  /**
+   * Assigns a selected copilot application to an active opportunity in one transaction:
+   * 1) validate active opportunity with project
+   * 2) validate application belongs to opportunity
+   * 3) guard against double-accept
+   * 4) upsert project member with copilot role
+   * 5) accept selected application
+   * 6) cancel other applications
+   * 7) mark opportunity completed
+   * 8) mark linked request fulfilled
+   *
+   * @param opportunityId Opportunity id path value.
+   * @param dto Assignment payload with applicationId.
+   * @param user Authenticated JWT user.
+   * @returns Assigned application id payload.
+   * @throws ForbiddenException If user lacks ASSIGN_COPILOT_OPPORTUNITY permission.
+   * @throws NotFoundException If opportunity is not found.
+   * @throws BadRequestException If ids are invalid, opportunity is inactive, or application is invalid/already accepted.
+   */
   async assignCopilot(
     opportunityId: string,
     dto: AssignCopilotDto,
@@ -263,6 +309,7 @@ export class CopilotOpportunityService {
           existingMember.role !== ProjectMemberRole.copilot &&
           existingMember.role !== ProjectMemberRole.manager
         ) {
+          // TODO [SECURITY]: Existing non-copilot/non-manager roles (for example customer) are silently upgraded to copilot without explicit confirmation or dedicated audit event.
           await tx.projectMember.update({
             where: {
               id: existingMember.id,
@@ -376,6 +423,16 @@ export class CopilotOpportunityService {
     };
   }
 
+  /**
+   * Cancels an opportunity and its applications in a transaction, then sends notifications.
+   *
+   * @param opportunityId Opportunity id path value.
+   * @param user Authenticated JWT user.
+   * @returns Canceled opportunity id payload.
+   * @throws ForbiddenException If user lacks CANCEL_COPILOT_OPPORTUNITY permission.
+   * @throws NotFoundException If opportunity is not found.
+   * @throws BadRequestException If id is non-numeric.
+   */
   async cancelOpportunity(
     opportunityId: string,
     user: JwtUser,
@@ -449,6 +506,16 @@ export class CopilotOpportunityService {
     };
   }
 
+  /**
+   * Formats an opportunity response DTO.
+   * Request data fields are spread directly onto the response.
+   *
+   * @param input Opportunity row with relations.
+   * @param canApplyAsCopilot Whether caller can apply.
+   * @param members Optional member userId list.
+   * @param includeProjectId Whether to include projectId in response.
+   * @returns Formatted opportunity response.
+   */
   private formatOpportunity(
     input: OpportunityWithRelations,
     canApplyAsCopilot: boolean,
@@ -481,6 +548,15 @@ export class CopilotOpportunityService {
     return response;
   }
 
+  /**
+   * Sorts opportunities by status-priority grouping (unless noGrouping) and createdAt.
+   *
+   * @param rows Opportunity rows.
+   * @param sortField Sort field.
+   * @param sortDirection Sort direction.
+   * @param noGrouping When true, skip status-priority grouping.
+   * @returns Sorted opportunities.
+   */
   private sortOpportunities(
     rows: OpportunityWithRelations[],
     sortField: string,
@@ -507,6 +583,14 @@ export class CopilotOpportunityService {
     });
   }
 
+  /**
+   * Resolves project ids where the current user is already a member.
+   * Returns early for missing/non-numeric user ids and performs one batch membership query.
+   *
+   * @param opportunities Opportunity rows used to collect project ids.
+   * @param user Authenticated JWT user.
+   * @returns Set of project ids where membership exists.
+   */
   private async getMembershipProjectIds(
     opportunities: CopilotOpportunity[],
     user: JwtUser,
@@ -541,7 +625,15 @@ export class CopilotOpportunityService {
     );
   }
 
+  /**
+   * Enforces a named permission for the current user.
+   *
+   * @param permission Permission constant.
+   * @param user Authenticated JWT user.
+   * @throws ForbiddenException If permission is missing.
+   */
   private ensurePermission(permission: NamedPermission, user: JwtUser): void {
+    // TODO [DRY]: Identical ensurePermission method exists in CopilotRequestService and CopilotApplicationService; extract shared utility/base class.
     if (!this.permissionService.hasNamedPermission(permission, user)) {
       throw new ForbiddenException('Insufficient permissions');
     }
