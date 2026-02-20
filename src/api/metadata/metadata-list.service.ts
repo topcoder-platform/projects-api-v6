@@ -174,27 +174,8 @@ export class MetadataListService {
       Record<string, unknown>[],
     ]
   > {
-    // TODO (DRY): getLatestVersions and getLatestVersionIncludeUsed execute identical Prisma queries; extract the three findMany calls into a private fetchAllVersionedRecords() helper.
-    const [forms, planConfigs, priceConfigs] = await Promise.all([
-      this.prisma.form.findMany({
-        where: {
-          deletedAt: null,
-        },
-        orderBy: [{ key: 'asc' }, { version: 'desc' }, { revision: 'desc' }],
-      }),
-      this.prisma.planConfig.findMany({
-        where: {
-          deletedAt: null,
-        },
-        orderBy: [{ key: 'asc' }, { version: 'desc' }, { revision: 'desc' }],
-      }),
-      this.prisma.priceConfig.findMany({
-        where: {
-          deletedAt: null,
-        },
-        orderBy: [{ key: 'asc' }, { version: 'desc' }, { revision: 'desc' }],
-      }),
-    ]);
+    const [forms, planConfigs, priceConfigs] =
+      await this.fetchAllVersionedRecords();
 
     return [
       this.pickLatestKeyVersions(forms),
@@ -220,8 +201,24 @@ export class MetadataListService {
       Record<string, unknown>[],
     ]
   > {
-    // TODO (DRY): getLatestVersions and getLatestVersionIncludeUsed execute identical Prisma queries; extract the three findMany calls into a private fetchAllVersionedRecords() helper.
-    const [forms, planConfigs, priceConfigs] = await Promise.all([
+    const [forms, planConfigs, priceConfigs] =
+      await this.fetchAllVersionedRecords();
+
+    return [
+      this.pickLatestAndUsedVersions(forms, usedVersions.form),
+      this.pickLatestAndUsedVersions(planConfigs, usedVersions.planConfig),
+      this.pickLatestAndUsedVersions(priceConfigs, usedVersions.priceConfig),
+    ];
+  }
+
+  private fetchAllVersionedRecords(): Promise<
+    [
+      Array<{ key: string; version: bigint; revision: bigint }>,
+      Array<{ key: string; version: bigint; revision: bigint }>,
+      Array<{ key: string; version: bigint; revision: bigint }>,
+    ]
+  > {
+    return Promise.all([
       this.prisma.form.findMany({
         where: {
           deletedAt: null,
@@ -241,12 +238,6 @@ export class MetadataListService {
         orderBy: [{ key: 'asc' }, { version: 'desc' }, { revision: 'desc' }],
       }),
     ]);
-
-    return [
-      this.pickLatestAndUsedVersions(forms, usedVersions.form),
-      this.pickLatestAndUsedVersions(planConfigs, usedVersions.planConfig),
-      this.pickLatestAndUsedVersions(priceConfigs, usedVersions.priceConfig),
-    ];
   }
 
   /**

@@ -8,31 +8,10 @@ import {
   IsString,
   Min,
 } from 'class-validator';
-
-function parseOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-}
-// TODO [DRY]: Duplicated in `create-phase.dto.ts` and `workstream.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
-
-function parseOptionalInteger(value: unknown): number | undefined {
-  const parsed = parseOptionalNumber(value);
-
-  if (typeof parsed === 'undefined') {
-    return undefined;
-  }
-
-  return Math.trunc(parsed);
-}
-// TODO [DRY]: Duplicated in `create-phase.dto.ts` and `workstream.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
+import {
+  parseOptionalInteger,
+  parseOptionalNumber,
+} from 'src/shared/utils/dto-transform.utils';
 
 /**
  * Create payload for phase product/work-item endpoints:

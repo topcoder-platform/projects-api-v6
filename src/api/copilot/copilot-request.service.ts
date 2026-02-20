@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -24,12 +23,14 @@ import {
   UpdateCopilotRequestDto,
 } from './dto/copilot-request.dto';
 import {
+  ensureNamedPermission,
   getAuditUserId,
   getCopilotRequestData,
   isAdminOrManager,
   normalizeEntity,
   parseNumericId,
   parseSortExpression,
+  readString,
 } from './copilot.utils';
 
 const REQUEST_SORTS = [
@@ -85,7 +86,7 @@ export class CopilotRequestService {
     query: CopilotRequestListQueryDto,
     user: JwtUser,
   ): Promise<PaginatedRequestResponse> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
     const includeProjectInResponse = isAdminOrManager(user);
 
     const parsedProjectId = projectId
@@ -162,7 +163,7 @@ export class CopilotRequestService {
     copilotRequestId: string,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
 
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
 
@@ -210,7 +211,7 @@ export class CopilotRequestService {
     dto: CreateCopilotRequestDto,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
 
     const parsedProjectId = parseNumericId(projectId, 'Project');
     const auditUserId = getAuditUserId(user);
@@ -299,7 +300,7 @@ export class CopilotRequestService {
     dto: UpdateCopilotRequestDto,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
 
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
     const auditUserId = getAuditUserId(user);
@@ -413,7 +414,7 @@ export class CopilotRequestService {
     type: string | undefined,
     user: JwtUser,
   ): Promise<unknown> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
 
     const parsedProjectId = parseNumericId(projectId, 'Project');
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
@@ -471,8 +472,8 @@ export class CopilotRequestService {
 
     const requestData = getCopilotRequestData(request.data);
     const requestedType = (
-      this.readString(type) ||
-      this.readString(requestData.projectType) ||
+      readString(type) ||
+      readString(requestData.projectType) ||
       ''
     ).trim();
 
@@ -714,8 +715,8 @@ export class CopilotRequestService {
       return left.getTime() - right.getTime();
     }
 
-    const leftValue = this.readString(left)?.toLowerCase() || '';
-    const rightValue = this.readString(right)?.toLowerCase() || '';
+    const leftValue = readString(left)?.toLowerCase() || '';
+    const rightValue = readString(right)?.toLowerCase() || '';
 
     if (leftValue < rightValue) {
       return -1;
@@ -728,36 +729,4 @@ export class CopilotRequestService {
     return 0;
   }
 
-  /**
-   * Enforces a named permission for the current user.
-   *
-   * @param permission Permission constant.
-   * @param user Authenticated JWT user.
-   * @throws ForbiddenException If permission is missing.
-   */
-  private ensurePermission(permission: NamedPermission, user: JwtUser): void {
-    // TODO [DRY]: Identical ensurePermission method exists in CopilotOpportunityService and CopilotApplicationService; extract shared utility/base class.
-    if (!this.permissionService.hasNamedPermission(permission, user)) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
-  }
-
-  /**
-   * Reads a string-like primitive value.
-   *
-   * @param value Input value.
-   * @returns String value or undefined.
-   */
-  private readString(value: unknown): string | undefined {
-    // TODO [DRY]: Identical readString exists in CopilotNotificationService; extract to copilot.utils.ts.
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    if (typeof value === 'number') {
-      return `${value}`;
-    }
-
-    return undefined;
-  }
 }

@@ -19,27 +19,11 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { parseOptionalLooseInteger } from 'src/shared/utils/dto-transform.utils';
 
 /**
  * Input/output DTOs for the copilot request lifecycle.
  */
-function parseOptionalInteger(value: unknown): number | undefined {
-  // TODO [DRY]: parseOptionalInteger is duplicated verbatim in copilot-opportunity.dto.ts and copilot-application.dto.ts; extract to src/shared/utils/dto-transforms.utils.ts (or similar).
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  if (typeof value === 'number') {
-    return Number.isNaN(value) ? undefined : Math.trunc(value);
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-
-  return undefined;
-}
 
 export enum CopilotComplexity {
   LOW = 'low',
@@ -246,14 +230,14 @@ export class CopilotRequestResponseDto {
 export class CopilotRequestListQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseOptionalInteger(value))
+  @Transform(({ value }) => parseOptionalLooseInteger(value))
   @IsInt()
   @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseOptionalInteger(value))
+  @Transform(({ value }) => parseOptionalLooseInteger(value))
   @IsInt()
   @Min(1)
   pageSize?: number;

@@ -19,11 +19,11 @@ import {
 } from '@nestjs/swagger';
 import { WorkStreamService } from 'src/api/workstream/workstream.service';
 import { Permission } from 'src/shared/constants/permissions';
+import { WORK_LAYER_ALLOWED_ROLES } from 'src/shared/constants/roles';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
 import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
@@ -31,17 +31,6 @@ import { CreatePhaseProductDto } from './dto/create-phase-product.dto';
 import { PhaseProductResponseDto } from './dto/phase-product-response.dto';
 import { UpdatePhaseProductDto } from './dto/update-phase-product.dto';
 import { PhaseProductService } from './phase-product.service';
-
-const WORKITEM_ALLOWED_ROLES = [
-  UserRole.TOPCODER_ADMIN,
-  UserRole.CONNECT_ADMIN,
-  UserRole.TG_ADMIN,
-  UserRole.MANAGER,
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-  UserRole.COPILOT_MANAGER,
-];
-// TODO [DRY]: Extract a single `WORK_LAYER_ALLOWED_ROLES` constant to `src/shared/constants/roles.ts`.
 
 @ApiTags('WorkItem')
 @ApiBearerAuth()
@@ -73,7 +62,7 @@ export class WorkItemController {
    */
   @Get()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -128,7 +117,7 @@ export class WorkItemController {
    */
   @Get(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -190,7 +179,7 @@ export class WorkItemController {
    */
   @Post()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKITEM_CREATE)
   @ApiOperation({
@@ -248,7 +237,7 @@ export class WorkItemController {
    */
   @Patch(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKITEM_EDIT)
   @ApiOperation({
@@ -309,7 +298,7 @@ export class WorkItemController {
   @Delete(':id')
   @HttpCode(204)
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKITEM_DELETE)
   @ApiOperation({

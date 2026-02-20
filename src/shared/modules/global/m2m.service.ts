@@ -4,6 +4,7 @@ import {
   SCOPE_HIERARCHY,
   SCOPE_SYNONYMS,
 } from 'src/shared/enums/scopes.enum';
+import { extractScopesFromPayload } from 'src/shared/utils/scope.utils';
 import { LoggerService } from './logger.service';
 
 /**
@@ -117,23 +118,9 @@ export class M2MService {
    * @returns {string[]} Normalized scopes.
    */
   extractScopes(payload: TokenPayload): string[] {
-    // TODO (quality): Duplicates JwtService.extractScopes(). Move to a shared utility to satisfy DRY.
-    const rawScopes = payload.scope || payload.scopes;
-
-    if (typeof rawScopes === 'string') {
-      return rawScopes
-        .split(' ')
-        .map((scope) => this.normalizeScope(scope))
-        .filter((scope) => scope.length > 0);
-    }
-
-    if (Array.isArray(rawScopes)) {
-      return rawScopes
-        .map((scope) => this.normalizeScope(String(scope)))
-        .filter((scope) => scope.length > 0);
-    }
-
-    return [];
+    return extractScopesFromPayload(payload, (scope) =>
+      this.normalizeScope(scope),
+    );
   }
 
   /**

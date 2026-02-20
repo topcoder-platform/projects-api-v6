@@ -28,6 +28,9 @@ type BusApiClient = {
  * Optional callback invoked after successful publish.
  */
 type PublishCallback = (event: BusApiEvent) => void;
+type ErrorLogger = {
+  error: (message: string, trace?: string) => void;
+};
 
 /**
  * Originator value embedded into outbound events.
@@ -491,6 +494,22 @@ export async function publishMemberEvent(
       toErrorStack(error),
     );
   }
+}
+
+/**
+ * Fire-and-forget wrapper for member events with caller-provided logger.
+ */
+export function publishMemberEventSafely(
+  topic: string,
+  payload: unknown,
+  errorLogger: ErrorLogger,
+): void {
+  void publishMemberEvent(topic, payload).catch((error) => {
+    errorLogger.error(
+      `Failed to publish member event topic=${topic}: ${toErrorMessage(error)}`,
+      toErrorStack(error),
+    );
+  });
 }
 
 /**

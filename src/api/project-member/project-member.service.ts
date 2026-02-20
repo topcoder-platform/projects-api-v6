@@ -32,7 +32,15 @@ import {
   getDefaultProjectRole,
   validateUserHasProjectRole,
 } from 'src/shared/utils/member.utils';
-import { publishMemberEvent } from 'src/shared/utils/event.utils';
+import { publishMemberEventSafely } from 'src/shared/utils/event.utils';
+import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
+import {
+  getActorUserId as getActorUserIdFromJwt,
+  getAuditUserId as getAuditUserIdFromJwt,
+  ensureRoleScopedPermission,
+  parseCsvFields,
+  parseNumericStringId,
+} from 'src/shared/utils/service.utils';
 
 /**
  * Manages the project member lifecycle: add, update, delete, list, and get.
@@ -579,53 +587,34 @@ export class ProjectMemberService {
    * @returns Nothing.
    * @throws {ForbiddenException} If role-specific delete permission is missing.
    */
-  // TODO: DRY: This role-branch permission check mirrors
-  // `ensureDeleteInvitePermission`; extract shared
-  // `assertRoleDeletePermission(role, user, members, permMap)` helper.
   private ensureDeletePermission(
     role: ProjectMemberRole,
     user: JwtUser,
     projectMembers: ProjectMember[],
   ): void {
-    if (
-      role !== ProjectMemberRole.customer &&
-      role !== ProjectMemberRole.copilot &&
-      !this.permissionService.hasNamedPermission(
-        Permission.DELETE_PROJECT_MEMBER_TOPCODER,
-        user,
-        projectMembers,
-      )
-    ) {
-      throw new ForbiddenException(
-        "You don't have permissions to delete other members from Topcoder Team.",
-      );
-    }
-
-    if (
-      role === ProjectMemberRole.customer &&
-      !this.permissionService.hasNamedPermission(
-        Permission.DELETE_PROJECT_MEMBER_CUSTOMER,
-        user,
-        projectMembers,
-      )
-    ) {
-      throw new ForbiddenException(
-        'You don\'t have permissions to delete other members with "customer" role.',
-      );
-    }
-
-    if (
-      role === ProjectMemberRole.copilot &&
-      !this.permissionService.hasNamedPermission(
-        Permission.DELETE_PROJECT_MEMBER_COPILOT,
-        user,
-        projectMembers,
-      )
-    ) {
-      throw new ForbiddenException(
-        'You don\'t have permissions to delete other members with "copilot" role.',
-      );
-    }
+    ensureRoleScopedPermission(
+      this.permissionService,
+      role,
+      user,
+      projectMembers,
+      {
+        permission: Permission.DELETE_PROJECT_MEMBER_TOPCODER,
+        message:
+          "You don't have permissions to delete other members from Topcoder Team.",
+      },
+      {
+        [ProjectMemberRole.customer]: {
+          permission: Permission.DELETE_PROJECT_MEMBER_CUSTOMER,
+          message:
+            'You don\'t have permissions to delete other members with "customer" role.',
+        },
+        [ProjectMemberRole.copilot]: {
+          permission: Permission.DELETE_PROJECT_MEMBER_COPILOT,
+          message:
+            'You don\'t have permissions to delete other members with "copilot" role.',
+        },
+      },
+    );
   }
 
   /**
@@ -827,15 +816,8 @@ export class ProjectMemberService {
    * @returns Parsed bigint id.
    * @throws {BadRequestException} If the id is not numeric.
    */
-  // TODO: DRY: `parseId` is duplicated across project member, invite, and
-  // setting flows; extract a shared service helper.
   private parseId(value: string, label: string): bigint {
-    const normalized = String(value || '').trim();
-    if (!/^\d+$/.test(normalized)) {
-      throw new BadRequestException(`${label} id must be a numeric string.`);
-    }
-
-    return BigInt(normalized);
+    return parseNumericStringId(value, `${label} id`);
   }
 
   /**
@@ -845,14 +827,8 @@ export class ProjectMemberService {
    * @returns Normalized user id string.
    * @throws {ForbiddenException} If the user id is missing.
    */
-  // TODO: DRY: `getActorUserId` is duplicated across project member, invite,
-  // and setting flows; extract a shared service helper.
   private getActorUserId(user: JwtUser): string {
-    if (!user?.userId || String(user.userId).trim().length === 0) {
-      throw new ForbiddenException('Authenticated user id is missing.');
-    }
-
-    return String(user.userId).trim();
+    return getActorUserIdFromJwt(user);
   }
 
   /**
@@ -862,16 +838,8 @@ export class ProjectMemberService {
    * @returns Numeric user id used for audit columns.
    * @throws {ForbiddenException} If the user id is missing or non-numeric.
    */
-  // TODO: DRY: `getAuditUserId` is duplicated across project member, invite,
-  // and setting flows; extract a shared service helper.
   private getAuditUserId(user: JwtUser): number {
-    const parsedUserId = Number.parseInt(this.getActorUserId(user), 10);
-
-    if (Number.isNaN(parsedUserId)) {
-      throw new ForbiddenException('Authenticated user id must be numeric.');
-    }
-
-    return parsedUserId;
+    return getAuditUserIdFromJwt(user);
   }
 
   /**
@@ -881,17 +849,8 @@ export class ProjectMemberService {
    * @returns Normalized list of field names.
    * @throws {BadRequestException} When field input fails validation.
    */
-  // TODO: DRY: `parseFields` is duplicated across project member, invite, and
-  // setting flows; extract a shared service helper.
   private parseFields(fields?: string): string[] {
-    if (!fields || fields.trim().length === 0) {
-      return [];
-    }
-
-    return fields
-      .split(',')
-      .map((field) => field.trim())
-      .filter((field) => field.length > 0);
+    return parseCsvFields(fields);
   }
 
   /**
@@ -901,38 +860,8 @@ export class ProjectMemberService {
    * @returns Payload with bigint/decimal values normalized.
    * @throws {TypeError} If recursive traversal encounters unsupported values.
    */
-  // TODO: DRY: `normalizeEntity` is identical to the implementation in
-  // `project-invite.service.ts`; extract to `src/shared/utils/entity.utils.ts`.
   private normalizeEntity<T>(payload: T): T {
-    const walk = (input: unknown): unknown => {
-      if (typeof input === 'bigint') {
-        return input.toString();
-      }
-
-      if (input instanceof Prisma.Decimal) {
-        return Number(input.toString());
-      }
-
-      if (Array.isArray(input)) {
-        return input.map((entry) => walk(entry));
-      }
-
-      if (input && typeof input === 'object') {
-        if (input instanceof Date) {
-          return input;
-        }
-
-        const output: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(input)) {
-          output[key] = walk(value);
-        }
-        return output;
-      }
-
-      return input;
-    };
-
-    return walk(payload) as T;
+    return normalizePrismaEntity(payload);
   }
 
   /**
@@ -943,14 +872,7 @@ export class ProjectMemberService {
    * @returns Nothing.
    * @throws {Error} The underlying publisher may reject and is handled here.
    */
-  // TODO: DRY: `publishEvent` is near-identical to `publishMember` in
-  // `project-invite.service.ts`; consolidate into shared event helper.
   private publishEvent(topic: string, payload: unknown): void {
-    void publishMemberEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish member event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
+    publishMemberEventSafely(topic, payload, this.logger);
   }
 }

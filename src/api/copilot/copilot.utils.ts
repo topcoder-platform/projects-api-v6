@@ -1,7 +1,10 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CopilotOpportunityType, Prisma } from '@prisma/client';
+import { Permission as NamedPermission } from 'src/shared/constants/permissions';
 import { UserRole } from 'src/shared/enums/userRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { PermissionService } from 'src/shared/services/permission.service';
+import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
 
 /**
  * Shared pure-function toolkit for the copilot feature.
@@ -46,41 +49,9 @@ export function getCopilotRequestData(
 
 /**
  * Recursively normalizes entity values for API responses.
- *
- * @param payload Prisma entity payload.
- * @returns Same shape with bigint values converted to string and Decimal values converted to number.
  */
 export function normalizeEntity<T>(payload: T): T {
-  const walk = (input: unknown): unknown => {
-    if (typeof input === 'bigint') {
-      return input.toString();
-    }
-
-    if (input instanceof Prisma.Decimal) {
-      return Number(input.toString());
-    }
-
-    if (Array.isArray(input)) {
-      return input.map((entry) => walk(entry));
-    }
-
-    if (input && typeof input === 'object') {
-      if (input instanceof Date) {
-        return input;
-      }
-
-      const output: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(input)) {
-        output[key] = walk(value);
-      }
-
-      return output;
-    }
-
-    return input;
-  };
-
-  return walk(payload) as T;
+  return normalizePrismaEntity(payload);
 }
 
 /**
@@ -185,4 +156,32 @@ export function getAuditUserId(user: JwtUser): number {
   return value;
 }
 
-// TODO [DRY]: Extract and export readString here; it is duplicated in CopilotRequestService and CopilotNotificationService.
+/**
+ * Enforces a named permission for the current user.
+ *
+ * @throws ForbiddenException If permission is missing.
+ */
+export function ensureNamedPermission(
+  permissionService: PermissionService,
+  permission: NamedPermission,
+  user: JwtUser,
+): void {
+  if (!permissionService.hasNamedPermission(permission, user)) {
+    throw new ForbiddenException('Insufficient permissions');
+  }
+}
+
+/**
+ * Reads a string-like primitive value.
+ */
+export function readString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return `${value}`;
+  }
+
+  return undefined;
+}

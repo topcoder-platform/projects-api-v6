@@ -23,7 +23,7 @@ import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
 import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
+import { WORK_LAYER_ALLOWED_ROLES } from 'src/shared/constants/roles';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
@@ -35,17 +35,6 @@ import {
   WorkStreamResponseDto,
 } from './workstream.dto';
 import { WorkStreamService } from './workstream.service';
-
-const WORKSTREAM_ALLOWED_ROLES = [
-  UserRole.TOPCODER_ADMIN,
-  UserRole.CONNECT_ADMIN,
-  UserRole.TG_ADMIN,
-  UserRole.MANAGER,
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-  UserRole.COPILOT_MANAGER,
-];
-// TODO [DRY]: Extract a single `WORK_LAYER_ALLOWED_ROLES` constant to `src/shared/constants/roles.ts`.
 
 @ApiTags('WorkStream')
 @ApiBearerAuth()
@@ -70,7 +59,7 @@ export class WorkStreamController {
    */
   @Get()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -108,7 +97,7 @@ export class WorkStreamController {
    */
   @Post()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKSTREAM_CREATE)
   @ApiOperation({
@@ -145,7 +134,7 @@ export class WorkStreamController {
    */
   @Get(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -187,7 +176,7 @@ export class WorkStreamController {
    */
   @Patch(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKSTREAM_EDIT)
   @ApiOperation({
@@ -225,7 +214,7 @@ export class WorkStreamController {
   @Delete(':id')
   @HttpCode(204)
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKSTREAM_DELETE)
   @ApiOperation({

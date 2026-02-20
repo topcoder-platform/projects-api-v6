@@ -10,24 +10,21 @@ import { CreateAttachmentDto } from 'src/api/project-attachment/dto/create-attac
 import { UpdateAttachmentDto } from 'src/api/project-attachment/dto/update-attachment.dto';
 import { Permission } from 'src/shared/constants/permissions';
 import { APP_CONFIG } from 'src/shared/config/app.config';
+import { ProjectPermissionContextBase } from 'src/shared/interfaces/project-permission-context.interface';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { FileService } from 'src/shared/services/file.service';
 import { MemberService } from 'src/shared/services/member.service';
 import { PermissionService } from 'src/shared/services/permission.service';
-import { hasAdminRole } from 'src/shared/utils/permission.utils';
+import {
+  ensureProjectNamedPermission,
+  getAuditUserIdOrDefault,
+  isAdminProjectUser,
+  loadProjectPermissionContextBase,
+  parseBigIntId,
+} from 'src/shared/utils/service.utils';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
-
-// TODO [DRY]: Move to `src/shared/interfaces/project-permission-context.interface.ts`.
-interface ProjectPermissionContext {
-  id: bigint;
-  members: Array<{
-    userId: bigint;
-    role: string;
-    deletedAt: Date | null;
-  }>;
-}
 
 @Injectable()
 /**
@@ -444,37 +441,10 @@ export class ProjectAttachmentService {
    * @returns Permission context.
    * @throws {NotFoundException} When project does not exist.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private async getProjectPermissionContext(
     projectId: bigint,
-  ): Promise<ProjectPermissionContext> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        members: {
-          where: {
-            deletedAt: null,
-          },
-          select: {
-            userId: true,
-            role: true,
-            deletedAt: true,
-          },
-        },
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException(
-        `Project with id ${projectId} was not found.`,
-      );
-    }
-
-    return project;
+  ): Promise<ProjectPermissionContextBase> {
+    return loadProjectPermissionContextBase(this.prisma, projectId);
   }
 
   /**
@@ -532,7 +502,6 @@ export class ProjectAttachmentService {
    * @returns Nothing.
    * @throws {ForbiddenException} When permission is missing.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private ensureNamedPermission(
     permission: Permission,
     user: JwtUser,
@@ -542,15 +511,12 @@ export class ProjectAttachmentService {
       deletedAt: Date | null;
     }>,
   ): void {
-    const hasPermission = this.permissionService.hasNamedPermission(
+    ensureProjectNamedPermission(
+      this.permissionService,
       permission,
       user,
       projectMembers,
     );
-
-    if (!hasPermission) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
   }
 
   /**
@@ -560,7 +526,6 @@ export class ProjectAttachmentService {
    * @param projectMembers - Active project members.
    * @returns `true` when caller has admin-level access.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private isAdminUser(
     user: JwtUser,
     projectMembers: Array<{
@@ -569,14 +534,7 @@ export class ProjectAttachmentService {
       deletedAt: Date | null;
     }>,
   ): boolean {
-    return (
-      hasAdminRole(user) ||
-      this.permissionService.hasNamedPermission(
-        Permission.READ_PROJECT_ANY,
-        user,
-        projectMembers,
-      )
-    );
+    return isAdminProjectUser(this.permissionService, user, projectMembers);
   }
 
   /**
@@ -727,13 +685,8 @@ export class ProjectAttachmentService {
    * @returns Parsed bigint id.
    * @throws {BadRequestException} When parsing fails.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private parseId(value: string, entityName: string): bigint {
-    try {
-      return BigInt(value);
-    } catch {
-      throw new BadRequestException(`${entityName} id is invalid.`);
-    }
+    return parseBigIntId(value, entityName);
   }
 
   /**
@@ -743,14 +696,7 @@ export class ProjectAttachmentService {
    * @returns Numeric user id.
    */
   // TODO [SECURITY]: Returning `-1` silently when `user.userId` is invalid can corrupt audit trails; throw `UnauthorizedException` instead.
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private getAuditUserId(user: JwtUser): number {
-    const userId = Number.parseInt(String(user.userId || ''), 10);
-
-    if (Number.isNaN(userId)) {
-      return -1;
-    }
-
-    return userId;
+    return getAuditUserIdOrDefault(user, -1);
   }
 }

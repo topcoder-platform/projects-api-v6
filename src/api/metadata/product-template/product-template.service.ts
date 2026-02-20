@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +17,13 @@ import {
   parseBigIntParam,
   toSerializable,
 } from '../utils/metadata-utils';
+import {
+  getStoredReference as getStoredReferenceValue,
+  handleMetadataServiceError,
+  mergeJson as mergeJsonValue,
+  toNullableJson as toNullableJsonValue,
+  toRecord as toRecordValue,
+} from '../utils/metadata-template.utils';
 import { validateFormReference } from '../utils/metadata-validation.utils';
 import { FormService } from '../form/form.service';
 import { CreateProductTemplateDto } from './dto/create-product-template.dto';
@@ -415,7 +421,6 @@ export class ProductTemplateService {
       : null;
   }
 
-  // TODO (DRY): toRecord, mergeJson, toNullableJson, getStoredFormReference are duplicated in ProjectTemplateService. Move to a shared metadata-template.utils.ts file.
   /**
    * Converts optional values to a Prisma nullable JSON payload.
    */
@@ -426,15 +431,7 @@ export class ProductTemplateService {
       | null
       | undefined,
   ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
-    if (typeof value === 'undefined') {
-      return undefined;
-    }
-
-    if (value === null) {
-      return Prisma.JsonNull;
-    }
-
-    return value as Prisma.InputJsonValue;
+    return toNullableJsonValue(value);
   }
 
   /**
@@ -443,14 +440,7 @@ export class ProductTemplateService {
   private getStoredFormReference(
     value: Prisma.JsonValue | null,
   ): MetadataVersionReference | null {
-    try {
-      return normalizeMetadataReference(value, 'form');
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        return null;
-      }
-      throw error;
-    }
+    return getStoredReferenceValue(value, 'form');
   }
 
   /**
@@ -459,11 +449,7 @@ export class ProductTemplateService {
   private toRecord(
     value: Prisma.JsonValue | null,
   ): Record<string, unknown> | null {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return null;
-    }
-
-    return value as Record<string, unknown>;
+    return toRecordValue(value);
   }
 
   /**
@@ -473,11 +459,7 @@ export class ProductTemplateService {
     current: Prisma.JsonValue | null,
     next: Record<string, unknown>,
   ): Record<string, unknown> {
-    const currentRecord = this.toRecord(current);
-    return {
-      ...(currentRecord || {}),
-      ...next,
-    };
+    return mergeJsonValue(current, next);
   }
 
   /**
@@ -500,16 +482,15 @@ export class ProductTemplateService {
     return parseBigIntParam(templateId, 'templateId');
   }
 
-  // TODO (DRY): handleError is duplicated across all metadata services. Consider a shared base class or utility.
   /**
    * Re-throws framework HTTP exceptions and delegates unexpected errors to
    * PrismaErrorService.
    */
   private handleError(error: unknown, operation: string): never {
-    if (error instanceof HttpException) {
-      throw error;
-    }
-
-    this.prismaErrorService.handleError(error, operation);
+    return handleMetadataServiceError(
+      error,
+      operation,
+      this.prismaErrorService,
+    );
   }
 }

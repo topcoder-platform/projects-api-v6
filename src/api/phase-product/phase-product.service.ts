@@ -9,22 +9,19 @@ import { CreatePhaseProductDto } from 'src/api/phase-product/dto/create-phase-pr
 import { UpdatePhaseProductDto } from 'src/api/phase-product/dto/update-phase-product.dto';
 import { Permission } from 'src/shared/constants/permissions';
 import { APP_CONFIG } from 'src/shared/config/app.config';
+import { ProjectPermissionContext } from 'src/shared/interfaces/project-permission-context.interface';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
+import {
+  ensureProjectNamedPermission,
+  getAuditUserIdOrDefault,
+  loadProjectPermissionContext,
+  parseBigIntId,
+  toDetailsObject as toDetailsObjectValue,
+  toJsonInput as toJsonInputValue,
+} from 'src/shared/utils/service.utils';
 import { PhaseProductResponseDto } from './dto/phase-product-response.dto';
-
-// TODO [DRY]: Move to `src/shared/interfaces/project-permission-context.interface.ts`.
-interface ProjectPermissionContext {
-  id: bigint;
-  directProjectId: bigint | null;
-  billingAccountId: bigint | null;
-  members: Array<{
-    userId: bigint;
-    role: string;
-    deletedAt: Date | null;
-  }>;
-}
 
 @Injectable()
 /**
@@ -419,39 +416,10 @@ export class PhaseProductService {
    * @returns Project permission context.
    * @throws {NotFoundException} When the project does not exist.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private async getProjectPermissionContext(
     projectId: bigint,
   ): Promise<ProjectPermissionContext> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        directProjectId: true,
-        billingAccountId: true,
-        members: {
-          where: {
-            deletedAt: null,
-          },
-          select: {
-            userId: true,
-            role: true,
-            deletedAt: true,
-          },
-        },
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException(
-        `Project with id ${projectId} was not found.`,
-      );
-    }
-
-    return project;
+    return loadProjectPermissionContext(this.prisma, projectId);
   }
 
   /**
@@ -463,7 +431,6 @@ export class PhaseProductService {
    * @returns Nothing.
    * @throws {ForbiddenException} When permission is missing.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private ensureNamedPermission(
     permission: Permission,
     user: JwtUser,
@@ -473,15 +440,12 @@ export class PhaseProductService {
       deletedAt: Date | null;
     }>,
   ): void {
-    const hasPermission = this.permissionService.hasNamedPermission(
+    ensureProjectNamedPermission(
+      this.permissionService,
       permission,
       user,
       projectMembers,
     );
-
-    if (!hasPermission) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
   }
 
   /**
@@ -520,13 +484,8 @@ export class PhaseProductService {
    * @param value - Candidate JSON value.
    * @returns Object details payload.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private toDetailsObject(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return {};
-    }
-
-    return value as Record<string, unknown>;
+    return toDetailsObjectValue(value);
   }
 
   /**
@@ -535,19 +494,10 @@ export class PhaseProductService {
    * @param value - Candidate JSON value.
    * @returns Prisma JSON value, JsonNull, or undefined.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private toJsonInput(
     value: unknown,
   ): Prisma.InputJsonValue | Prisma.JsonNullValueInput | undefined {
-    if (typeof value === 'undefined') {
-      return undefined;
-    }
-
-    if (value === null) {
-      return Prisma.JsonNull;
-    }
-
-    return value as Prisma.InputJsonValue;
+    return toJsonInputValue(value);
   }
 
   /**
@@ -558,13 +508,8 @@ export class PhaseProductService {
    * @returns Parsed id.
    * @throws {BadRequestException} When parsing fails.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private parseId(value: string, entityName: string): bigint {
-    try {
-      return BigInt(value);
-    } catch {
-      throw new BadRequestException(`${entityName} id is invalid.`);
-    }
+    return parseBigIntId(value, entityName);
   }
 
   /**
@@ -574,14 +519,7 @@ export class PhaseProductService {
    * @returns Numeric audit user id.
    */
   // TODO [SECURITY]: Returning `-1` silently when `user.userId` is invalid can corrupt audit trails; throw `UnauthorizedException` instead.
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private getAuditUserId(user: JwtUser): number {
-    const userId = Number.parseInt(String(user.userId || ''), 10);
-
-    if (Number.isNaN(userId)) {
-      return -1;
-    }
-
-    return userId;
+    return getAuditUserIdOrDefault(user, -1);
   }
 }

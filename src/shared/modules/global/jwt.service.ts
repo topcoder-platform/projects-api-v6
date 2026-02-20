@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
+import { extractScopesFromPayload } from 'src/shared/utils/scope.utils';
 import { LoggerService } from './logger.service';
 
 /**
@@ -326,18 +327,6 @@ export class JwtService implements OnModuleInit {
     if (userId) {
       user.userId = userId;
     }
-
-    const handle = this.extractString(payload, ['handle']);
-    if (handle) {
-      user.handle = handle;
-    }
-
-    const roles = this.extractRoles(payload);
-    if (roles.length > 0) {
-      user.roles = roles;
-    }
-
-    // TODO (quality): The second Object.keys(payload) loop (line 245) partially re-extracts userId, handle, and roles that were already extracted in the first pass. Consolidate into a single extraction pass to eliminate the DRY violation.
     for (const key of Object.keys(payload)) {
       const lowerKey = key.toLowerCase();
 
@@ -383,62 +372,7 @@ export class JwtService implements OnModuleInit {
    * @returns {string[]} Normalized list of scopes.
    */
   private extractScopes(payload: JwtPayloadRecord): string[] {
-    // TODO (quality): This method is nearly identical to M2MService.extractScopes(). Extract to a shared utility function (e.g., src/shared/utils/scope.utils.ts) to eliminate duplication.
-    const rawScope = payload.scope || payload.scopes;
-
-    if (typeof rawScope === 'string') {
-      return rawScope
-        .split(' ')
-        .map((scope) => scope.trim())
-        .filter((scope) => scope.length > 0);
-    }
-
-    if (Array.isArray(rawScope)) {
-      return rawScope
-        .map((scope) => String(scope).trim())
-        .filter((scope) => scope.length > 0);
-    }
-
-    return [];
-  }
-
-  /**
-   * Extracts role values from token claims.
-   *
-   * @param {JwtPayloadRecord} payload Token payload.
-   * @returns {string[]} Normalized role names.
-   */
-  private extractRoles(payload: JwtPayloadRecord): string[] {
-    const rawRoles = payload.roles;
-
-    if (!Array.isArray(rawRoles)) {
-      return [];
-    }
-
-    return rawRoles
-      .map((role) => String(role).trim())
-      .filter((role) => role.length > 0);
-  }
-
-  /**
-   * Extracts the first non-empty string value for a set of claim keys.
-   *
-   * @param {JwtPayloadRecord} payload Token payload.
-   * @param {string[]} keys Candidate claim keys.
-   * @returns {string | undefined} Claim value when found.
-   */
-  private extractString(
-    payload: JwtPayloadRecord,
-    keys: string[],
-  ): string | undefined {
-    for (const key of keys) {
-      const value = payload[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value;
-      }
-    }
-
-    return undefined;
+    return extractScopesFromPayload(payload, (scope) => scope.trim());
   }
 
   /**

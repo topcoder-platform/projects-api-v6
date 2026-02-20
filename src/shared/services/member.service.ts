@@ -1,6 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
+import { SERVICE_ENDPOINTS } from 'src/shared/config/service-endpoints.config';
 import { M2MService } from 'src/shared/modules/global/m2m.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { MemberDetail } from 'src/shared/utils/member.utils';
@@ -23,10 +24,9 @@ export interface MemberRoleRecord {
 export class MemberService {
   private readonly logger = LoggerService.forRoot('MemberService');
   // TODO: validate required env vars at startup (e.g., in onModuleInit).
-  private readonly memberApiUrl = process.env.MEMBER_API_URL || '';
-  // TODO: DRY violation - consider a shared config constant or ConfigService.
+  private readonly memberApiUrl = SERVICE_ENDPOINTS.memberApiUrl;
   // TODO: validate required env vars at startup (e.g., in onModuleInit).
-  private readonly identityApiUrl = process.env.IDENTITY_API_URL || '';
+  private readonly identityApiUrl = SERVICE_ENDPOINTS.identityApiUrl;
 
   constructor(
     private readonly httpService: HttpService,

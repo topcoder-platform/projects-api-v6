@@ -14,6 +14,7 @@ import { JwtUser } from 'src/shared/modules/global/jwt.service';
 export type MemberDetail = {
   userId?: string | number | bigint | null;
   handle?: string | null;
+  handleLower?: string | null;
   email?: string | null;
   firstName?: string | null;
   lastName?: string | null;

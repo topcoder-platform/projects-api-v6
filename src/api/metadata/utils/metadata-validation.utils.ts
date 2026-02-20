@@ -40,6 +40,69 @@ function normalizeResolvedReference(
   };
 }
 
+type VersionedReferenceDelegate = {
+  findFirst(args: {
+    where: {
+      key: string;
+      version?: bigint;
+      deletedAt: null;
+    };
+    orderBy: Array<{
+      version?: 'desc';
+      revision: 'desc';
+    }>;
+    select: {
+      version: true;
+    };
+  }): Promise<{
+    version: bigint;
+  } | null>;
+};
+
+async function validateVersionedReference(
+  rawReference: unknown,
+  fieldName: 'form' | 'planConfig' | 'priceConfig',
+  entityName: 'Form' | 'PlanConfig' | 'PriceConfig',
+  delegate: VersionedReferenceDelegate,
+): Promise<MetadataVersionReference | null> {
+  const reference = normalizeMetadataReference(rawReference, fieldName);
+
+  if (!reference) {
+    return null;
+  }
+
+  const found = await delegate.findFirst({
+    where: {
+      key: reference.key,
+      ...(reference.version > 0
+        ? {
+            version: toVersionBigInt(reference.version),
+          }
+        : {}),
+      deletedAt: null,
+    },
+    orderBy:
+      reference.version > 0
+        ? [{ revision: 'desc' }]
+        : [{ version: 'desc' }, { revision: 'desc' }],
+    select: {
+      version: true,
+    },
+  });
+
+  if (!found) {
+    if (reference.version > 0) {
+      throw new BadRequestException(
+        `${entityName} not found for key ${reference.key} version ${reference.version}.`,
+      );
+    }
+
+    throw new BadRequestException(`${entityName} not found for key ${reference.key}.`);
+  }
+
+  return normalizeResolvedReference(reference, found.version);
+}
+
 /**
  * Validates a form reference and resolves version `0` to the latest version.
  *
@@ -53,50 +116,7 @@ export async function validateFormReference(
   formRef: unknown,
   prisma: PrismaService,
 ): Promise<MetadataVersionReference | null> {
-  const reference = normalizeMetadataReference(formRef, 'form');
-
-  if (!reference) {
-    return null;
-  }
-
-  if (reference.version > 0) {
-    const found = await prisma.form.findFirst({
-      where: {
-        key: reference.key,
-        version: toVersionBigInt(reference.version),
-        deletedAt: null,
-      },
-      orderBy: [{ revision: 'desc' }],
-      select: {
-        version: true,
-      },
-    });
-
-    if (!found) {
-      throw new BadRequestException(
-        `Form not found for key ${reference.key} version ${reference.version}.`,
-      );
-    }
-
-    return normalizeResolvedReference(reference, found.version);
-  }
-
-  const latest = await prisma.form.findFirst({
-    where: {
-      key: reference.key,
-      deletedAt: null,
-    },
-    orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-    select: {
-      version: true,
-    },
-  });
-
-  if (!latest) {
-    throw new BadRequestException(`Form not found for key ${reference.key}.`);
-  }
-
-  return normalizeResolvedReference(reference, latest.version);
+  return validateVersionedReference(formRef, 'form', 'Form', prisma.form);
 }
 
 /**
@@ -113,55 +133,13 @@ export async function validatePlanConfigReference(
   planConfigRef: unknown,
   prisma: PrismaService,
 ): Promise<MetadataVersionReference | null> {
-  const reference = normalizeMetadataReference(planConfigRef, 'planConfig');
-
-  if (!reference) {
-    return null;
-  }
-
-  if (reference.version > 0) {
-    const found = await prisma.planConfig.findFirst({
-      where: {
-        key: reference.key,
-        version: toVersionBigInt(reference.version),
-        deletedAt: null,
-      },
-      orderBy: [{ revision: 'desc' }],
-      select: {
-        version: true,
-      },
-    });
-
-    if (!found) {
-      throw new BadRequestException(
-        `PlanConfig not found for key ${reference.key} version ${reference.version}.`,
-      );
-    }
-
-    return normalizeResolvedReference(reference, found.version);
-  }
-
-  const latest = await prisma.planConfig.findFirst({
-    where: {
-      key: reference.key,
-      deletedAt: null,
-    },
-    orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-    select: {
-      version: true,
-    },
-  });
-
-  if (!latest) {
-    throw new BadRequestException(
-      `PlanConfig not found for key ${reference.key}.`,
-    );
-  }
-
-  return normalizeResolvedReference(reference, latest.version);
+  return validateVersionedReference(
+    planConfigRef,
+    'planConfig',
+    'PlanConfig',
+    prisma.planConfig,
+  );
 }
-
-// TODO (DRY): validateFormReference, validatePlanConfigReference, and validatePriceConfigReference are identical except for the Prisma model used. Extract a generic validateVersionedReference(ref, prismaDelegate, entityName) helper.
 /**
  * Validates a priceConfig reference and resolves version `0` to the latest
  * version.
@@ -176,50 +154,10 @@ export async function validatePriceConfigReference(
   priceConfigRef: unknown,
   prisma: PrismaService,
 ): Promise<MetadataVersionReference | null> {
-  const reference = normalizeMetadataReference(priceConfigRef, 'priceConfig');
-
-  if (!reference) {
-    return null;
-  }
-
-  if (reference.version > 0) {
-    const found = await prisma.priceConfig.findFirst({
-      where: {
-        key: reference.key,
-        version: toVersionBigInt(reference.version),
-        deletedAt: null,
-      },
-      orderBy: [{ revision: 'desc' }],
-      select: {
-        version: true,
-      },
-    });
-
-    if (!found) {
-      throw new BadRequestException(
-        `PriceConfig not found for key ${reference.key} version ${reference.version}.`,
-      );
-    }
-
-    return normalizeResolvedReference(reference, found.version);
-  }
-
-  const latest = await prisma.priceConfig.findFirst({
-    where: {
-      key: reference.key,
-      deletedAt: null,
-    },
-    orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-    select: {
-      version: true,
-    },
-  });
-
-  if (!latest) {
-    throw new BadRequestException(
-      `PriceConfig not found for key ${reference.key}.`,
-    );
-  }
-
-  return normalizeResolvedReference(reference, latest.version);
+  return validateVersionedReference(
+    priceConfigRef,
+    'priceConfig',
+    'PriceConfig',
+    prisma.priceConfig,
+  );
 }

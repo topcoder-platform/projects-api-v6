@@ -21,11 +21,11 @@ import {
 } from '@nestjs/swagger';
 import { WorkStreamService } from 'src/api/workstream/workstream.service';
 import { Permission } from 'src/shared/constants/permissions';
+import { WORK_LAYER_ALLOWED_ROLES } from 'src/shared/constants/roles';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
 import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
@@ -34,17 +34,6 @@ import { PhaseListQueryDto } from './dto/phase-list-query.dto';
 import { PhaseResponseDto } from './dto/phase-response.dto';
 import { UpdatePhaseDto } from './dto/update-phase.dto';
 import { ProjectPhaseService } from './project-phase.service';
-
-const WORK_ALLOWED_ROLES = [
-  UserRole.TOPCODER_ADMIN,
-  UserRole.CONNECT_ADMIN,
-  UserRole.TG_ADMIN,
-  UserRole.MANAGER,
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-  UserRole.COPILOT_MANAGER,
-];
-// TODO [DRY]: Extract a single `WORK_LAYER_ALLOWED_ROLES` constant to `src/shared/constants/roles.ts`.
 
 @ApiTags('Work')
 @ApiBearerAuth()
@@ -75,7 +64,7 @@ export class WorkController {
    */
   @Get()
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -140,7 +129,7 @@ export class WorkController {
    */
   @Get(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -194,7 +183,7 @@ export class WorkController {
    */
   @Post()
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORK_CREATE)
   @ApiOperation({
@@ -250,7 +239,7 @@ export class WorkController {
    */
   @Patch(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORK_EDIT)
   @ApiOperation({
@@ -302,7 +291,7 @@ export class WorkController {
   @Delete(':id')
   @HttpCode(204)
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORK_DELETE)
   @ApiOperation({

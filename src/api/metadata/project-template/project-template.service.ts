@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +17,13 @@ import {
   parseBigIntParam,
   toSerializable,
 } from '../utils/metadata-utils';
+import {
+  getStoredReference as getStoredReferenceValue,
+  handleMetadataServiceError,
+  mergeJson as mergeJsonValue,
+  toNullableJson as toNullableJsonValue,
+  toRecord as toRecordValue,
+} from '../utils/metadata-template.utils';
 import {
   validateFormReference,
   validatePlanConfigReference,
@@ -515,7 +521,6 @@ export class ProjectTemplateService {
     };
   }
 
-  // TODO (DRY): resolveVersionedReference has three near-identical branches for form/planConfig/priceConfig. Extract a generic resolveReference(key, version, prismaDelegate) helper.
   /**
    * Resolves a stored metadata reference into the latest matching versioned
    * config record.
@@ -534,59 +539,13 @@ export class ProjectTemplateService {
       return null;
     }
 
-    if (type === 'form') {
-      const latest = await this.prisma.form.findFirst({
-        where: {
-          key: reference.key,
-          ...(reference.version > 0
-            ? { version: BigInt(reference.version) }
-            : {}),
-          deletedAt: null,
-        },
-        orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-      });
+    const delegates = {
+      form: this.prisma.form,
+      planConfig: this.prisma.planConfig,
+      priceConfig: this.prisma.priceConfig,
+    } as const;
 
-      return latest
-        ? {
-            id: latest.id.toString(),
-            key: latest.key,
-            version: latest.version.toString(),
-            revision: latest.revision.toString(),
-            config: toSerializable(latest.config || {}) as Record<
-              string,
-              unknown
-            >,
-          }
-        : null;
-    }
-
-    if (type === 'planConfig') {
-      const latest = await this.prisma.planConfig.findFirst({
-        where: {
-          key: reference.key,
-          ...(reference.version > 0
-            ? { version: BigInt(reference.version) }
-            : {}),
-          deletedAt: null,
-        },
-        orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-      });
-
-      return latest
-        ? {
-            id: latest.id.toString(),
-            key: latest.key,
-            version: latest.version.toString(),
-            revision: latest.revision.toString(),
-            config: toSerializable(latest.config || {}) as Record<
-              string,
-              unknown
-            >,
-          }
-        : null;
-    }
-
-    const latest = await this.prisma.priceConfig.findFirst({
+    const latest = await delegates[type].findFirst({
       where: {
         key: reference.key,
         ...(reference.version > 0
@@ -611,7 +570,6 @@ export class ProjectTemplateService {
       : null;
   }
 
-  // TODO (DRY): toRecord, mergeJson, toNullableJson, getStoredReference are duplicated in ProductTemplateService. Move to a shared metadata-template.utils.ts file.
   /**
    * Converts optional values to a Prisma nullable JSON payload.
    */
@@ -622,15 +580,7 @@ export class ProjectTemplateService {
       | null
       | undefined,
   ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
-    if (typeof value === 'undefined') {
-      return undefined;
-    }
-
-    if (value === null) {
-      return Prisma.JsonNull;
-    }
-
-    return value as Prisma.InputJsonValue;
+    return toNullableJsonValue(value);
   }
 
   /**
@@ -640,14 +590,7 @@ export class ProjectTemplateService {
     value: Prisma.JsonValue | null,
     type: 'form' | 'planConfig' | 'priceConfig',
   ): MetadataVersionReference | null {
-    try {
-      return normalizeMetadataReference(value, type);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        return null;
-      }
-      throw error;
-    }
+    return getStoredReferenceValue(value, type);
   }
 
   /**
@@ -656,11 +599,7 @@ export class ProjectTemplateService {
   private toRecord(
     value: Prisma.JsonValue | null,
   ): Record<string, unknown> | null {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return null;
-    }
-
-    return value as Record<string, unknown>;
+    return toRecordValue(value);
   }
 
   /**
@@ -670,11 +609,7 @@ export class ProjectTemplateService {
     current: Prisma.JsonValue | null,
     next: Record<string, unknown>,
   ): Record<string, unknown> {
-    const currentRecord = this.toRecord(current);
-    return {
-      ...(currentRecord || {}),
-      ...next,
-    };
+    return mergeJsonValue(current, next);
   }
 
   /**
@@ -709,16 +644,15 @@ export class ProjectTemplateService {
     return parseBigIntParam(templateId, 'templateId');
   }
 
-  // TODO (DRY): handleError is duplicated across all metadata services. Consider a shared base class or utility.
   /**
    * Re-throws framework HTTP exceptions and delegates unexpected errors to
    * PrismaErrorService.
    */
   private handleError(error: unknown, operation: string): never {
-    if (error instanceof HttpException) {
-      throw error;
-    }
-
-    this.prismaErrorService.handleError(error, operation);
+    return handleMetadataServiceError(
+      error,
+      operation,
+      this.prismaErrorService,
+    );
   }
 }

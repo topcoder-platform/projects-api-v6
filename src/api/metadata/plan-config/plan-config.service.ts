@@ -12,6 +12,10 @@ import {
   PROJECT_METADATA_RESOURCE,
   publishMetadataEvent,
 } from '../utils/metadata-event.utils';
+import {
+  normalizeVersionedConfigKey,
+  pickLatestRevisionPerVersion,
+} from '../utils/versioned-config.utils';
 import { PlanConfigResponseDto } from './dto/plan-config-response.dto';
 
 @Injectable()
@@ -20,7 +24,6 @@ import { PlanConfigResponseDto } from './dto/plan-config-response.dto';
  * by project templates.
  */
 export class PlanConfigService {
-  // TODO (DRY): FormService, PlanConfigService, and PriceConfigService are structurally identical. Consider extracting a generic AbstractVersionedConfigService<T, TDto> base class parameterized on the Prisma delegate and DTO mapper.
   constructor(
     private readonly prisma: PrismaService,
     private readonly prismaErrorService: PrismaErrorService,
@@ -80,16 +83,7 @@ export class PlanConfigService {
       );
     }
 
-    const latestByVersion = new Map<string, PlanConfig>();
-
-    for (const record of records) {
-      const versionKey = record.version.toString();
-      if (!latestByVersion.has(versionKey)) {
-        latestByVersion.set(versionKey, record);
-      }
-    }
-
-    return Array.from(latestByVersion.values()).map((record) =>
+    return pickLatestRevisionPerVersion(records).map((record) =>
       this.toDto(record),
     );
   }
@@ -139,9 +133,7 @@ export class PlanConfigService {
     version: bigint,
   ): Promise<PlanConfigResponseDto[]> {
     const normalizedKey = this.normalizeKey(key);
-
-    // TODO (DRY): variable named 'forms' should be 'planConfigs' — copy-paste error.
-    const forms = await this.prisma.planConfig.findMany({
+    const planConfigs = await this.prisma.planConfig.findMany({
       where: {
         key: normalizedKey,
         version,
@@ -150,13 +142,13 @@ export class PlanConfigService {
       orderBy: [{ revision: 'desc' }],
     });
 
-    if (forms.length === 0) {
+    if (planConfigs.length === 0) {
       throw new NotFoundException(
         `PlanConfig not found for key ${normalizedKey} version ${version.toString()}.`,
       );
     }
 
-    return forms.map((planConfig) => this.toDto(planConfig));
+    return planConfigs.map((planConfig) => this.toDto(planConfig));
   }
 
   /**
@@ -394,8 +386,7 @@ export class PlanConfigService {
     const normalizedKey = this.normalizeKey(key);
 
     try {
-      // TODO (DRY): variable named 'forms' should be 'planConfigs' — copy-paste error.
-      const forms = await this.prisma.planConfig.findMany({
+      const planConfigs = await this.prisma.planConfig.findMany({
         where: {
           key: normalizedKey,
           version,
@@ -406,7 +397,7 @@ export class PlanConfigService {
         },
       });
 
-      if (forms.length === 0) {
+      if (planConfigs.length === 0) {
         throw new NotFoundException(
           `PlanConfig not found for key ${normalizedKey} version ${version.toString()}.`,
         );
@@ -426,7 +417,7 @@ export class PlanConfigService {
       });
 
       await Promise.all(
-        forms.map((planConfig) =>
+        planConfigs.map((planConfig) =>
           publishMetadataEvent(
             this.eventBusService,
             'PROJECT_METADATA_DELETE',
@@ -536,13 +527,7 @@ export class PlanConfigService {
    * @throws {BadRequestException} If key is empty.
    */
   private normalizeKey(key: string): string {
-    const normalized = String(key || '').trim();
-
-    if (!normalized) {
-      throw new BadRequestException('Metadata key is required.');
-    }
-
-    return normalized;
+    return normalizeVersionedConfigKey(key, 'Metadata');
   }
 
   /**

@@ -12,6 +12,10 @@ import {
   PROJECT_METADATA_RESOURCE,
   publishMetadataEvent,
 } from '../utils/metadata-event.utils';
+import {
+  normalizeVersionedConfigKey,
+  pickLatestRevisionPerVersion,
+} from '../utils/versioned-config.utils';
 import { FormResponseDto } from './dto/form-response.dto';
 
 @Injectable()
@@ -81,16 +85,7 @@ export class FormService {
       throw new NotFoundException(`Form not found for key ${normalizedKey}.`);
     }
 
-    const latestByVersion = new Map<string, Form>();
-
-    for (const record of records) {
-      const versionKey = record.version.toString();
-      if (!latestByVersion.has(versionKey)) {
-        latestByVersion.set(versionKey, record);
-      }
-    }
-
-    return Array.from(latestByVersion.values()).map((record) =>
+    return pickLatestRevisionPerVersion(records).map((record) =>
       this.toDto(record),
     );
   }
@@ -532,13 +527,7 @@ export class FormService {
    * @throws {BadRequestException} If key is empty.
    */
   private normalizeKey(key: string): string {
-    const normalized = String(key || '').trim();
-
-    if (!normalized) {
-      throw new BadRequestException('Metadata key is required.');
-    }
-
-    return normalized;
+    return normalizeVersionedConfigKey(key, 'Metadata');
   }
 
   /**

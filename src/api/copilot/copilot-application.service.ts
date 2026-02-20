@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -22,6 +21,7 @@ import {
   CreateCopilotApplicationDto,
 } from './dto/copilot-application.dto';
 import {
+  ensureNamedPermission,
   isAdminOrPm,
   normalizeEntity,
   parseNumericId,
@@ -63,7 +63,7 @@ export class CopilotApplicationService {
     dto: CreateCopilotApplicationDto,
     user: JwtUser,
   ): Promise<CopilotApplicationResponseDto> {
-    this.ensurePermission(NamedPermission.APPLY_COPILOT_OPPORTUNITY, user);
+    ensureNamedPermission(this.permissionService, NamedPermission.APPLY_COPILOT_OPPORTUNITY, user);
 
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
     const parsedUserId = this.parseUserId(user);
@@ -264,17 +264,4 @@ export class CopilotApplicationService {
     return BigInt(normalized);
   }
 
-  /**
-   * Enforces a named permission for the current user.
-   *
-   * @param permission Permission constant.
-   * @param user Authenticated JWT user.
-   * @throws ForbiddenException If permission is missing.
-   */
-  private ensurePermission(permission: NamedPermission, user: JwtUser): void {
-    // TODO [DRY]: Identical ensurePermission method exists in CopilotRequestService and CopilotOpportunityService; extract shared utility/base class.
-    if (!this.permissionService.hasNamedPermission(permission, user)) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
-  }
 }

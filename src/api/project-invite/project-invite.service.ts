@@ -39,7 +39,16 @@ import {
   enrichInvitesWithUserDetails,
   validateUserHasProjectRole,
 } from 'src/shared/utils/member.utils';
-import { publishMemberEvent } from 'src/shared/utils/event.utils';
+import { publishMemberEventSafely } from 'src/shared/utils/event.utils';
+import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
+import {
+  ensureRoleScopedPermission,
+  getActorUserId as getActorUserIdFromJwt,
+  getAuditUserId as getAuditUserIdFromJwt,
+  parseCsvFields,
+  parseNumericStringId,
+  parseOptionalNumericStringId,
+} from 'src/shared/utils/service.utils';
 
 interface InviteTargetByUser {
   userId: bigint;
@@ -739,19 +748,15 @@ export class ProjectInviteService {
     );
     const lowerCaseHandles = dto.handles.map((handle) => handle.toLowerCase());
 
-    // TODO: DRY: `(foundUser as any).handleLower` and `(user as any).userId`
-    // rely on unsafe casts. Type `MemberDetail` to include these fields.
     const filteredUsers = foundUsers.filter((foundUser) =>
       lowerCaseHandles.includes(
-        String(
-          (foundUser as any).handleLower || foundUser.handle || '',
-        ).toLowerCase(),
+        String(foundUser.handleLower || foundUser.handle || '').toLowerCase(),
       ),
     );
 
     const existingHandles = new Set(
       filteredUsers.map((user) =>
-        String((user as any).handleLower || user.handle || '').toLowerCase(),
+        String(user.handleLower || user.handle || '').toLowerCase(),
       ),
     );
 
@@ -770,7 +775,7 @@ export class ProjectInviteService {
     const targets: InviteTargetByUser[] = [];
 
     for (const user of filteredUsers) {
-      const userId = this.parseOptionalId((user as any).userId);
+      const userId = this.parseOptionalId(user.userId);
       if (!userId) {
         continue;
       }
@@ -1228,52 +1233,34 @@ export class ProjectInviteService {
    * @returns Nothing.
    * @throws {ForbiddenException} If required delete permission is missing.
    */
-  // TODO: SECURITY: `projectMembers` is typed as `any[]`, which bypasses type
-  // safety and can hide invalid data shape issues. Use `ProjectMember[]`.
   private ensureDeleteInvitePermission(
     role: ProjectMemberRole,
     user: JwtUser,
-    projectMembers: any[],
+    projectMembers: ProjectMember[],
   ): void {
-    if (
-      role !== ProjectMemberRole.customer &&
-      role !== ProjectMemberRole.copilot &&
-      !this.permissionService.hasNamedPermission(
-        Permission.DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER,
-        user,
-        projectMembers,
-      )
-    ) {
-      throw new ForbiddenException(
-        "You don't have permissions to cancel invites to Topcoder Team for other users.",
-      );
-    }
-
-    if (
-      role === ProjectMemberRole.customer &&
-      !this.permissionService.hasNamedPermission(
-        Permission.DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER,
-        user,
-        projectMembers,
-      )
-    ) {
-      throw new ForbiddenException(
-        "You don't have permissions to cancel invites to Customer Team for other users.",
-      );
-    }
-
-    if (
-      role === ProjectMemberRole.copilot &&
-      !this.permissionService.hasNamedPermission(
-        Permission.DELETE_PROJECT_INVITE_NOT_OWN_COPILOT,
-        user,
-        projectMembers,
-      )
-    ) {
-      throw new ForbiddenException(
-        "You don't have permissions to cancel invites to Copilot Team for other users.",
-      );
-    }
+    ensureRoleScopedPermission(
+      this.permissionService,
+      role,
+      user,
+      projectMembers,
+      {
+        permission: Permission.DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER,
+        message:
+          "You don't have permissions to cancel invites to Topcoder Team for other users.",
+      },
+      {
+        [ProjectMemberRole.customer]: {
+          permission: Permission.DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER,
+          message:
+            "You don't have permissions to cancel invites to Customer Team for other users.",
+        },
+        [ProjectMemberRole.copilot]: {
+          permission: Permission.DELETE_PROJECT_INVITE_NOT_OWN_COPILOT,
+          message:
+            "You don't have permissions to cancel invites to Copilot Team for other users.",
+        },
+      },
+    );
   }
 
   /**
@@ -1382,15 +1369,8 @@ export class ProjectInviteService {
    * @returns Parsed bigint id.
    * @throws {BadRequestException} If value is not numeric.
    */
-  // TODO: DRY: `parseId` is duplicated across project member, invite, and
-  // setting services; consolidate into shared helper/base service.
   private parseId(value: string, label: string): bigint {
-    const normalized = String(value || '').trim();
-    if (!/^\d+$/.test(normalized)) {
-      throw new BadRequestException(`${label} id must be a numeric string.`);
-    }
-
-    return BigInt(normalized);
+    return parseNumericStringId(value, `${label} id`);
   }
 
   /**
@@ -1400,21 +1380,10 @@ export class ProjectInviteService {
    * @returns Parsed bigint or `null` when missing/invalid.
    * @throws {BadRequestException} If parsing fails unexpectedly.
    */
-  // TODO: DRY: `parseOptionalId` follows patterns duplicated in other services;
-  // consolidate into shared helper/base service.
   private parseOptionalId(
     value: string | number | bigint | null | undefined,
   ): bigint | null {
-    if (value === null || typeof value === 'undefined') {
-      return null;
-    }
-
-    const normalized = String(value).trim();
-    if (!/^\d+$/.test(normalized)) {
-      return null;
-    }
-
-    return BigInt(normalized);
+    return parseOptionalNumericStringId(value);
   }
 
   /**
@@ -1424,14 +1393,8 @@ export class ProjectInviteService {
    * @returns Trimmed caller id.
    * @throws {ForbiddenException} If caller id is missing.
    */
-  // TODO: DRY: `getActorUserId` is duplicated across project member, invite,
-  // and setting services; centralize.
   private getActorUserId(user: JwtUser): string {
-    if (!user?.userId || String(user.userId).trim().length === 0) {
-      throw new ForbiddenException('Authenticated user id is missing.');
-    }
-
-    return String(user.userId).trim();
+    return getActorUserIdFromJwt(user);
   }
 
   /**
@@ -1441,16 +1404,8 @@ export class ProjectInviteService {
    * @returns Numeric audit user id.
    * @throws {ForbiddenException} If caller id is missing or non-numeric.
    */
-  // TODO: DRY: `getAuditUserId` is duplicated across project member, invite,
-  // and setting services; centralize.
   private getAuditUserId(user: JwtUser): number {
-    const parsedUserId = Number.parseInt(this.getActorUserId(user), 10);
-
-    if (Number.isNaN(parsedUserId)) {
-      throw new ForbiddenException('Authenticated user id must be numeric.');
-    }
-
-    return parsedUserId;
+    return getAuditUserIdFromJwt(user);
   }
 
   /**
@@ -1460,16 +1415,8 @@ export class ProjectInviteService {
    * @returns Normalized field names.
    * @throws {BadRequestException} If field parsing fails.
    */
-  // TODO: DRY: `parseFields` is duplicated across services; centralize.
   private parseFields(fields?: string): string[] {
-    if (!fields || fields.trim().length === 0) {
-      return [];
-    }
-
-    return fields
-      .split(',')
-      .map((field) => field.trim())
-      .filter((field) => field.length > 0);
+    return parseCsvFields(fields);
   }
 
   /**
@@ -1518,39 +1465,8 @@ export class ProjectInviteService {
    * @returns Payload with bigint and decimal values normalized.
    * @throws {TypeError} If recursive traversal fails.
    */
-  // TODO: DRY: `normalizeEntity` is identical to member service implementation;
-  // extract to shared utility (`src/shared/utils/entity.utils.ts`).
   private normalizeEntity<T>(payload: T): T {
-    const walk = (input: unknown): unknown => {
-      if (typeof input === 'bigint') {
-        return input.toString();
-      }
-
-      if (input instanceof Prisma.Decimal) {
-        return Number(input.toString());
-      }
-
-      if (Array.isArray(input)) {
-        return input.map((entry) => walk(entry));
-      }
-
-      if (input && typeof input === 'object') {
-        if (input instanceof Date) {
-          return input;
-        }
-
-        const output: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(input)) {
-          output[key] = walk(value);
-        }
-
-        return output;
-      }
-
-      return input;
-    };
-
-    return walk(payload) as T;
+    return normalizePrismaEntity(payload);
   }
 
   /**
@@ -1561,14 +1477,7 @@ export class ProjectInviteService {
    * @returns Nothing.
    * @throws {Error} Publisher errors are caught and logged.
    */
-  // TODO: DRY: `publishMember` is near-identical to member service
-  // `publishEvent`; consolidate into shared helper.
   private publishMember(topic: string, payload: unknown): void {
-    void publishMemberEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish member event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    });
+    publishMemberEventSafely(topic, payload, this.logger);
   }
 }

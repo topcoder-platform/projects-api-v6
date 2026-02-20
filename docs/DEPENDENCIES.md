@@ -24,14 +24,13 @@ To re-run checks:
 | GHSA-43fc-jf86-j433 | **HIGH** | `axios` | `<=0.30.2` and `>=1.0.0 <=1.13.4` | `>=0.30.3`, `>=1.13.5` | ✅ Cleared in production/transitive paths | Applied `pnpm.overrides.axios = 1.13.5`; verified `tc-core-library-js` now resolves `axios@1.13.5`. |
 | GHSA-gq3j-xvxp-8hrf | **LOW** | `hono` | `<4.11.10` | `>=4.11.10` | ✅ Cleared | Updated `pnpm.overrides.hono` to `4.11.10`; Prisma transitive paths resolve `hono@4.11.10`. |
 | GHSA-3ppc-4f35-3m26 | **HIGH** | `minimatch` | `<10.2.1` | `>=10.2.1` | ✅ Cleared | Added `pnpm.overrides.minimatch = 10.2.1`; audit no longer reports minimatch. |
-| GHSA-2g4f-4pwh-qvx6 | **MODERATE** | `ajv` | `<8.18.0` | `>=8.18.0` | ⚠️ Still open (2 moderate findings in `pnpm audit`) | Direct `ajv` bumped to `^8.18.0`, but transitive `ajv@6.12.6` remains via `@eslint/eslintrc@3.3.3` and `@nestjs/cli -> fork-ts-checker-webpack-plugin -> schema-utils@3.3.0`. Required fix is upstream/toolchain migration off Ajv v6 paths. |
+| GHSA-2g4f-4pwh-qvx6 | **MODERATE** | `ajv` | `<8.18.0` | `>=8.18.0` | ✅ Cleared | Enforced `pnpm.overrides.ajv = 8.18.0` and added compatibility patches for `eslint@9.39.2` / `@eslint/eslintrc@3.3.3` to preserve lint behavior with Ajv v8. |
 | CVE-2025-65945 | **HIGH** | `jws` (transitive via `jsonwebtoken`, `jwks-rsa`) | `<=3.2.2`, `4.0.0` | `3.2.3`, `4.0.1` | ✅ Cleared | Existing `jws` override retained (`>=3.2.3 <4.0.0 || >=4.0.1`). |
 
 Current `pnpm audit` summary:
 
 ```text
-2 vulnerabilities found
-Severity: 2 moderate
+No known vulnerabilities found
 ```
 
 ## Outdated Dependencies
@@ -71,6 +70,7 @@ Regenerated from `pnpm outdated` after dependency/security updates.
 
 | Override | Pinned To | Reason |
 |---|---|---|
+| `ajv` | `8.18.0` | Fix advisory GHSA-2g4f-4pwh-qvx6 across all transitive paths |
 | `axios` | `1.13.5` | Force patched axios across transitive paths (`tc-core-library-js` included) |
 | `fast-xml-parser` | `5.3.6` | Security hardening |
 | `hono` | `4.11.10` | Fix advisory GHSA-gq3j-xvxp-8hrf |
@@ -79,6 +79,13 @@ Regenerated from `pnpm outdated` after dependency/security updates.
 | `minimatch` | `10.2.1` | Fix advisory GHSA-3ppc-4f35-3m26 |
 | `qs` | `6.14.2` | Prototype pollution / DoS fix |
 
+## pnpm Patched Dependencies
+
+| Package | Patch File | Reason |
+|---|---|---|
+| `@eslint/eslintrc@3.3.3` | `patches/@eslint__eslintrc@3.3.3.patch` | Adapt Ajv initialization to work with enforced `ajv@8.18.0` |
+| `eslint@9.39.2` | `patches/eslint@9.39.2.patch` | Replace Ajv v6-specific draft-04 path/API usage with Ajv v8-compatible behavior |
+
 ## Verification Log
 
 Commands run in `projects-api-v6/` (with `nvm use` before each):
@@ -86,7 +93,7 @@ Commands run in `projects-api-v6/` (with `nvm use` before each):
 | Command | Result |
 |---|---|
 | `pnpm install` | ✅ Passed |
-| `pnpm audit` | ⚠️ Fails with 2 moderate `ajv` vulnerabilities (upstream Ajv v6 transitive deps) |
+| `pnpm audit` | ✅ Passed (`No known vulnerabilities found`) |
 | `pnpm outdated` | ✅ Completed (table above updated) |
 | `pnpm lint` | ✅ Passed |
 | `pnpm build` | ✅ Passed |

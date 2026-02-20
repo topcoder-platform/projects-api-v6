@@ -9,7 +9,7 @@ import {
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { MemberService } from 'src/shared/services/member.service';
-import { getCopilotRequestData, getCopilotTypeLabel } from './copilot.utils';
+import { getCopilotRequestData, getCopilotTypeLabel, readString } from './copilot.utils';
 
 // TODO [CONFIG]: TEMPLATE_IDS are hardcoded SendGrid template ids; move these values to environment-based configuration.
 const TEMPLATE_IDS = {
@@ -113,7 +113,7 @@ export class CopilotNotificationService {
               work_manager_url: this.getWorkManagerUrl(),
               opportunity_type: getCopilotTypeLabel(opportunityType),
               opportunity_title:
-                this.readString(requestData.opportunityTitle) ||
+                readString(requestData.opportunityTitle) ||
                 `Opportunity ${opportunity.id.toString()}`,
             },
           ),
@@ -170,7 +170,7 @@ export class CopilotNotificationService {
       work_manager_url: this.getWorkManagerUrl(),
       opportunity_type: getCopilotTypeLabel(opportunityType),
       opportunity_title:
-        this.readString(requestData.opportunityTitle) ||
+        readString(requestData.opportunityTitle) ||
         `Opportunity ${opportunity.id.toString()}`,
       start_date: this.formatDate(requestData.startDate),
     });
@@ -218,7 +218,7 @@ export class CopilotNotificationService {
               opportunity_details_url: this.getCopilotPortalUrl(),
               work_manager_url: this.getWorkManagerUrl(),
               opportunity_title:
-                this.readString(requestData.opportunityTitle) ||
+                readString(requestData.opportunityTitle) ||
                 `Opportunity ${opportunity.id.toString()}`,
             },
           ),
@@ -263,7 +263,7 @@ export class CopilotNotificationService {
               opportunity_details_url: this.getCopilotPortalUrl(),
               work_manager_url: this.getWorkManagerUrl(),
               opportunity_title:
-                this.readString(requestData.opportunityTitle) ||
+                readString(requestData.opportunityTitle) ||
                 `Opportunity ${opportunity.id.toString()}`,
             },
           ),
@@ -336,7 +336,7 @@ export class CopilotNotificationService {
     opportunity: CopilotOpportunity,
     requestData: Record<string, unknown>,
   ): CopilotOpportunityType {
-    const projectType = (this.readString(requestData.projectType) || '')
+    const projectType = (readString(requestData.projectType) || '')
       .toLowerCase()
       .trim();
 
@@ -363,7 +363,7 @@ export class CopilotNotificationService {
       return '';
     }
 
-    const normalizedValue = this.readString(value);
+    const normalizedValue = readString(value);
 
     if (!normalizedValue) {
       return '';
@@ -382,22 +382,4 @@ export class CopilotNotificationService {
     return `${day}-${month}-${year}`;
   }
 
-  /**
-   * Reads a string-like primitive value.
-   *
-   * @param value Input value.
-   * @returns String value or undefined.
-   */
-  private readString(value: unknown): string | undefined {
-    // TODO [DRY]: Identical readString exists in CopilotRequestService; extract to copilot.utils.ts.
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    if (typeof value === 'number') {
-      return `${value}`;
-    }
-
-    return undefined;
-  }
 }

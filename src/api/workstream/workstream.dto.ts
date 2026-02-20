@@ -12,52 +12,11 @@ import {
   Max,
   Min,
 } from 'class-validator';
-
-function parseOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-}
-// TODO [DRY]: Duplicated in `create-phase.dto.ts` and `create-phase-product.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
-
-function parseOptionalInteger(value: unknown): number | undefined {
-  const parsed = parseOptionalNumber(value);
-
-  if (typeof parsed === 'undefined') {
-    return undefined;
-  }
-
-  return Math.trunc(parsed);
-}
-// TODO [DRY]: Duplicated in `create-phase.dto.ts` and `create-phase-product.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
-
-function parseOptionalBoolean(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-
-    if (normalized === 'true') {
-      return true;
-    }
-
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-
-  return undefined;
-}
-// TODO [DRY]: Duplicated in `phase-list-query.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
+import {
+  parseOptionalBoolean,
+  parseOptionalInteger,
+  parseOptionalNumber,
+} from 'src/shared/utils/dto-transform.utils';
 
 /**
  * Create payload for `POST /projects/:projectId/workstreams`.

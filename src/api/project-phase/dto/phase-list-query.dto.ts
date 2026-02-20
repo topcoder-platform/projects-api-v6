@@ -1,27 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
-
-function parseOptionalBoolean(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-
-    if (normalized === 'true') {
-      return true;
-    }
-
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-
-  return undefined;
-}
-// TODO [DRY]: Duplicated in `workstream.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
+import { parseOptionalBoolean } from 'src/shared/utils/dto-transform.utils';
 
 /**
  * Query params for phase/work listing endpoints:

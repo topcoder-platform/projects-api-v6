@@ -1,6 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
+import { SERVICE_ENDPOINTS } from 'src/shared/config/service-endpoints.config';
 import { M2MService } from 'src/shared/modules/global/m2m.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 
@@ -19,8 +20,7 @@ export interface IdentityUser {
 @Injectable()
 export class IdentityService {
   private readonly logger = LoggerService.forRoot('IdentityService');
-  // TODO: DRY violation - consider a shared config constant or ConfigService.
-  private readonly identityApiUrl = process.env.IDENTITY_API_URL || '';
+  private readonly identityApiUrl = SERVICE_ENDPOINTS.identityApiUrl;
 
   constructor(
     private readonly httpService: HttpService,

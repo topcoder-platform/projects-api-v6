@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -28,6 +27,7 @@ import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import { parseNumericStringId } from 'src/shared/utils/service.utils';
 import { CreateProjectSettingDto } from './dto/create-project-setting.dto';
 import { ProjectSettingResponseDto } from './dto/project-setting-response.dto';
 import { UpdateProjectSettingDto } from './dto/update-project-setting.dto';
@@ -248,15 +248,7 @@ export class ProjectSettingController {
    * @returns Parsed bigint project id.
    * @throws {BadRequestException} If project id is not numeric.
    */
-  // TODO: DRY: Duplicates `parseBigIntParam` in `ProjectSettingService`.
-  // Remove once member lookup is moved into the service layer.
   private parseProjectId(projectId: string): bigint {
-    const normalizedProjectId = projectId.trim();
-
-    if (!/^\d+$/.test(normalizedProjectId)) {
-      throw new BadRequestException('Project id must be a numeric string.');
-    }
-
-    return BigInt(normalizedProjectId);
+    return parseNumericStringId(projectId, 'Project id');
   }
 }

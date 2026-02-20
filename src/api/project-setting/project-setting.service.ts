@@ -19,6 +19,10 @@ import {
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
+import {
+  getAuditUserId as getAuditUserIdFromJwt,
+  parseNumericStringId,
+} from 'src/shared/utils/service.utils';
 
 /**
  * Manages per-project key/value settings persisted in `ProjectSetting`.
@@ -361,16 +365,8 @@ export class ProjectSettingService {
    * @returns Parsed bigint value.
    * @throws {BadRequestException} If value is not numeric.
    */
-  // TODO: DRY: `parseBigIntParam` logic is duplicated in other services.
-  // Consolidate shared id parsing helpers.
   private parseBigIntParam(value: string, name: string): bigint {
-    const normalized = value.trim();
-
-    if (!/^\d+$/.test(normalized)) {
-      throw new BadRequestException(`${name} must be a numeric string.`);
-    }
-
-    return BigInt(normalized);
+    return parseNumericStringId(value, name);
   }
 
   /**
@@ -380,17 +376,8 @@ export class ProjectSettingService {
    * @returns Numeric audit user id.
    * @throws {ForbiddenException} If user id is missing or non-numeric.
    */
-  // TODO: DRY: `getAuditUserId` logic is duplicated in other services.
-  // Consolidate shared user-id helper logic.
   private getAuditUserId(user: JwtUser): number {
-    const normalizedUserId = String(user.userId || '').trim();
-    const parsedUserId = Number.parseInt(normalizedUserId, 10);
-
-    if (Number.isNaN(parsedUserId)) {
-      throw new ForbiddenException('Authenticated user id must be numeric.');
-    }
-
-    return parsedUserId;
+    return getAuditUserIdFromJwt(user);
   }
 
   /**

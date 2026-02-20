@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, WorkStream } from '@prisma/client';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import { parseSortParam } from 'src/shared/utils/query.utils';
 import {
   CreateWorkStreamDto,
   UpdateWorkStreamDto,
@@ -34,7 +35,6 @@ const WORK_STREAM_SORT_FIELDS = ['name', 'status', 'createdAt', 'updatedAt'];
  * controllers.
  */
 export class WorkStreamService {
-  // TODO [DRY]: `WORKSTREAM_ALLOWED_ROLES` is duplicated with `WORK_ALLOWED_ROLES` and `WORKITEM_ALLOWED_ROLES`; extract `WORK_LAYER_ALLOWED_ROLES` to `src/shared/constants/roles.ts`.
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -430,36 +430,10 @@ export class WorkStreamService {
    * @returns Prisma orderBy object.
    * @throws {BadRequestException} When field/direction is invalid.
    */
-  // TODO [DRY]: Extract a shared `parseSortParam(sort, allowedFields)` helper to `src/shared/utils/query.utils.ts`.
   private parseSort(sort?: string): Prisma.WorkStreamOrderByWithRelationInput {
-    if (!sort || sort.trim().length === 0) {
-      return {
-        updatedAt: 'desc',
-      };
-    }
-
-    const normalized = sort.trim();
-    const withDirection = normalized.includes(' ')
-      ? normalized
-      : `${normalized} asc`;
-    const [field, direction] = withDirection.split(/\s+/);
-
-    if (!field || !direction) {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    if (!WORK_STREAM_SORT_FIELDS.includes(field)) {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    const normalizedDirection = direction.toLowerCase();
-    if (normalizedDirection !== 'asc' && normalizedDirection !== 'desc') {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    return {
-      [field]: normalizedDirection,
-    };
+    return parseSortParam(sort, WORK_STREAM_SORT_FIELDS, {
+      updatedAt: 'desc',
+    }) as Prisma.WorkStreamOrderByWithRelationInput;
   }
 
   /**

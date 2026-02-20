@@ -22,22 +22,20 @@ import {
 } from 'src/api/project-phase/dto/phase-response.dto';
 import { UpdatePhaseDto } from 'src/api/project-phase/dto/update-phase.dto';
 import { Permission } from 'src/shared/constants/permissions';
+import { ProjectPermissionContext } from 'src/shared/interfaces/project-permission-context.interface';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
-import { hasAdminRole } from 'src/shared/utils/permission.utils';
-
-// TODO [DRY]: Move to `src/shared/interfaces/project-permission-context.interface.ts`.
-interface ProjectPermissionContext {
-  id: bigint;
-  directProjectId: bigint | null;
-  billingAccountId: bigint | null;
-  members: Array<{
-    userId: bigint;
-    role: string;
-    deletedAt: Date | null;
-  }>;
-}
+import { parseSortParam } from 'src/shared/utils/query.utils';
+import {
+  ensureProjectNamedPermission,
+  getAuditUserIdOrDefault,
+  isAdminProjectUser,
+  loadProjectPermissionContext,
+  parseBigIntId,
+  toDetailsObject as toDetailsObjectValue,
+  toJsonInput as toJsonInputValue,
+} from 'src/shared/utils/service.utils';
 
 type PhaseWithRelations = ProjectPhase & {
   products?: PhaseProduct[];
@@ -688,41 +686,12 @@ export class ProjectPhaseService {
    * @returns Prisma-compatible orderBy object.
    * @throws {BadRequestException} When sort field or direction is invalid.
    */
-  // TODO [DRY]: Extract a shared `parseSortParam(sort, allowedFields)` helper to `src/shared/utils/query.utils.ts`.
   private parseSortCriteria(sort?: string): {
     [key: string]: 'asc' | 'desc';
   } {
-    if (!sort || sort.trim().length === 0) {
-      return {
-        startDate: 'asc',
-      };
-    }
-
-    const normalized = sort.trim();
-    const withDirection = normalized.includes(' ')
-      ? normalized
-      : `${normalized} asc`;
-
-    const [field, direction] = withDirection.split(/\s+/);
-
-    if (!field || !direction) {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    if (
-      !PHASE_SORT_FIELDS.includes(field as (typeof PHASE_SORT_FIELDS)[number])
-    ) {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    const normalizedDirection = direction.toLowerCase();
-    if (normalizedDirection !== 'asc' && normalizedDirection !== 'desc') {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    return {
-      [field]: normalizedDirection,
-    };
+    return parseSortParam(sort, PHASE_SORT_FIELDS, {
+      startDate: 'asc',
+    });
   }
 
   /**
@@ -1090,13 +1059,8 @@ export class ProjectPhaseService {
    * @param value - Candidate details value.
    * @returns Plain object, or empty object when invalid.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private toDetailsObject(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return {};
-    }
-
-    return value as Record<string, unknown>;
+    return toDetailsObjectValue(value);
   }
 
   /**
@@ -1105,19 +1069,10 @@ export class ProjectPhaseService {
    * @param value - Candidate JSON value.
    * @returns Prisma JSON input value, JsonNull, or undefined.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private toJsonInput(
     value: unknown,
   ): Prisma.InputJsonValue | Prisma.JsonNullValueInput | undefined {
-    if (typeof value === 'undefined') {
-      return undefined;
-    }
-
-    if (value === null) {
-      return Prisma.JsonNull;
-    }
-
-    return value as Prisma.InputJsonValue;
+    return toJsonInputValue(value);
   }
 
   /**
@@ -1160,7 +1115,6 @@ export class ProjectPhaseService {
    * @param projectMembers - Active project members.
    * @returns `true` if caller has admin access.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private isAdminUser(
     user: JwtUser,
     projectMembers: Array<{
@@ -1169,14 +1123,7 @@ export class ProjectPhaseService {
       deletedAt: Date | null;
     }>,
   ): boolean {
-    return (
-      hasAdminRole(user) ||
-      this.permissionService.hasNamedPermission(
-        Permission.READ_PROJECT_ANY,
-        user,
-        projectMembers,
-      )
-    );
+    return isAdminProjectUser(this.permissionService, user, projectMembers);
   }
 
   /**
@@ -1188,7 +1135,6 @@ export class ProjectPhaseService {
    * @returns Nothing.
    * @throws {ForbiddenException} When permission is missing.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private ensureNamedPermission(
     permission: Permission,
     user: JwtUser,
@@ -1198,15 +1144,12 @@ export class ProjectPhaseService {
       deletedAt: Date | null;
     }>,
   ): void {
-    const hasPermission = this.permissionService.hasNamedPermission(
+    ensureProjectNamedPermission(
+      this.permissionService,
       permission,
       user,
       projectMembers,
     );
-
-    if (!hasPermission) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
   }
 
   /**
@@ -1216,39 +1159,10 @@ export class ProjectPhaseService {
    * @returns Permission context payload.
    * @throws {NotFoundException} When the project does not exist.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private async getProjectPermissionContext(
     projectId: bigint,
   ): Promise<ProjectPermissionContext> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        directProjectId: true,
-        billingAccountId: true,
-        members: {
-          where: {
-            deletedAt: null,
-          },
-          select: {
-            userId: true,
-            role: true,
-            deletedAt: true,
-          },
-        },
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException(
-        `Project with id ${projectId} was not found.`,
-      );
-    }
-
-    return project;
+    return loadProjectPermissionContext(this.prisma, projectId);
   }
 
   /**
@@ -1259,13 +1173,8 @@ export class ProjectPhaseService {
    * @returns Parsed bigint id.
    * @throws {BadRequestException} When parsing fails.
    */
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private parseId(value: string, entityName: string): bigint {
-    try {
-      return BigInt(value);
-    } catch {
-      throw new BadRequestException(`${entityName} id is invalid.`);
-    }
+    return parseBigIntId(value, entityName);
   }
 
   /**
@@ -1275,14 +1184,7 @@ export class ProjectPhaseService {
    * @returns Numeric user id.
    */
   // TODO [SECURITY]: Returning `-1` silently when `user.userId` is invalid can corrupt audit trails; throw `UnauthorizedException` instead.
-  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private getAuditUserId(user: JwtUser): number {
-    const userId = Number.parseInt(String(user.userId || ''), 10);
-
-    if (Number.isNaN(userId)) {
-      return -1;
-    }
-
-    return userId;
+    return getAuditUserIdOrDefault(user, -1);
   }
 }
