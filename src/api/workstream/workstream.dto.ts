@@ -15,7 +15,6 @@ import {
 import {
   parseOptionalBoolean,
   parseOptionalInteger,
-  parseOptionalNumber,
 } from 'src/shared/utils/dto-transform.utils';
 
 /**

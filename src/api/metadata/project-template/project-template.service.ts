@@ -539,22 +539,54 @@ export class ProjectTemplateService {
       return null;
     }
 
-    const delegates = {
-      form: this.prisma.form,
-      planConfig: this.prisma.planConfig,
-      priceConfig: this.prisma.priceConfig,
+    const where = {
+      key: reference.key,
+      ...(reference.version > 0
+        ? {
+            version: BigInt(reference.version),
+          }
+        : {}),
+      deletedAt: null,
+    };
+    const orderBy = [
+      { version: 'desc' as const },
+      { revision: 'desc' as const },
+    ];
+    const select = {
+      id: true,
+      key: true,
+      version: true,
+      revision: true,
+      config: true,
     } as const;
 
-    const latest = await delegates[type].findFirst({
-      where: {
-        key: reference.key,
-        ...(reference.version > 0
-          ? { version: BigInt(reference.version) }
-          : {}),
-        deletedAt: null,
-      },
-      orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-    });
+    let latest: {
+      id: bigint;
+      key: string;
+      version: bigint;
+      revision: bigint;
+      config: Prisma.JsonValue | null;
+    } | null = null;
+
+    switch (type) {
+      case 'form':
+        latest = await this.prisma.form.findFirst({ where, orderBy, select });
+        break;
+      case 'planConfig':
+        latest = await this.prisma.planConfig.findFirst({
+          where,
+          orderBy,
+          select,
+        });
+        break;
+      case 'priceConfig':
+        latest = await this.prisma.priceConfig.findFirst({
+          where,
+          orderBy,
+          select,
+        });
+        break;
+    }
 
     return latest
       ? {

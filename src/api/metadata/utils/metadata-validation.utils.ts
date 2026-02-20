@@ -47,10 +47,14 @@ type VersionedReferenceDelegate = {
       version?: bigint;
       deletedAt: null;
     };
-    orderBy: Array<{
-      version?: 'desc';
-      revision: 'desc';
-    }>;
+    orderBy: Array<
+      | {
+          version: 'desc';
+        }
+      | {
+          revision: 'desc';
+        }
+    >;
     select: {
       version: true;
     };
