@@ -141,12 +141,7 @@ export class ProjectController {
   @Get(':projectId')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
-  @Scopes(
-    Scope.PROJECTS_READ,
-    Scope.PROJECTS_WRITE,
-    Scope.PROJECTS_ALL,
-    Scope.CONNECT_PROJECT_ADMIN,
-  )
+  @Scopes(Scope.PROJECTS_READ, Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL)
   @RequirePermission(Permission.VIEW_PROJECT)
   @ApiOperation({
     summary: 'Get project by id',

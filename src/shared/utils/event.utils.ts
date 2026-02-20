@@ -1,6 +1,14 @@
+/**
+ * Kafka event publishing utility with retry and circuit-breaker behavior.
+ *
+ * Used by domain services to publish lifecycle events to Topcoder Bus API.
+ */
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import * as busApi from 'tc-bus-api-wrapper';
 
+/**
+ * Event envelope shape accepted by `tc-bus-api-wrapper`.
+ */
 type BusApiEvent = {
   topic: string;
   originator: string;
@@ -9,24 +17,67 @@ type BusApiEvent = {
   payload: unknown;
 };
 
+/**
+ * Minimal client contract required from bus API wrapper.
+ */
 type BusApiClient = {
   postEvent: (event: BusApiEvent) => Promise<unknown>;
 };
 
+/**
+ * Optional callback invoked after successful publish.
+ */
 type PublishCallback = (event: BusApiEvent) => void;
 
+/**
+ * Originator value embedded into outbound events.
+ */
 const EVENT_ORIGINATOR = 'project-service-v6';
+/**
+ * MIME type used for event payloads.
+ */
 const EVENT_MIME_TYPE = 'application/json';
+/**
+ * Maximum retry attempts for client initialization and event publish.
+ */
 const MAX_RETRY_ATTEMPTS = 3;
+/**
+ * Initial retry delay used before exponential backoff.
+ */
 const INITIAL_RETRY_DELAY_MS = 100;
+/**
+ * Number of consecutive failures needed to open circuit.
+ */
 const CIRCUIT_BREAKER_FAILURE_THRESHOLD = 5;
+/**
+ * Duration (ms) the circuit remains open before retry attempts resume.
+ */
 const CIRCUIT_BREAKER_OPEN_MS = 30000;
 
+/**
+ * Lazily initialized BUS API client singleton for this process.
+ *
+ * @todo Module-level mutable state (`busApiClient`, failure counters, circuit
+ * timers) is process-local and does not synchronize across worker threads or
+ * horizontally scaled instances.
+ */
 let busApiClient: BusApiClient | null;
+/**
+ * Consecutive publish failure counter used by circuit-breaker logic.
+ */
 let consecutiveFailures = 0;
+/**
+ * Epoch timestamp until which the circuit remains open.
+ */
 let circuitOpenUntil = 0;
 const logger = LoggerService.forRoot('EventUtils');
 
+/**
+ * Builds `tc-bus-api-wrapper` configuration from environment variables.
+ *
+ * @security `AUTH0_CLIENT_SECRET` is injected from environment and must never
+ * be logged.
+ */
 function buildBusApiConfig(): Record<string, unknown> {
   return {
     BUSAPI_URL: process.env.BUSAPI_URL,
@@ -42,14 +93,23 @@ function buildBusApiConfig(): Record<string, unknown> {
   };
 }
 
+/**
+ * Converts unknown errors into safe log messages.
+ */
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Extracts error stack when available.
+ */
 function toErrorStack(error: unknown): string | undefined {
   return error instanceof Error ? error.stack : undefined;
 }
 
+/**
+ * Classifies transient network/socket failures for retry logic.
+ */
 function isTransientError(error: unknown): boolean {
   const message = toErrorMessage(error);
   const normalizedMessage = message.toLowerCase();
@@ -79,6 +139,11 @@ function isTransientError(error: unknown): boolean {
   );
 }
 
+/**
+ * Calculates serialized payload size in bytes for logging.
+ *
+ * Returns `-1` if serialization fails.
+ */
 function calculatePayloadSize(payload: unknown): number {
   try {
     return Buffer.byteLength(JSON.stringify(payload), 'utf8');
@@ -87,15 +152,24 @@ function calculatePayloadSize(payload: unknown): number {
   }
 }
 
+/**
+ * Returns `true` when circuit breaker is currently open.
+ */
 function isCircuitOpen(): boolean {
   return Date.now() < circuitOpenUntil;
 }
 
+/**
+ * Clears circuit-breaker failure state.
+ */
 function resetCircuitBreaker(): void {
   consecutiveFailures = 0;
   circuitOpenUntil = 0;
 }
 
+/**
+ * Registers a failed publish attempt and opens circuit if threshold is met.
+ */
 function registerFailure(): void {
   consecutiveFailures += 1;
 
@@ -109,10 +183,21 @@ function registerFailure(): void {
   );
 }
 
+/**
+ * Promise-based sleep helper used for retry backoff.
+ */
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Returns a lazily-initialized BUS API client.
+ *
+ * Initialization retries transient failures with exponential backoff up to
+ * `MAX_RETRY_ATTEMPTS`.
+ *
+ * @throws Error when all initialization attempts fail.
+ */
 export async function getBusApiClient(): Promise<BusApiClient> {
   if (busApiClient) {
     return busApiClient;
@@ -159,6 +244,9 @@ export async function getBusApiClient(): Promise<BusApiClient> {
   );
 }
 
+/**
+ * Creates an outbound BUS API event envelope.
+ */
 function createBusApiEvent(topic: string, payload: unknown): BusApiEvent {
   return {
     topic,
@@ -169,6 +257,16 @@ function createBusApiEvent(topic: string, payload: unknown): BusApiEvent {
   };
 }
 
+/**
+ * Publishes an event with retry + circuit-breaker protection.
+ *
+ * Behavior:
+ * - Skips publish when circuit is open.
+ * - Retries transient failures with exponential backoff.
+ * - Executes optional callback on successful publish.
+ * - Registers circuit-breaker failure when all retries are exhausted.
+ * - Logs failures and returns; this helper does not rethrow.
+ */
 async function postEventWithRetry(
   event: BusApiEvent,
   operation: string,

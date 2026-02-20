@@ -204,6 +204,24 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows viewing project for machine token with project read scope', () => {
+    const allowed = service.hasNamedPermission(Permission.VIEW_PROJECT, {
+      scopes: [Scope.PROJECTS_READ],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows editing project for machine token with project write scope', () => {
+    const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
+      scopes: [Scope.PROJECTS_WRITE],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
   it('marks billing account permissions as requiring project member context', () => {
     expect(
       service.isNamedPermissionRequireProjectMembers(

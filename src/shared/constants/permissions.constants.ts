@@ -2,6 +2,12 @@
  * User permission policies.
  * Can be used with `hasPermission` method.
  *
+ * This registry defines named authorization policies using allow/deny rule
+ * semantics consumed by `PermissionService`.
+ *
+ * `ALL = true` is a sentinel that means any authenticated user (for
+ * `topcoderRoles`) or any project member (for `projectRoles`) is allowed.
+ *
  * PERMISSION GUIDELINES
  *
  * All the permission name and meaning should define **WHAT** can be done having such permission
@@ -132,23 +138,35 @@ const SCOPES_PROJECT_MEMBERS_WRITE = [
   M2M_SCOPES.PROJECT_MEMBERS.WRITE,
 ];
 
+/**
+ * M2M scopes that permit reading project invites.
+ */
 const SCOPES_PROJECT_INVITES_READ = [
   M2M_SCOPES.CONNECT_PROJECT_ADMIN,
   M2M_SCOPES.PROJECT_INVITES.ALL,
   M2M_SCOPES.PROJECT_INVITES.READ,
 ];
 
+/**
+ * M2M scopes that permit creating/updating/deleting project invites.
+ */
 const SCOPES_PROJECT_INVITES_WRITE = [
   M2M_SCOPES.CONNECT_PROJECT_ADMIN,
   M2M_SCOPES.PROJECT_INVITES.ALL,
   M2M_SCOPES.PROJECT_INVITES.WRITE,
 ];
 
+/**
+ * M2M scopes that permit creating or updating customer payment records.
+ */
 const SCOPES_CUSTOMER_PAYMENT_WRITE = [
   M2M_SCOPES.CUSTOMER_PAYMENT.ALL,
   M2M_SCOPES.CUSTOMER_PAYMENT.WRITE,
 ];
 
+/**
+ * M2M scopes that permit reading customer payment records.
+ */
 const SCOPES_CUSTOMER_PAYMENT_READ = [
   M2M_SCOPES.CUSTOMER_PAYMENT.ALL,
   M2M_SCOPES.CUSTOMER_PAYMENT.READ,
@@ -158,8 +176,12 @@ const SCOPES_CUSTOMER_PAYMENT_READ = [
  * The full list of possible permission rules in Project Service
  */
 export const PERMISSION = {
+  // TODO: duplicates role-policy intent from PROJECT_TO_TOPCODER_ROLES_MATRIX in src/shared/utils/member.utils.ts; consolidate into a single source of truth.
   /*
    * Project
+   */
+  /**
+   * @description Permission policy: CREATE_PROJECT.
    */
   CREATE_PROJECT: {
     meta: {
@@ -170,6 +192,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: CREATE_PROJECT_AS_MANAGER.
+   */
   CREATE_PROJECT_AS_MANAGER: {
     meta: {
       title: 'Create Project as a "manager"',
@@ -182,6 +207,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: READ_PROJECT.
+   */
   READ_PROJECT: {
     meta: {
       title: 'Read Project',
@@ -201,6 +229,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_READ,
   },
 
+  /**
+   * @description Permission policy: READ_PROJECT_ANY.
+   */
   READ_PROJECT_ANY: {
     meta: {
       title: 'Read Any Project',
@@ -219,6 +250,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_READ,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT.
+   */
   UPDATE_PROJECT: {
     meta: {
       title: 'Update Project',
@@ -235,6 +269,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_STATUS.
+   */
   UPDATE_PROJECT_STATUS: {
     meta: {
       title: 'Update Project Status',
@@ -245,6 +282,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: MANAGE_PROJECT_DIRECT_PROJECT_ID.
+   */
   MANAGE_PROJECT_DIRECT_PROJECT_ID: {
     meta: {
       title: 'Manage Project property "directProjectId"',
@@ -255,6 +295,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: MANAGE_COPILOT_REQUEST.
+   */
   MANAGE_COPILOT_REQUEST: {
     meta: {
       title: 'Manage Copilot Request',
@@ -265,6 +308,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: APPLY_COPILOT_OPPORTUNITY.
+   */
   APPLY_COPILOT_OPPORTUNITY: {
     meta: {
       title: 'Apply copilot opportunity',
@@ -274,6 +320,9 @@ export const PERMISSION = {
     topcoderRoles: [USER_ROLE.TC_COPILOT],
     scopes: SCOPES_PROJECTS_WRITE,
   },
+  /**
+   * @description Permission policy: ASSIGN_COPILOT_OPPORTUNITY.
+   */
   ASSIGN_COPILOT_OPPORTUNITY: {
     meta: {
       title: 'Assign copilot to opportunity',
@@ -284,6 +333,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: CANCEL_COPILOT_OPPORTUNITY.
+   */
   CANCEL_COPILOT_OPPORTUNITY: {
     meta: {
       title: 'Cancel copilot opportunity',
@@ -294,6 +346,12 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: LIST_COPILOT_OPPORTUNITY.
+   * @todo `projectRoles` currently uses `USER_ROLE.PROJECT_MANAGER`, which is a
+   * Topcoder role value and will never match a project member role. Replace
+   * with `PROJECT_MEMBER_ROLE.PROJECT_MANAGER` or move it to `topcoderRoles`.
+   */
   LIST_COPILOT_OPPORTUNITY: {
     meta: {
       title: 'Apply copilot opportunity',
@@ -305,6 +363,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: MANAGE_PROJECT_BILLING_ACCOUNT_ID.
+   */
   MANAGE_PROJECT_BILLING_ACCOUNT_ID: {
     meta: {
       title: 'Manage Project property "billingAccountId"',
@@ -315,6 +376,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE_PROJECTS_BILLING_ACCOUNTS,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT.
+   */
   DELETE_PROJECT: {
     meta: {
       title: 'Delete Project',
@@ -335,6 +399,9 @@ export const PERMISSION = {
 
   /*
    * Project Invite
+   */
+  /**
+   * @description Permission policy: READ_AVL_PROJECT_BILLING_ACCOUNTS.
    */
   READ_AVL_PROJECT_BILLING_ACCOUNTS: {
     meta: {
@@ -358,6 +425,9 @@ export const PERMISSION = {
   /*
    * Project Invite
    */
+  /**
+   * @description Permission policy: READ_PROJECT_BILLING_ACCOUNT_DETAILS.
+   */
   READ_PROJECT_BILLING_ACCOUNT_DETAILS: {
     meta: {
       title: 'Read details of billing accounts - only allowed to m2m calls',
@@ -380,6 +450,9 @@ export const PERMISSION = {
   /*
    * Project Member
    */
+  /**
+   * @description Permission policy: READ_PROJECT_MEMBER.
+   */
   READ_PROJECT_MEMBER: {
     meta: {
       title: 'Read Project Member',
@@ -390,6 +463,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_READ,
   },
 
+  /**
+   * @description Permission policy: READ_PROJECT_MEMBER_DETAILS.
+   */
   READ_PROJECT_MEMBER_DETAILS: {
     meta: {
       title: 'Read Project Member Details',
@@ -401,6 +477,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_READ,
   },
 
+  /**
+   * @description Permission policy: CREATE_PROJECT_MEMBER_OWN.
+   */
   CREATE_PROJECT_MEMBER_OWN: {
     meta: {
       title: 'Create Project Member (own)',
@@ -414,6 +493,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
   },
 
+  /**
+   * @description Permission policy: CREATE_PROJECT_MEMBER_NOT_OWN.
+   */
   CREATE_PROJECT_MEMBER_NOT_OWN: {
     meta: {
       title: 'Create Project Member (not own)',
@@ -424,6 +506,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_MEMBER_CUSTOMER.
+   */
   UPDATE_PROJECT_MEMBER_CUSTOMER: {
     meta: {
       title: 'Update Project Member (customer)',
@@ -435,6 +520,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_MEMBER_NON_CUSTOMER.
+   */
   UPDATE_PROJECT_MEMBER_NON_CUSTOMER: {
     meta: {
       title: 'Update Project Member (non-customer)',
@@ -446,6 +534,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_MEMBER_CUSTOMER.
+   */
   DELETE_PROJECT_MEMBER_CUSTOMER: {
     meta: {
       title: 'Delete Project Member (customer)',
@@ -457,6 +548,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_MEMBER_TOPCODER.
+   */
   DELETE_PROJECT_MEMBER_TOPCODER: {
     meta: {
       title: 'Delete Project Member (topcoder)',
@@ -469,6 +563,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_MEMBERS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_MEMBER_COPILOT.
+   */
   DELETE_PROJECT_MEMBER_COPILOT: {
     meta: {
       title: 'Delete Project Member (copilot)',
@@ -487,6 +584,9 @@ export const PERMISSION = {
   /*
    * Project Invite
    */
+  /**
+   * @description Permission policy: READ_PROJECT_INVITE_OWN.
+   */
   READ_PROJECT_INVITE_OWN: {
     meta: {
       title: 'Read Project Invite (own)',
@@ -497,6 +597,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_READ,
   },
 
+  /**
+   * @description Permission policy: READ_PROJECT_INVITE_NOT_OWN.
+   */
   READ_PROJECT_INVITE_NOT_OWN: {
     meta: {
       title: 'Read Project Invite (not own)',
@@ -508,6 +611,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_READ,
   },
 
+  /**
+   * @description Permission policy: CREATE_PROJECT_INVITE_CUSTOMER.
+   */
   CREATE_PROJECT_INVITE_CUSTOMER: {
     meta: {
       title: 'Create Project Invite (customer)',
@@ -519,6 +625,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: CREATE_PROJECT_INVITE_TOPCODER.
+   */
   CREATE_PROJECT_INVITE_TOPCODER: {
     meta: {
       title: 'Create Project Invite (topcoder)',
@@ -531,6 +640,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: CREATE_PROJECT_INVITE_COPILOT.
+   */
   CREATE_PROJECT_INVITE_COPILOT: {
     meta: {
       title: 'Create Project Invite (copilot)',
@@ -542,6 +654,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_INVITE_OWN.
+   */
   UPDATE_PROJECT_INVITE_OWN: {
     meta: {
       title: 'Update Project Invite (own)',
@@ -552,6 +667,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_INVITE_NOT_OWN.
+   */
   UPDATE_PROJECT_INVITE_NOT_OWN: {
     meta: {
       title: 'Update Project Invite (not own)',
@@ -562,6 +680,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_INVITE_REQUESTED.
+   */
   UPDATE_PROJECT_INVITE_REQUESTED: {
     meta: {
       title: 'Update Project Invite (requested)',
@@ -572,6 +693,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_INVITE_OWN.
+   */
   DELETE_PROJECT_INVITE_OWN: {
     meta: {
       title: 'Delete Project Member (own)',
@@ -582,6 +706,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER.
+   */
   DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER: {
     meta: {
       title: 'Delete Project Invite (not own, customer)',
@@ -594,6 +721,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER.
+   */
   DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER: {
     meta: {
       title: 'Delete Project Invite (not own, topcoder)',
@@ -606,6 +736,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_INVITE_NOT_OWN_COPILOT.
+   */
   DELETE_PROJECT_INVITE_NOT_OWN_COPILOT: {
     meta: {
       title: 'Delete Project Invite (not own, copilot)',
@@ -618,6 +751,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECT_INVITES_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_INVITE_REQUESTED.
+   */
   DELETE_PROJECT_INVITE_REQUESTED: {
     meta: {
       title: 'Delete Project Invite (requested)',
@@ -635,6 +771,9 @@ export const PERMISSION = {
   /*
    * Project Attachments
    */
+  /**
+   * @description Permission policy: CREATE_PROJECT_ATTACHMENT.
+   */
   CREATE_PROJECT_ATTACHMENT: {
     meta: {
       title: 'Create Project Attachment',
@@ -649,6 +788,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: VIEW_PROJECT_ATTACHMENT.
+   */
   VIEW_PROJECT_ATTACHMENT: {
     meta: {
       title: 'View Project Attachment',
@@ -659,6 +801,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_READ,
   },
 
+  /**
+   * @description Permission policy: READ_PROJECT_ATTACHMENT_OWN_OR_ALLOWED.
+   */
   READ_PROJECT_ATTACHMENT_OWN_OR_ALLOWED: {
     meta: {
       title: 'Read Project Attachment (own or allowed)',
@@ -671,6 +816,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_READ,
   },
 
+  /**
+   * @description Permission policy: READ_PROJECT_ATTACHMENT_NOT_OWN_AND_NOT_ALLOWED.
+   */
   READ_PROJECT_ATTACHMENT_NOT_OWN_AND_NOT_ALLOWED: {
     meta: {
       title: 'Read Project Attachment (not own and not allowed)',
@@ -682,6 +830,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_READ,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_ATTACHMENT_OWN.
+   */
   UPDATE_PROJECT_ATTACHMENT_OWN: {
     meta: {
       title: 'Update Project Attachment (own)',
@@ -697,6 +848,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_ATTACHMENT_NOT_OWN.
+   */
   UPDATE_PROJECT_ATTACHMENT_NOT_OWN: {
     meta: {
       title: 'Update Project Attachment (not own)',
@@ -707,6 +861,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: EDIT_PROJECT_ATTACHMENT.
+   */
   EDIT_PROJECT_ATTACHMENT: {
     meta: {
       title: 'Edit Project Attachment',
@@ -722,6 +879,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_ATTACHMENT_OWN.
+   */
   DELETE_PROJECT_ATTACHMENT_OWN: {
     meta: {
       title: 'Delete Project Attachment (own)',
@@ -737,6 +897,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_ATTACHMENT_NOT_OWN.
+   */
   DELETE_PROJECT_ATTACHMENT_NOT_OWN: {
     meta: {
       title: 'Delete Project Attachment (not own)',
@@ -747,6 +910,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_ATTACHMENT.
+   */
   DELETE_PROJECT_ATTACHMENT: {
     meta: {
       title: 'Delete Project Attachment',
@@ -762,6 +928,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: ADD_PROJECT_PHASE.
+   */
   ADD_PROJECT_PHASE: {
     meta: {
       title: 'Add Project Phase',
@@ -772,6 +941,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PROJECT_PHASE.
+   */
   UPDATE_PROJECT_PHASE: {
     meta: {
       title: 'Update Project Phase',
@@ -782,6 +954,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PROJECT_PHASE.
+   */
   DELETE_PROJECT_PHASE: {
     meta: {
       title: 'Delete Project Phase',
@@ -792,6 +967,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: ADD_PHASE_PRODUCT.
+   */
   ADD_PHASE_PRODUCT: {
     meta: {
       title: 'Add Phase Product',
@@ -802,6 +980,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: UPDATE_PHASE_PRODUCT.
+   */
   UPDATE_PHASE_PRODUCT: {
     meta: {
       title: 'Update Phase Product',
@@ -812,6 +993,9 @@ export const PERMISSION = {
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
+  /**
+   * @description Permission policy: DELETE_PHASE_PRODUCT.
+   */
   DELETE_PHASE_PRODUCT: {
     meta: {
       title: 'Delete Phase Product',
@@ -824,6 +1008,9 @@ export const PERMISSION = {
 
   /*
    * Project Phase Approval
+   */
+  /**
+   * @description Permission policy: CREATE_PROJECT_PHASE_APPROVE.
    */
   CREATE_PROJECT_PHASE_APPROVE: {
     meta: {
@@ -839,6 +1026,13 @@ export const PERMISSION = {
    *
    * Permissions defined by logic: **WHO** can do actions with such a permission.
    */
+  /**
+   * @description Permission policy: ROLES_COPILOT_AND_ABOVE.
+   * @deprecated Deprecated role-bucket policy. Migrate
+   * `CopilotAndAboveGuard` callers to explicit named permissions via
+   * `@RequirePermission()`.
+   * @todo Remove this rule after all callers migrate to explicit permissions.
+   */
   ROLES_COPILOT_AND_ABOVE: {
     meta: {
       group: 'Deprecated',
@@ -847,6 +1041,9 @@ export const PERMISSION = {
     projectRoles: [...PROJECT_ROLES_MANAGEMENT, PROJECT_MEMBER_ROLE.COPILOT],
   },
 
+  /**
+   * @description Permission policy: CREATE_CUSTOMER_PAYMENT.
+   */
   CREATE_CUSTOMER_PAYMENT: {
     meta: {
       title: 'Create Customer Payment',
@@ -857,6 +1054,9 @@ export const PERMISSION = {
     scopes: SCOPES_CUSTOMER_PAYMENT_WRITE,
   },
 
+  /**
+   * @description Permission policy: VIEW_CUSTOMER_PAYMENT.
+   */
   VIEW_CUSTOMER_PAYMENT: {
     meta: {
       title: 'View Customer Payments',
@@ -867,6 +1067,9 @@ export const PERMISSION = {
     scopes: SCOPES_CUSTOMER_PAYMENT_READ,
   },
 
+  /**
+   * @description Permission policy: UPDATE_CUSTOMER_PAYMENT.
+   */
   UPDATE_CUSTOMER_PAYMENT: {
     meta: {
       title: 'Update Customer Payment',
@@ -879,8 +1082,10 @@ export const PERMISSION = {
 };
 
 /**
- * Matrix which define Project Roles and corresponding Topcoder Roles of users
- * who may join with such Project Roles.
+ * Matrix mapping project roles to Topcoder roles that are allowed to hold each
+ * project role.
+ *
+ * Used for membership role validation.
  */
 export const PROJECT_TO_TOPCODER_ROLES_MATRIX = {
   [PROJECT_MEMBER_ROLE.CUSTOMER]: _.values(USER_ROLE),
@@ -902,13 +1107,9 @@ export const PROJECT_TO_TOPCODER_ROLES_MATRIX = {
 };
 
 /**
- * This list determines default Project Role by Topcoder Role.
+ * Ordered list for deriving a user's default project role from Topcoder roles.
  *
- * - The order of items in this list is IMPORTANT.
- * - To determine default Project Role we have to go from TOP to END
- *   and find the first record which has the Topcoder Role of the user.
- * - Always define default Project Role which is allowed for such Topcoder Role
- *   as per `PROJECT_TO_TOPCODER_ROLES_MATRIX`
+ * The order is significant: first match wins.
  */
 export const DEFAULT_PROJECT_ROLE = [
   {

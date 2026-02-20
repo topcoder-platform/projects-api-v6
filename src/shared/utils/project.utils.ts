@@ -1,8 +1,17 @@
+/**
+ * Project query-building and response-filtering helpers.
+ *
+ * Used by project services to construct Prisma `where`/`include` clauses and to
+ * filter nested resources based on caller permissions.
+ */
 import { Prisma, ProjectStatus } from '@prisma/client';
 import { ProjectListQueryDto } from 'src/api/project/dto/project-list-query.dto';
 import { PROJECT_MEMBER_MANAGER_ROLES } from 'src/shared/enums/projectMemberRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 
+/**
+ * Flags representing requested project response sub-resources.
+ */
 export interface ParsedProjectFields {
   projects: boolean;
   project_members: boolean;
@@ -11,6 +20,9 @@ export interface ParsedProjectFields {
   raw: string[];
 }
 
+/**
+ * Default field selection used when no `fields` query param is provided.
+ */
 const DEFAULT_FIELDS: ParsedProjectFields = {
   projects: true,
   project_members: true,
@@ -19,10 +31,22 @@ const DEFAULT_FIELDS: ParsedProjectFields = {
   raw: [],
 };
 
+/**
+ * Normalizes string comparisons.
+ *
+ * @todo Duplicate helper exists in other shared modules. Consolidate in a
+ * shared string utility.
+ */
 function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 
+/**
+ * Normalizes user ids to trimmed string form.
+ *
+ * @todo Duplicate helper exists in other shared modules. Consolidate in a
+ * shared string utility.
+ */
 function normalizeUserId(
   value: string | number | bigint | null | undefined,
 ): string {
@@ -33,6 +57,9 @@ function normalizeUserId(
   return String(value).trim();
 }
 
+/**
+ * Parses comma-separated values into a trimmed non-empty string list.
+ */
 function parseCsv(value: string): string[] {
   return value
     .split(',')
@@ -40,6 +67,11 @@ function parseCsv(value: string): string[] {
     .filter((item) => item.length > 0);
 }
 
+/**
+ * Normalizes query filter values from scalar/array/object representations.
+ *
+ * Supports plain strings, arrays, and object forms with `$in` or `in`.
+ */
 function parseFilterValue(value: unknown): string[] {
   if (typeof value === 'string') {
     return parseCsv(value);
@@ -78,6 +110,11 @@ function parseFilterValue(value: unknown): string[] {
   return [];
 }
 
+/**
+ * Safely converts a string to bigint.
+ *
+ * Returns `null` for invalid bigint input.
+ */
 function toBigInt(value: string): bigint | null {
   try {
     return BigInt(value);
@@ -86,6 +123,9 @@ function toBigInt(value: string): bigint | null {
   }
 }
 
+/**
+ * Appends a new condition into a Prisma `AND` clause.
+ */
 function appendAndCondition(
   where: Prisma.ProjectWhereInput,
   condition: Prisma.ProjectWhereInput,
@@ -103,12 +143,18 @@ function appendAndCondition(
   where.AND = [where.AND, condition];
 }
 
+/**
+ * Converts list of string ids into valid bigint values.
+ */
 function toBigIntList(values: string[]): bigint[] {
   return values
     .map((value) => toBigInt(value))
     .filter((value): value is bigint => value !== null);
 }
 
+/**
+ * Parses and validates project status values against Prisma enum values.
+ */
 function parseProjectStatus(values: string[]): ProjectStatus[] {
   const allowed = new Set(Object.values(ProjectStatus));
 
@@ -119,6 +165,11 @@ function parseProjectStatus(values: string[]): ProjectStatus[] {
     );
 }
 
+/**
+ * Parses the `fields` query parameter into include flags.
+ *
+ * `projects` is always true. `all` enables all optional sub-resources.
+ */
 export function parseFieldsParameter(fields?: string): ParsedProjectFields {
   if (!fields || fields.trim().length === 0) {
     return {
@@ -146,6 +197,19 @@ export function parseFieldsParameter(fields?: string): ParsedProjectFields {
   };
 }
 
+/**
+ * Builds Prisma `where` clause for project list filtering.
+ *
+ * Filters supported:
+ * - `id`, `status`, `billingAccountId`, `type`: exact or multi-value `in`.
+ * - `name`: case-insensitive contains match.
+ * - `directProjectId`: exact bigint match.
+ * - `keyword`: full-text search (`search`) plus case-insensitive contains on
+ * name and description.
+ * - `code`: case-insensitive contains on name.
+ * - `customer` / `manager`: member-subquery constraints.
+ * - non-admin or `memberOnly=true`: restrict to membership/invite ownership.
+ */
 export function buildProjectWhereClause(
   criteria: ProjectListQueryDto,
   user: JwtUser,
@@ -329,6 +393,11 @@ export function buildProjectWhereClause(
   return where;
 }
 
+/**
+ * Builds Prisma `include` clause from parsed field flags.
+ *
+ * Included sub-resources are soft-delete aware and ordered by `id asc`.
+ */
 export function buildProjectIncludeClause(
   fields: ParsedProjectFields,
 ): Prisma.ProjectInclude {
@@ -374,6 +443,14 @@ type InviteLike = {
   userId?: string | number | bigint | null;
 };
 
+/**
+ * Filters project invites according to permission flags.
+ *
+ * Returns:
+ * - all invites when `hasReadAll` is true,
+ * - only own invites when `hasReadOwn` is true,
+ * - empty list otherwise.
+ */
 export function filterInvitesByPermission<T extends InviteLike>(
   invites: T[] | undefined,
   user: JwtUser,
@@ -413,6 +490,18 @@ type ProjectMemberLike = {
   role?: string | null;
 };
 
+/**
+ * Filters attachments by caller visibility rules.
+ *
+ * Visibility:
+ * - admins and management-role members can view all attachments,
+ * - others can view own attachments,
+ * - others can view attachments with empty `allowedUsers`,
+ * - others can view attachments where their numeric user id is in
+ * `allowedUsers`.
+ *
+ * @security Empty `allowedUsers` means "public within the project".
+ */
 export function filterAttachmentsByPermission<T extends AttachmentLike>(
   attachments: T[] | undefined,
   user: JwtUser,

@@ -1,3 +1,8 @@
+/**
+ * Fine-grained authorization guard driven by `@RequirePermission()` metadata.
+ *
+ * This guard evaluates named or inline permissions using `PermissionService`.
+ */
 import {
   CanActivate,
   ExecutionContext,
@@ -18,14 +23,34 @@ import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { PrismaService } from '../modules/global/prisma.service';
 import { PermissionService } from '../services/permission.service';
 
+/**
+ * Policy guard that evaluates route-level permission requirements.
+ */
 @Injectable()
 export class PermissionGuard implements CanActivate {
+  /**
+   * @param reflector Metadata reader for `@RequirePermission()`.
+   * @param permissionService Permission evaluator.
+   * @param prisma Prisma client used for lazy project context loading.
+   */
   constructor(
     private readonly reflector: Reflector,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Resolves and evaluates route permissions.
+   *
+   * Behavior:
+   * - Returns `true` when no `@RequirePermission()` metadata is declared.
+   * - Throws `UnauthorizedException` if `request.user` is missing.
+   * - Lazily loads project context via `resolveProjectContextIfRequired`.
+   * - Evaluates each permission and allows if any match.
+   * - Throws `ForbiddenException('Insufficient permissions')` otherwise.
+   *
+   * @security Routes without `@RequirePermission()` bypass this guard's checks.
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const permissions = this.reflector.getAllAndOverride<RequiredPermission[]>(
       PERMISSION_KEY,
@@ -70,6 +95,22 @@ export class PermissionGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * Loads project members/invites only when the requested permissions require
+   * project-scoped context.
+   *
+   * Behavior:
+   * - Skips DB access if no project id or no project-scoped permission exists.
+   * - Resets cached context when project id changes.
+   * - Loads `projectMember` rows when required and cache is empty.
+   * - Loads `projectMemberInvite` rows when required and invites are not loaded.
+   *
+   * @todo `projectMembers.length === 0` causes re-fetch for projects that
+   * genuinely have zero members. Add a sentinel flag such as
+   * `projectMembersLoaded: boolean`.
+   * @todo Member/invite query and mapping logic is duplicated in multiple guards
+   * and `ProjectContextInterceptor`; extract a shared `ProjectContextService`.
+   */
   private async resolveProjectContextIfRequired(
     request: AuthenticatedRequest,
     permissions: RequiredPermission[],
@@ -169,6 +210,11 @@ export class PermissionGuard implements CanActivate {
     };
   }
 
+  /**
+   * Checks if a permission depends on project members.
+   *
+   * Delegates named and inline permissions to `PermissionService`.
+   */
   private requireProjectMembers(permission: RequiredPermission): boolean {
     if (typeof permission === 'string') {
       return this.permissionService.isNamedPermissionRequireProjectMembers(
@@ -179,6 +225,12 @@ export class PermissionGuard implements CanActivate {
     return this.permissionService.isPermissionRequireProjectMembers(permission);
   }
 
+  /**
+   * Checks if a permission depends on project invites.
+   *
+   * Only named permission keys are supported; inline `Permission` objects return
+   * `false`.
+   */
   private requireProjectInvites(permission: RequiredPermission): boolean {
     if (typeof permission !== 'string') {
       return false;

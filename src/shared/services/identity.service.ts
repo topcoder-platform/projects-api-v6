@@ -10,9 +10,16 @@ export interface IdentityUser {
   email: string;
 }
 
+/**
+ * Identity lookup service for resolving users by email.
+ *
+ * Used by project invite flows to map invite email addresses into
+ * `IdentityUser` records (`id`, `handle`, `email`) from the Identity API.
+ */
 @Injectable()
 export class IdentityService {
   private readonly logger = LoggerService.forRoot('IdentityService');
+  // TODO: DRY violation - consider a shared config constant or ConfigService.
   private readonly identityApiUrl = process.env.IDENTITY_API_URL || '';
 
   constructor(
@@ -20,6 +27,18 @@ export class IdentityService {
     private readonly m2mService: M2MService,
   ) {}
 
+  /**
+   * Looks up identity users for multiple emails.
+   *
+   * Executes one request per email in parallel via `Promise.all`, swallows
+   * per-email request failures with `.catch(() => null)`, and de-duplicates
+   * successful responses by `id::email`.
+   *
+   * Returns an empty array when `IDENTITY_API_URL` is not configured.
+   *
+   * @param emails email addresses to resolve
+   * @returns matched identity users
+   */
   async lookupMultipleUserEmails(
     emails: string[] = [],
   ): Promise<IdentityUser[]> {
@@ -44,6 +63,7 @@ export class IdentityService {
 
       const responses = await Promise.all(
         normalizedEmails.map((email) =>
+          // TODO: URL-encode the email value in the filter param to prevent query string injection.
           firstValueFrom(
             this.httpService.get(
               `${this.identityApiUrl.replace(/\/$/, '')}/users`,
@@ -62,6 +82,7 @@ export class IdentityService {
           ).catch(() => null),
         ),
       );
+      // TODO: consider batching or throttling parallel email lookups.
 
       const users = responses.flatMap((response) => {
         if (!response || !Array.isArray(response.data)) {
@@ -76,6 +97,7 @@ export class IdentityService {
         const key = `${String(user.id || '').trim()}::${String(user.email || '')
           .trim()
           .toLowerCase()}`;
+        // TODO: strengthen deduplication guard - skip entries where id is empty.
         if (!key.trim()) {
           continue;
         }

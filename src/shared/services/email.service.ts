@@ -22,12 +22,34 @@ const EXTERNAL_ACTION_EMAIL_TOPIC = 'external.action.email';
 const DEFAULT_INVITE_EMAIL_SUBJECT = 'You are invited to Topcoder';
 const DEFAULT_INVITE_EMAIL_SECTION_TITLE = 'Project Invitation';
 
+/**
+ * Project-invite email publisher.
+ *
+ * Publishes invite email events to the Topcoder event bus, which forwards
+ * them to `tc-email-service` for SendGrid delivery.
+ *
+ * Used by the project-invite service after an invite is created.
+ */
 @Injectable()
 export class EmailService {
   private readonly logger = LoggerService.forRoot('EmailService');
 
   constructor(private readonly eventBusService: EventBusService) {}
 
+  /**
+   * Publishes a project invite email event.
+   *
+   * No-ops when `invite.email` is empty or when
+   * `SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED` is unset.
+   *
+   * Publishes payload to `external.action.email`.
+   *
+   * @param projectId project id for context and payload
+   * @param invite invite payload containing recipient info
+   * @param initiator invite initiator details
+   * @param projectName optional project display name
+   * @returns resolved promise when publish succeeds or is skipped
+   */
   async sendInviteEmail(
     projectId: string,
     invite: InviteEmailPayload,
@@ -35,11 +57,14 @@ export class EmailService {
     projectName?: string,
   ): Promise<void> {
     const recipient = invite.email?.trim().toLowerCase();
+    // TODO: add basic email format validation before publishing the event.
 
     if (!recipient) {
       return;
     }
 
+    // TODO: validate this env var at startup and throw if missing, rather than silently skipping.
+    // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
     const templateId = process.env.SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED;
     if (!templateId) {
       this.logger.warn(
@@ -51,9 +76,12 @@ export class EmailService {
     const normalizedProjectName = projectName?.trim() || `Project ${projectId}`;
     const payload = {
       data: {
+        // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
         workManagerUrl: process.env.WORK_MANAGER_URL || '',
+        // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
         accountsAppURL: process.env.ACCOUNTS_APP_URL || '',
         subject:
+          // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
           process.env.INVITE_EMAIL_SUBJECT || DEFAULT_INVITE_EMAIL_SUBJECT,
         projects: [
           {
@@ -63,11 +91,13 @@ export class EmailService {
               {
                 EMAIL_INVITES: true,
                 title:
+                  // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
                   process.env.INVITE_EMAIL_SECTION_TITLE ||
                   DEFAULT_INVITE_EMAIL_SECTION_TITLE,
                 projectName: normalizedProjectName,
                 projectId,
                 initiator: this.normalizeInitiator(initiator),
+                // TODO: determine if SSO status should be dynamic based on the invitee's identity provider.
                 isSSO: false,
               },
             ],
@@ -92,6 +122,12 @@ export class EmailService {
     }
   }
 
+  /**
+   * Normalizes initiator details and applies display-name defaults.
+   *
+   * @param initiator initiator details from API/service context
+   * @returns normalized initiator with `'Connect'/'User'` defaults
+   */
   private normalizeInitiator(
     initiator: InviteEmailInitiator,
   ): InviteEmailInitiator {

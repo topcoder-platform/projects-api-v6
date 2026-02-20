@@ -1,3 +1,9 @@
+/**
+ * Convenience guard for "copilot and above" authorization.
+ *
+ * This guard currently uses the deprecated
+ * `PERMISSION.ROLES_COPILOT_AND_ABOVE` policy.
+ */
 import {
   applyDecorators,
   CanActivate,
@@ -13,13 +19,33 @@ import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { PrismaService } from '../modules/global/prisma.service';
 import { PermissionService } from '../services/permission.service';
 
+/**
+ * Guard enforcing the legacy copilot-and-above permission tier.
+ */
 @Injectable()
 export class CopilotAndAboveGuard implements CanActivate {
+  /**
+   * @param permissionService Permission evaluator.
+   * @param prisma Prisma client used for member resolution.
+   */
   constructor(
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Enforces `PERMISSION.ROLES_COPILOT_AND_ABOVE` for the request user.
+   *
+   * Behavior:
+   * - Throws `UnauthorizedException` when `request.user` is missing.
+   * - Loads project members via `resolveProjectMembers`.
+   * - Calls `permissionService.hasPermission(...)`.
+   * - Throws `ForbiddenException` when permission check fails.
+   *
+   * @deprecated `PERMISSION.ROLES_COPILOT_AND_ABOVE` is deprecated in
+   * `permissions.constants.ts`. Migrate callers to explicit
+   * `@RequirePermission()` usage with a clear permission key.
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
@@ -45,6 +71,13 @@ export class CopilotAndAboveGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * Resolves project members from request cache or database.
+   *
+   * @todo The Prisma query + role mapping pattern is duplicated across this
+   * guard, `ProjectMemberGuard`, `PermissionGuard`, and
+   * `ProjectContextInterceptor`. Extract a shared resolver service.
+   */
   private async resolveProjectMembers(
     request: AuthenticatedRequest,
   ): Promise<ProjectMember[] | undefined> {
@@ -92,5 +125,8 @@ export class CopilotAndAboveGuard implements CanActivate {
   }
 }
 
+/**
+ * Composite decorator that applies `CopilotAndAboveGuard`.
+ */
 export const CopilotAndAbove = () =>
   applyDecorators(UseGuards(CopilotAndAboveGuard));

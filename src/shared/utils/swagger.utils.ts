@@ -1,3 +1,10 @@
+/**
+ * Swagger/OpenAPI auth documentation enrichers.
+ *
+ * `enrichSwaggerAuthDocumentation` is applied in `main.ts` to translate custom
+ * auth extension metadata into human-readable authorization summaries while
+ * ensuring `401` and `403` responses are declared.
+ */
 import { OpenAPIObject } from '@nestjs/swagger';
 import {
   SWAGGER_REQUIRED_PERMISSIONS_KEY,
@@ -28,6 +35,9 @@ const HTTP_METHODS = [
   'trace',
 ] as const;
 
+/**
+ * Safely coerces unknown values to a trimmed `string[]`.
+ */
 function parseStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -38,6 +48,11 @@ function parseStringArray(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+/**
+ * Parses required-permission extension values to display-friendly strings.
+ *
+ * Inline permission objects are JSON-stringified.
+ */
 function parsePermissionArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -48,6 +63,9 @@ function parsePermissionArray(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+/**
+ * Stringifies a permission key or inline permission object.
+ */
 function stringifyPermission(permission: RequiredPermission): string {
   if (typeof permission === 'string') {
     return permission;
@@ -56,6 +74,12 @@ function stringifyPermission(permission: RequiredPermission): string {
   return JSON.stringify(permission);
 }
 
+/**
+ * Appends an `Authorization:` section to an operation description.
+ *
+ * Idempotent: if an authorization section already exists, description is left
+ * unchanged.
+ */
 function addAuthSection(
   description: string | undefined,
   authorizationLines: string[],
@@ -80,6 +104,9 @@ function addAuthSection(
   return `${description}\n\n${authSection}`;
 }
 
+/**
+ * Ensures standard auth error response stubs exist on an operation.
+ */
 function ensureErrorResponses(operation: SwaggerOperation): void {
   operation.responses = operation.responses || {};
 
@@ -92,6 +119,9 @@ function ensureErrorResponses(operation: SwaggerOperation): void {
   }
 }
 
+/**
+ * Builds human-readable authorization lines from custom Swagger extensions.
+ */
 function getAuthorizationLines(operation: SwaggerOperation): string[] {
   const roles = parseStringArray(operation[SWAGGER_REQUIRED_ROLES_KEY]);
   const scopes = parseStringArray(operation[SWAGGER_REQUIRED_SCOPES_KEY]);
@@ -140,6 +170,15 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
   return authorizationLines;
 }
 
+/**
+ * Enriches OpenAPI operation descriptions with authorization summaries.
+ *
+ * Iterates each path/method, inspects custom auth metadata extensions, appends
+ * authorization details to operation descriptions, and ensures `401`/`403`
+ * response declarations.
+ *
+ * @returns The same mutated OpenAPI document instance.
+ */
 export function enrichSwaggerAuthDocumentation(
   document: OpenAPIObject,
 ): OpenAPIObject {

@@ -7,7 +7,27 @@ import { LoggerService } from './logger.service';
 
 import * as busApi from 'tc-bus-api-wrapper';
 
+/**
+ * Event bus integration for publishing project events.
+ *
+ * Wraps the tc bus API client and degrades gracefully when required runtime
+ * configuration is unavailable.
+ */
+/**
+ * Event bus client contract used by this service.
+ */
 type EventBusClient = {
+  /**
+   * Publishes an event envelope to the bus.
+   *
+   * @param event Event envelope.
+   * @param event.topic Kafka topic name.
+   * @param event.originator Service identifier that emits the event.
+   * @param event.timestamp ISO-8601 event timestamp.
+   * @param event['mime-type'] MIME type of the payload body.
+   * @param event.payload Serializable event payload.
+   * @returns {Promise<unknown>} Result returned by the bus client.
+   */
   postEvent: (event: {
     topic: string;
     originator: string;
@@ -18,15 +38,31 @@ type EventBusClient = {
 };
 
 @Injectable()
+/**
+ * Service responsible for publishing events to Kafka through tc-bus-api-wrapper.
+ */
 export class EventBusService {
   private readonly logger = LoggerService.forRoot('EventBusService');
   private readonly client: EventBusClient | null;
 
+  /**
+   * Creates the event-bus client if the runtime supports it.
+   */
   constructor() {
     this.client = this.createClient();
   }
 
+  /**
+   * Publishes a project event to the configured event bus topic.
+   *
+   * @param {string} topic Kafka topic string.
+   * @param {unknown} payload Serializable event payload.
+   * @returns {Promise<void>}
+   * @throws {ServiceUnavailableException} When event bus client is not configured.
+   * @throws {InternalServerErrorException} When event publishing fails.
+   */
   async publishProjectEvent(topic: string, payload: unknown): Promise<void> {
+    // TODO (security): The 'topic' parameter is not validated. A caller passing an untrusted or user-supplied topic string could publish to unintended Kafka topics. Validate against an allowlist of known topics.
     if (!this.client) {
       throw new ServiceUnavailableException(
         'Event bus client is not configured.',
@@ -52,6 +88,14 @@ export class EventBusService {
     }
   }
 
+  /**
+   * Creates a bus API client from environment configuration.
+   *
+   * Returns null when configuration is insufficient or client initialization
+   * fails, so callers can degrade gracefully.
+   *
+   * @returns {EventBusClient | null} Initialized client or null when unavailable.
+   */
   private createClient(): EventBusClient | null {
     const busApiFactory = busApi as unknown as (
       config: Record<string, unknown>,
@@ -72,6 +116,8 @@ export class EventBusService {
     }
 
     try {
+      // TODO (quality): TOKEN_CACHE_TIME is hardcoded to 900 seconds. Expose as an environment variable (e.g., AUTH0_TOKEN_CACHE_TIME) for operational flexibility.
+      // TODO (security): KAFKA_CLIENT_CERT and KAFKA_CLIENT_CERT_KEY are passed directly from environment variables without validation. Ensure these are properly formatted PEM strings before passing to the client.
       return busApiFactory({
         BUSAPI_URL: process.env.BUSAPI_URL,
         KAFKA_URL: process.env.KAFKA_URL,
