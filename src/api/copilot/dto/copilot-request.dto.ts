@@ -189,6 +189,9 @@ export class CopilotRequestResponseDto {
   @ApiPropertyOptional()
   projectId?: string;
 
+  @ApiPropertyOptional({ type: Object })
+  project?: Record<string, unknown>;
+
   @ApiProperty({ enum: CopilotRequestStatus, enumName: 'CopilotRequestStatus' })
   status: CopilotRequestStatus;
 

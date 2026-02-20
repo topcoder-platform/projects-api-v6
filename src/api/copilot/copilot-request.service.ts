@@ -47,10 +47,7 @@ const REQUEST_SORTS = [
 
 type CopilotRequestWithRelations = CopilotRequest & {
   opportunities: CopilotOpportunity[];
-  project?: {
-    id: bigint;
-    name: string;
-  } | null;
+  project?: ({ name?: string } & Record<string, unknown>) | null;
 };
 
 interface PaginatedRequestResponse {
@@ -73,6 +70,7 @@ export class CopilotRequestService {
     user: JwtUser,
   ): Promise<PaginatedRequestResponse> {
     this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    const includeProjectInResponse = isAdminOrManager(user);
 
     const parsedProjectId = projectId
       ? parseNumericId(projectId, 'Project')
@@ -84,8 +82,7 @@ export class CopilotRequestService {
       'createdAt desc',
     );
 
-    const includeProject =
-      isAdminOrManager(user) || sortField.toLowerCase() === 'projectname';
+    const includeProjectForSort = sortField.toLowerCase() === 'projectname';
 
     const requests = await this.prisma.copilotRequest.findMany({
       where: {
@@ -101,14 +98,16 @@ export class CopilotRequestService {
             id: 'asc',
           },
         },
-        project: includeProject
-          ? {
-              select: {
-                id: true,
-                name: true,
-              },
-            }
-          : false,
+        project: includeProjectInResponse
+          ? true
+          : includeProjectForSort
+            ? {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              }
+            : false,
       },
     });
 
@@ -123,7 +122,9 @@ export class CopilotRequestService {
     return {
       data: sorted
         .slice(start, end)
-        .map((request) => this.formatRequest(request, isAdminOrManager(user))),
+        .map((request) =>
+          this.formatRequest(request, includeProjectInResponse),
+        ),
       page,
       perPage,
       total,
@@ -503,7 +504,7 @@ export class CopilotRequestService {
 
   private formatRequest(
     input: CopilotRequestWithRelations,
-    includeProjectId: boolean,
+    includeProjectInResponse: boolean,
   ): CopilotRequestResponseDto {
     const normalized = normalizeEntity(input) as Record<string, any>;
 
@@ -528,8 +529,12 @@ export class CopilotRequestService {
       copilotOpportunity: opportunities,
     };
 
-    if (includeProjectId && normalized.projectId) {
+    if (includeProjectInResponse && normalized.projectId) {
       response.projectId = String(normalized.projectId);
+    }
+
+    if (includeProjectInResponse && normalized.project) {
+      response.project = normalized.project as Record<string, unknown>;
     }
 
     return response;
@@ -548,7 +553,10 @@ export class CopilotRequestService {
 
       if (field === 'projectName') {
         return (
-          this.compareValues(left.project?.name, right.project?.name) * factor
+          this.compareValues(
+            left.project?.name as unknown,
+            right.project?.name as unknown,
+          ) * factor
         );
       }
 
