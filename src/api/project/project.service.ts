@@ -65,6 +65,15 @@ type ProjectWithRawRelations = Project & {
 };
 
 @Injectable()
+/**
+ * Core business-logic service for projects.
+ *
+ * Coordinates persistence via `PrismaService`, permission checks via
+ * `PermissionService`, billing-account lookups via `BillingAccountService`,
+ * and lifecycle event publication through `publishProjectEvent`.
+ * It also enriches members/invites with Topcoder handles by querying
+ * `members.member`.
+ */
 export class ProjectService {
   private readonly logger = LoggerService.forRoot('ProjectService');
 
@@ -74,6 +83,20 @@ export class ProjectService {
     private readonly billingAccountService: BillingAccountService,
   ) {}
 
+  /**
+   * Returns a paginated project list for the caller.
+   *
+   * Builds query clauses from shared utilities, scopes non-admin callers to
+   * their memberships, enriches member/invite handles, and hydrates billing
+   * account names.
+   *
+   * @param criteria List filters, paging, sort, and field selection.
+   * @param user Authenticated caller context.
+   * @returns Paginated project response payload.
+   * @throws Database/transport errors are not handled here and propagate.
+   * @security Pagination hard limit is enforced via DTO validation (`perPage`
+   * max 200); there is no additional database-level cap in this method.
+   */
   async listProjects(
     criteria: ProjectListQueryDto,
     user: JwtUser,
@@ -140,6 +163,20 @@ export class ProjectService {
     };
   }
 
+  /**
+   * Returns one project with optional relation fields.
+   *
+   * Members and invites are always loaded for permission evaluation regardless
+   * of requested `fields`, then relation visibility is filtered by caller
+   * permissions before response serialization.
+   *
+   * @param projectId Project id path parameter.
+   * @param fieldsParam Optional CSV list of relation fields.
+   * @param user Authenticated caller context.
+   * @returns Project response DTO.
+   * @throws NotFoundException When the project does not exist.
+   * @throws ForbiddenException When caller lacks `VIEW_PROJECT`.
+   */
   async getProject(
     projectId: string,
     fieldsParam: string | undefined,
@@ -216,6 +253,23 @@ export class ProjectService {
     });
   }
 
+  /**
+   * Creates a project and all requested nested resources in one transaction.
+   *
+   * Writes project, members, attachments, estimations (+items), and optional
+   * template-derived phases/products, then records initial project history and
+   * publishes `project.created`.
+   *
+   * @param dto Project creation payload.
+   * @param user Authenticated caller context.
+   * @returns Created project payload.
+   * @throws BadRequestException For invalid type/template/building-block keys.
+   * @throws ConflictException When post-transaction re-fetch fails.
+   * @security Caller permissions determine the primary member role
+   * (`manager` vs `customer`) assigned on creation.
+   * @todo Sequential `for...of` loops for estimations and template phases in
+   * the transaction can be optimized with `Promise.all` for larger payloads.
+   */
   async createProject(
     dto: CreateProjectDto,
     user: JwtUser,
@@ -476,6 +530,20 @@ export class ProjectService {
     return response;
   }
 
+  /**
+   * Partially updates a project with permission-aware field guards.
+   *
+   * Performs additional checks for `billingAccountId` and `directProjectId`,
+   * appends project history when status changes, and publishes
+   * `project.updated`.
+   *
+   * @param projectId Project id path parameter.
+   * @param dto Patch payload.
+   * @param user Authenticated caller context.
+   * @returns Updated project payload.
+   * @throws NotFoundException When the project does not exist.
+   * @throws ForbiddenException When caller lacks edit-related permissions.
+   */
   async updateProject(
     projectId: string,
     dto: UpdateProjectDto,
@@ -670,6 +738,17 @@ export class ProjectService {
     return response;
   }
 
+  /**
+   * Soft-deletes a project by setting audit deletion columns.
+   *
+   * Publishes `project.deleted` after persistence.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns Promise resolved when deletion is complete.
+   * @throws NotFoundException When the project does not exist.
+   * @throws ForbiddenException When caller lacks delete permissions.
+   */
   async deleteProject(projectId: string, user: JwtUser): Promise<void> {
     const parsedProjectId = this.parseProjectId(projectId);
     const auditUserId = this.getAuditUserId(user);
@@ -721,6 +800,16 @@ export class ProjectService {
     });
   }
 
+  /**
+   * Computes project template policy decisions for the caller.
+   *
+   * Returns an empty map when the project does not have a template.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns Policy-name to boolean decision map.
+   * @throws NotFoundException When the project does not exist.
+   */
   async getProjectPermissions(
     projectId: string,
     user: JwtUser,
@@ -791,6 +880,16 @@ export class ProjectService {
     return policyMap;
   }
 
+  /**
+   * Lists billing accounts available for a project and caller.
+   *
+   * Delegates to `BillingAccountService.getBillingAccountsForProject`.
+   * Logs a warning and returns an empty list when `user.userId` is missing.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns Billing account list.
+   */
   async listProjectBillingAccounts(
     projectId: string,
     user: JwtUser,
@@ -811,6 +910,16 @@ export class ProjectService {
     );
   }
 
+  /**
+   * Returns the default billing account configured on a project.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns Default billing account details.
+   * @throws NotFoundException When project or billing account is missing.
+   * @security Removes `markup` for non-machine callers to avoid exposing
+   * markup details to interactive users.
+   */
   async getProjectBillingAccount(
     projectId: string,
     user: JwtUser,
@@ -855,6 +964,21 @@ export class ProjectService {
     return sanitizedBillingAccount;
   }
 
+  /**
+   * Upgrades project version/template values for administrative callers.
+   *
+   * Only `v3` is currently accepted as `targetVersion`.
+   *
+   * @param projectId Project id path parameter.
+   * @param dto Upgrade payload.
+   * @param user Authenticated caller context.
+   * @returns Success message.
+   * @throws ForbiddenException When caller is not admin-equivalent.
+   * @throws NotFoundException When the project does not exist.
+   * @throws BadRequestException When `targetVersion` is unsupported.
+   * @security Performs redundant admin checks (role + scope) as
+   * defense-in-depth even when controller layer already applies `@AdminOnly()`.
+   */
   async upgradeProject(
     projectId: string,
     dto: UpgradeProjectDto,
@@ -922,6 +1046,16 @@ export class ProjectService {
     };
   }
 
+  /**
+   * Enriches member and invite records with handles.
+   *
+   * Collects user ids across all projects, resolves handles once, and injects
+   * them into members/invites when a local handle is not already present.
+   * No-ops for empty project inputs.
+   *
+   * @param projects Projects to enrich.
+   * @returns Projects with best-effort handle enrichment.
+   */
   private async enrichProjectsWithMemberHandles(
     projects: ProjectWithRawRelations[],
   ): Promise<ProjectWithRawRelations[]> {
@@ -962,6 +1096,12 @@ export class ProjectService {
     }));
   }
 
+  /**
+   * Extracts and deduplicates user ids from project members and invites.
+   *
+   * @param projects Projects to inspect.
+   * @returns Unique user ids as bigint values.
+   */
   private collectProjectUserIds(projects: ProjectWithRawRelations[]): bigint[] {
     const userIds = new Set<string>();
 
@@ -986,6 +1126,14 @@ export class ProjectService {
     return Array.from(userIds).map((userId) => BigInt(userId));
   }
 
+  /**
+   * Loads member handles keyed by user id from the members schema.
+   *
+   * @param userIds User ids to resolve.
+   * @returns Map keyed by normalized user id string.
+   * @security Uses `Prisma.join` parameterization for safe binding and avoids
+   * SQL injection even though it queries across schema boundary `members.member`.
+   */
   private async fetchMemberHandlesByUserId(
     userIds: bigint[],
   ): Promise<Map<string, string>> {
@@ -1025,6 +1173,13 @@ export class ProjectService {
     }
   }
 
+  /**
+   * Looks up a pre-fetched handle by user id.
+   *
+   * @param userId Input user id in mixed primitive forms.
+   * @param handlesByUserId Handle lookup map.
+   * @returns Resolved handle or `null` when unavailable.
+   */
   private getHandleByUserId(
     userId: bigint | number | string | null | undefined,
     handlesByUserId: Map<string, string>,
@@ -1038,6 +1193,12 @@ export class ProjectService {
     return handlesByUserId.get(parsedUserId.toString()) || null;
   }
 
+  /**
+   * Normalizes user id values into bigint when possible.
+   *
+   * @param userId Candidate user id.
+   * @returns Parsed bigint or `undefined` when invalid.
+   */
   private parseUserIdValue(
     userId: bigint | number | string | null | undefined,
   ): bigint | undefined {
@@ -1060,6 +1221,12 @@ export class ProjectService {
     return undefined;
   }
 
+  /**
+   * Normalizes a handle candidate to a trimmed non-empty string.
+   *
+   * @param value Unknown handle candidate.
+   * @returns Normalized handle or `undefined`.
+   */
   private toOptionalHandle(value: unknown): string | undefined {
     if (typeof value !== 'string') {
       return undefined;
@@ -1070,6 +1237,16 @@ export class ProjectService {
     return normalizedHandle || undefined;
   }
 
+  /**
+   * Parses list sort expression against an allowlist.
+   *
+   * Supports `field [asc|desc]` input and defaults to `createdAt asc`.
+   *
+   * @param sort Optional sort expression.
+   * @returns Prisma orderBy clause.
+   * @todo Replace the nested ternary field mapping with a
+   * `Map<string, string>` for readability.
+   */
   private resolveSort(sort?: string): Prisma.ProjectOrderByWithRelationInput {
     const defaultOrderBy: Prisma.ProjectOrderByWithRelationInput = {
       createdAt: 'asc',
@@ -1113,6 +1290,15 @@ export class ProjectService {
     } as Prisma.ProjectOrderByWithRelationInput;
   }
 
+  /**
+   * Resolves list fields for the collection endpoint.
+   *
+   * Defaults `members`, `invites`, and `attachments` to `false` when no fields
+   * are requested to optimize list query payload size.
+   *
+   * @param fieldsParam Optional fields CSV.
+   * @returns Parsed field flags.
+   */
   private resolveListFields(fieldsParam?: string): ParsedProjectFields {
     const parsedFields = parseFieldsParameter(fieldsParam);
 
@@ -1128,6 +1314,14 @@ export class ProjectService {
     };
   }
 
+  /**
+   * Ensures include fields required for permission-aware filtering.
+   *
+   * Forces `project_members` when invites or attachments are requested.
+   *
+   * @param requestedFields Requested field flags.
+   * @returns Include flags safe for relation filtering.
+   */
   private resolveListIncludeFields(
     requestedFields: ParsedProjectFields,
   ): ParsedProjectFields {
@@ -1145,6 +1339,17 @@ export class ProjectService {
     return requestedFields;
   }
 
+  /**
+   * Filters relation arrays according to caller permissions.
+   *
+   * Applies `READ_PROJECT_MEMBER`, invite visibility checks, and attachment
+   * filtering by ownership/admin status.
+   *
+   * @param project Project with optional relations.
+   * @param user Authenticated caller context.
+   * @param isAdmin Whether caller has admin-level project read privileges.
+   * @returns Filtered project relation view.
+   */
   private filterProjectRelations(
     project: ProjectWithRawRelations,
     user: JwtUser,
@@ -1195,6 +1400,13 @@ export class ProjectService {
     return clone;
   }
 
+  /**
+   * Removes relation keys that were not explicitly requested.
+   *
+   * @param project Project with optional relations.
+   * @param fields Parsed field flags.
+   * @returns Project with unrequested relations removed.
+   */
   private filterProjectFields(
     project: ProjectWithRawRelations,
     fields: ParsedProjectFields,
@@ -1218,6 +1430,13 @@ export class ProjectService {
     return clone;
   }
 
+  /**
+   * Validates and parses project id path input.
+   *
+   * @param projectId Raw project id value.
+   * @returns Parsed bigint project id.
+   * @throws BadRequestException When input is not a numeric string.
+   */
   private parseProjectId(projectId: string): bigint {
     const normalizedProjectId = projectId.trim();
 
@@ -1228,6 +1447,13 @@ export class ProjectService {
     return BigInt(normalizedProjectId);
   }
 
+  /**
+   * Returns the authenticated actor user id as trimmed string.
+   *
+   * @param user Authenticated caller context.
+   * @returns Trimmed actor user id.
+   * @throws ForbiddenException When `user.userId` is absent.
+   */
   private getActorUserId(user: JwtUser): string {
     if (!user.userId || String(user.userId).trim().length === 0) {
       throw new ForbiddenException('Authenticated user id is missing.');
@@ -1236,6 +1462,13 @@ export class ProjectService {
     return String(user.userId).trim();
   }
 
+  /**
+   * Parses actor id into numeric audit column representation.
+   *
+   * @param user Authenticated caller context.
+   * @returns Numeric actor id.
+   * @throws ForbiddenException When actor id is missing or non-numeric.
+   */
   private getAuditUserId(user: JwtUser): number {
     const actorId = this.getActorUserId(user);
     const parsedActorId = Number.parseInt(actorId, 10);
@@ -1247,6 +1480,12 @@ export class ProjectService {
     return parsedActorId;
   }
 
+  /**
+   * Safely extracts template phase objects from JSON payload.
+   *
+   * @param templatePhases Raw template phases JSON value.
+   * @returns Typed phase object list.
+   */
   private extractTemplatePhases(
     templatePhases: Prisma.JsonValue,
   ): Array<Record<string, any>> {
@@ -1260,6 +1499,18 @@ export class ProjectService {
     );
   }
 
+  /**
+   * Creates project estimation and estimation-item rows in a transaction.
+   *
+   * Validates `buildingBlockKey` before creating rows.
+   *
+   * @param prismaTx Active Prisma transaction client.
+   * @param estimation Estimation payload to persist.
+   * @param projectId Project id for association.
+   * @param auditUserId Numeric audit actor id.
+   * @returns Promise resolved when estimation rows are persisted.
+   * @throws BadRequestException When `buildingBlockKey` is unknown.
+   */
   private async createEstimation(
     prismaTx: Prisma.TransactionClient,
     estimation: EstimationDto,
@@ -1313,6 +1564,14 @@ export class ProjectService {
     }
   }
 
+  /**
+   * Fire-and-forget event publication wrapper.
+   *
+   * Logs publication failures and intentionally does not rethrow.
+   *
+   * @param topic Kafka topic name.
+   * @param payload Event payload.
+   */
   private publishEvent(topic: string, payload: unknown): void {
     void publishProjectEvent(topic, payload).catch((error) => {
       this.logger.error(
@@ -1322,12 +1581,26 @@ export class ProjectService {
     });
   }
 
+  /**
+   * Converts raw project entity into API DTO shape.
+   *
+   * @param project Raw project entity.
+   * @returns Serialized project DTO.
+   */
   private toDto(project: ProjectWithRawRelations): ProjectWithRelationsDto {
     return this.normalizeProjectEntity(
       project,
     ) as unknown as ProjectWithRelationsDto;
   }
 
+  /**
+   * Converts nullable values into Prisma JSON input type.
+   *
+   * @param value Value to convert.
+   * @returns Prisma nullable JSON input.
+   * @todo Consolidate with `toJsonInput`; both methods are nearly identical
+   * and differ primarily in return type annotations.
+   */
   private toNullableJsonInput(
     value: unknown,
   ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
@@ -1342,6 +1615,14 @@ export class ProjectService {
     return value as Prisma.InputJsonValue;
   }
 
+  /**
+   * Converts values into Prisma JSON input type.
+   *
+   * @param value Value to convert.
+   * @returns Prisma JSON input.
+   * @todo Consolidate with `toNullableJsonInput`; both methods are nearly
+   * identical and can be unified with a generic/union helper.
+   */
   private toJsonInput(
     value: unknown,
   ): Prisma.InputJsonValue | Prisma.JsonNullValueInput | undefined {
@@ -1356,6 +1637,15 @@ export class ProjectService {
     return value as Prisma.InputJsonValue;
   }
 
+  /**
+   * Recursively normalizes project payload values for JSON serialization.
+   *
+   * Converts `bigint` to string and `Prisma.Decimal` to number while
+   * preserving arrays, objects, and `Date` instances.
+   *
+   * @param payload Payload to normalize.
+   * @returns Normalized payload.
+   */
   private normalizeProjectEntity<T>(payload: T): T {
     const walk = (input: unknown): unknown => {
       if (typeof input === 'bigint') {
@@ -1390,6 +1680,12 @@ export class ProjectService {
     return walk(payload) as T;
   }
 
+  /**
+   * Converts optional bigint to optional string.
+   *
+   * @param value Bigint value.
+   * @returns String representation or `undefined`.
+   */
   private toOptionalBigintString(
     value: bigint | null | undefined,
   ): string | undefined {
@@ -1400,6 +1696,12 @@ export class ProjectService {
     return value.toString();
   }
 
+  /**
+   * Batch-loads billing account names for project list responses.
+   *
+   * @param projects Project rows that may contain billing-account ids.
+   * @returns Map of billing account id to billing account name.
+   */
   private async getBillingAccountNamesById(
     projects: Project[],
   ): Promise<Map<string, string>> {

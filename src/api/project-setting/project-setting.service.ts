@@ -20,6 +20,17 @@ import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 
+/**
+ * Manages per-project key/value settings persisted in `ProjectSetting`.
+ *
+ * Each record stores dynamic JSON `readPermission`/`writePermission` objects
+ * that are evaluated via `PermissionService.hasPermission` at runtime.
+ *
+ * Permission schema is intentionally open (`Record<string, unknown>`).
+ *
+ * This service currently does not publish Kafka events for create/update/delete
+ * setting mutations.
+ */
 @Injectable()
 export class ProjectSettingService {
   constructor(
@@ -27,6 +38,16 @@ export class ProjectSettingService {
     private readonly permissionService: PermissionService,
   ) {}
 
+  /**
+   * Lists settings visible to the current user.
+   *
+   * @param projectId Project identifier.
+   * @param user Authenticated caller.
+   * @param projectMembers Project members used for permission evaluation.
+   * @returns Visible project settings.
+   * @throws {BadRequestException} If project id is invalid.
+   * @throws {ForbiddenException} If permission checks fail.
+   */
   async findAll(
     projectId: string,
     user: JwtUser,
@@ -53,6 +74,22 @@ export class ProjectSettingService {
       .map((setting) => this.toDto(setting));
   }
 
+  /**
+   * Creates a new project setting.
+   *
+   * @param projectId Project identifier.
+   * @param dto Create payload.
+   * @param user Authenticated caller.
+   * @param projectMembers Project members used for permission evaluation.
+   * @returns Created project setting response.
+   * @throws {BadRequestException} If project id/payload is invalid.
+   * @throws {ForbiddenException} If caller cannot satisfy write permission.
+   * @throws {NotFoundException} If project is not found.
+   * @throws {ConflictException} If setting key already exists.
+   */
+  // TODO: SECURITY: No Kafka setting-change event is published. If downstream
+  // consumers depend on setting mutation events, add publishSettingEvent calls
+  // or document this omission as intentional.
   async create(
     projectId: string,
     dto: CreateProjectSettingDto,
@@ -140,6 +177,23 @@ export class ProjectSettingService {
     }
   }
 
+  /**
+   * Updates an existing project setting.
+   *
+   * @param projectId Project identifier.
+   * @param settingId Setting identifier.
+   * @param dto Partial update payload.
+   * @param user Authenticated caller.
+   * @param projectMembers Project members used for permission evaluation.
+   * @returns Updated project setting response.
+   * @throws {BadRequestException} If ids/payload are invalid.
+   * @throws {ForbiddenException} If caller cannot satisfy write permission.
+   * @throws {NotFoundException} If setting is not found.
+   * @throws {ConflictException} If updated key conflicts.
+   */
+  // TODO: SECURITY: No Kafka setting-change event is published. If downstream
+  // consumers depend on setting mutation events, add publishSettingEvent calls
+  // or document this omission as intentional.
   async update(
     projectId: string,
     settingId: string,
@@ -228,6 +282,21 @@ export class ProjectSettingService {
     return response;
   }
 
+  /**
+   * Soft-deletes a project setting.
+   *
+   * @param projectId Project identifier.
+   * @param settingId Setting identifier.
+   * @param user Authenticated caller.
+   * @param projectMembers Project members used for permission evaluation.
+   * @returns Resolves when setting is soft-deleted.
+   * @throws {BadRequestException} If ids are invalid.
+   * @throws {ForbiddenException} If caller cannot satisfy write permission.
+   * @throws {NotFoundException} If setting is not found.
+   */
+  // TODO: SECURITY: No Kafka setting-change event is published. If downstream
+  // consumers depend on setting mutation events, add publishSettingEvent calls
+  // or document this omission as intentional.
   async delete(
     projectId: string,
     settingId: string,
@@ -280,9 +349,20 @@ export class ProjectSettingService {
       },
     });
 
+    // TODO: QUALITY: `void deleted` is a no-op expression; remove it.
     void deleted;
   }
 
+  /**
+   * Parses numeric route params into bigint values.
+   *
+   * @param value Raw parameter value.
+   * @param name Parameter name for error text.
+   * @returns Parsed bigint value.
+   * @throws {BadRequestException} If value is not numeric.
+   */
+  // TODO: DRY: `parseBigIntParam` logic is duplicated in other services.
+  // Consolidate shared id parsing helpers.
   private parseBigIntParam(value: string, name: string): bigint {
     const normalized = value.trim();
 
@@ -293,6 +373,15 @@ export class ProjectSettingService {
     return BigInt(normalized);
   }
 
+  /**
+   * Resolves authenticated user id for audit columns.
+   *
+   * @param user Authenticated caller.
+   * @returns Numeric audit user id.
+   * @throws {ForbiddenException} If user id is missing or non-numeric.
+   */
+  // TODO: DRY: `getAuditUserId` logic is duplicated in other services.
+  // Consolidate shared user-id helper logic.
   private getAuditUserId(user: JwtUser): number {
     const normalizedUserId = String(user.userId || '').trim();
     const parsedUserId = Number.parseInt(normalizedUserId, 10);
@@ -304,10 +393,26 @@ export class ProjectSettingService {
     return parsedUserId;
   }
 
+  /**
+   * Maps API value type to Prisma value type.
+   *
+   * @param valueType Requested setting value type.
+   * @returns Prisma value type.
+   * @throws {BadRequestException} If unsupported mapping is added later.
+   */
+  // TODO: QUALITY: `mapValueType` is currently a no-op passthrough. Remove it
+  // or implement explicit validation/mapping logic.
   private mapValueType(valueType: ProjectSettingValueType): ValueType {
     return valueType;
   }
 
+  /**
+   * Normalizes unknown JSON-like permission payload to permission shape.
+   *
+   * @param value Raw permission-like value.
+   * @returns Permission object.
+   * @throws {BadRequestException} If conversion rules are tightened later.
+   */
   private toPermission(value: unknown): Permission {
     if (!value || typeof value !== 'object') {
       return {};
@@ -316,10 +421,26 @@ export class ProjectSettingService {
     return value as Permission;
   }
 
+  /**
+   * Casts values into Prisma JSON input type.
+   *
+   * @param value Raw value to persist as JSON.
+   * @returns Prisma JSON input payload.
+   * @throws {TypeError} If a non-serializable value is passed at runtime.
+   */
+  // TODO: QUALITY: This direct cast to `Prisma.InputJsonValue` is unsafe.
+  // Validate serializability or normalize with `JSON.parse(JSON.stringify())`.
   private toJsonInput(value: unknown): Prisma.InputJsonValue {
     return value as Prisma.InputJsonValue;
   }
 
+  /**
+   * Maps persistence entity to response DTO.
+   *
+   * @param setting Project setting entity.
+   * @returns API response DTO.
+   * @throws {TypeError} If entity fields are unexpectedly nullish.
+   */
   private toDto(setting: ProjectSetting): ProjectSettingResponseDto {
     return {
       id: setting.id.toString(),

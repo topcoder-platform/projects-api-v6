@@ -24,6 +24,7 @@ function parseOptionalInteger(value: unknown): number | undefined {
 
   return Math.trunc(parsed);
 }
+// TODO [DRY]: Duplicated in `update-attachment.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
 
 function parseAllowedUsers(value: unknown): number[] | undefined {
   if (!Array.isArray(value)) {
@@ -34,7 +35,12 @@ function parseAllowedUsers(value: unknown): number[] | undefined {
     .map((entry) => parseOptionalInteger(entry))
     .filter((entry): entry is number => typeof entry === 'number');
 }
+// TODO [DRY]: Duplicated in `update-attachment.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
 
+/**
+ * Create payload for project attachment endpoints:
+ * `POST /projects/:projectId/attachments`.
+ */
 export class CreateAttachmentDto {
   @ApiProperty()
   @IsString()
@@ -76,13 +82,15 @@ export class CreateAttachmentDto {
   tags?: string[];
 
   @ApiPropertyOptional({
-    description: 'Required for file attachments',
+    description:
+      'Required for file attachments. Source S3 bucket for transfer; not stored in attachment row.',
   })
   @ValidateIf(
     (value: CreateAttachmentDto) => value.type === AttachmentType.file,
   )
   @IsString()
   @IsNotEmpty()
+  // TODO [SECURITY]: Validate `s3Bucket` against an allowlist before using it as transfer source.
   s3Bucket?: string;
 
   @ApiPropertyOptional({

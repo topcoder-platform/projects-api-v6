@@ -102,12 +102,8 @@ export class PermissionGuard implements CanActivate {
    * Behavior:
    * - Skips DB access if no project id or no project-scoped permission exists.
    * - Resets cached context when project id changes.
-   * - Loads `projectMember` rows when required and cache is empty.
+   * - Loads `projectMember` rows when required and members are not loaded yet.
    * - Loads `projectMemberInvite` rows when required and invites are not loaded.
-   *
-   * @todo `projectMembers.length === 0` causes re-fetch for projects that
-   * genuinely have zero members. Add a sentinel flag such as
-   * `projectMembersLoaded: boolean`.
    * @todo Member/invite query and mapping logic is duplicated in multiple guards
    * and `ProjectContextInterceptor`; extract a shared `ProjectContextService`.
    */
@@ -145,18 +141,27 @@ export class PermissionGuard implements CanActivate {
     if (!request.projectContext) {
       request.projectContext = {
         projectMembers: [],
+        projectMembersLoaded: false,
       };
+    } else if (
+      request.projectContext.projectMembersLoaded === undefined &&
+      request.projectContext.projectId === normalizedProjectId &&
+      Array.isArray(request.projectContext.projectMembers)
+    ) {
+      // Backward-compatible bridge for context objects that predate the flag.
+      request.projectContext.projectMembersLoaded = true;
     }
 
     if (request.projectContext.projectId !== normalizedProjectId) {
       request.projectContext.projectId = normalizedProjectId;
       request.projectContext.projectMembers = [];
+      request.projectContext.projectMembersLoaded = false;
       request.projectContext.projectInvites = [];
     }
 
     if (
       requiresProjectMembers &&
-      request.projectContext.projectMembers.length === 0
+      request.projectContext.projectMembersLoaded !== true
     ) {
       const projectMembers = await this.prisma.projectMember.findMany({
         where: {
@@ -177,6 +182,7 @@ export class PermissionGuard implements CanActivate {
         ...member,
         role: String(member.role),
       }));
+      request.projectContext.projectMembersLoaded = true;
     }
 
     if (

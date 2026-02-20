@@ -33,6 +33,14 @@ export const ROLES_KEY = 'roles';
  */
 export const SWAGGER_REQUIRED_ROLES_KEY = 'x-required-roles';
 /**
+ * Metadata key for explicit "any authenticated token" access.
+ */
+export const ANY_AUTHENTICATED_KEY = 'any_authenticated';
+/**
+ * Swagger extension key used to expose explicit any-authenticated access.
+ */
+export const SWAGGER_ANY_AUTHENTICATED_KEY = 'x-any-authenticated';
+/**
  * Declares allowed Topcoder roles for a route.
  *
  * The decorator writes both runtime metadata and Swagger metadata.
@@ -43,6 +51,18 @@ export const Roles = (...roles: string[]) =>
   applyDecorators(
     SetMetadata(ROLES_KEY, roles),
     ApiExtension(SWAGGER_REQUIRED_ROLES_KEY, roles),
+  );
+
+/**
+ * Marks a route as accessible by any validated token.
+ *
+ * Use this decorator explicitly when a route should not constrain roles/scopes
+ * beyond authentication itself.
+ */
+export const AnyAuthenticated = () =>
+  applyDecorators(
+    SetMetadata(ANY_AUTHENTICATED_KEY, true),
+    ApiExtension(SWAGGER_ANY_AUTHENTICATED_KEY, true),
   );
 
 /**
@@ -69,15 +89,12 @@ export class TokenRolesGuard implements CanActivate {
    * - Throws `UnauthorizedException` when Bearer token is absent or malformed.
    * - Calls `JwtService.validateToken` and stores the validated user on request.
    * - Reads both `@Roles()` and `@Scopes()` metadata.
-   * - Returns `true` for any authenticated user if both metadata lists are empty.
+   * - Requires one of `@Roles()`, `@Scopes()`, or `@AnyAuthenticated()`.
+   * - Throws `ForbiddenException` when no auth metadata is declared.
+   * - Returns `true` for any authenticated user when `@AnyAuthenticated()` is present.
    * - For M2M tokens: requires declared scopes and checks scope intersection.
    * - For human tokens: allows if any required role or scope matches.
    * - Throws `ForbiddenException('Insufficient permissions')` otherwise.
-   *
-   * @security Endpoints without `@Roles()` and `@Scopes()` are reachable by any
-   * valid token.
-   * @todo Move toward a default-deny posture by requiring at least one auth
-   * decorator, or add an explicit `@AnyAuthenticated()` marker.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -118,11 +135,21 @@ export class TokenRolesGuard implements CanActivate {
 
     const normalizedRequiredRoles = this.normalizeValues(requiredRoles);
     const normalizedRequiredScopes = this.normalizeValues(requiredScopes);
+    const isAnyAuthenticated =
+      this.reflector.getAllAndOverride<boolean>(ANY_AUTHENTICATED_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) || false;
 
     if (
       normalizedRequiredRoles.length === 0 &&
-      normalizedRequiredScopes.length === 0
+      normalizedRequiredScopes.length === 0 &&
+      !isAnyAuthenticated
     ) {
+      throw new ForbiddenException('Authorization metadata is required');
+    }
+
+    if (isAnyAuthenticated) {
       return true;
     }
 

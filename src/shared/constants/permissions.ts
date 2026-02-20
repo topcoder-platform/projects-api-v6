@@ -6,6 +6,9 @@
  * objects passed directly to the decorator.
  */
 export enum Permission {
+  /**
+   * Project permissions.
+   */
   /** Read any project even when the user is not a member. */
   READ_PROJECT_ANY = 'READ_PROJECT_ANY',
   /** View project details. */
@@ -16,6 +19,9 @@ export enum Permission {
   EDIT_PROJECT = 'EDIT_PROJECT',
   /** Delete a project. */
   DELETE_PROJECT = 'DELETE_PROJECT',
+  /**
+   * Project member permissions.
+   */
   /** Read project members. */
   READ_PROJECT_MEMBER = 'READ_PROJECT_MEMBER',
   /** Add the current user as a project member. */
@@ -30,6 +36,9 @@ export enum Permission {
   DELETE_PROJECT_MEMBER_CUSTOMER = 'DELETE_PROJECT_MEMBER_CUSTOMER',
   /** Remove copilot project members. */
   DELETE_PROJECT_MEMBER_COPILOT = 'DELETE_PROJECT_MEMBER_COPILOT',
+  /**
+   * Project invite permissions.
+   */
   /** Read own project invites. */
   READ_PROJECT_INVITE_OWN = 'READ_PROJECT_INVITE_OWN',
   /** Read project invites that belong to other users. */
@@ -74,6 +83,9 @@ export enum Permission {
   CANCEL_COPILOT_OPPORTUNITY = 'CANCEL_COPILOT_OPPORTUNITY',
   /** Create a project as manager role. */
   CREATE_PROJECT_AS_MANAGER = 'CREATE_PROJECT_AS_MANAGER',
+  /**
+   * Attachment permissions.
+   */
   /** View project attachments. */
   VIEW_PROJECT_ATTACHMENT = 'VIEW_PROJECT_ATTACHMENT',
   /** Create project attachments. */
@@ -84,18 +96,27 @@ export enum Permission {
   UPDATE_PROJECT_ATTACHMENT_NOT_OWN = 'UPDATE_PROJECT_ATTACHMENT_NOT_OWN',
   /** Delete project attachments. */
   DELETE_PROJECT_ATTACHMENT = 'DELETE_PROJECT_ATTACHMENT',
+  /**
+   * Phase permissions.
+   */
   /** Add project phases. */
   ADD_PROJECT_PHASE = 'ADD_PROJECT_PHASE',
   /** Update project phases. */
   UPDATE_PROJECT_PHASE = 'UPDATE_PROJECT_PHASE',
   /** Delete project phases. */
   DELETE_PROJECT_PHASE = 'DELETE_PROJECT_PHASE',
+  /**
+   * Phase product permissions.
+   */
   /** Add phase products. */
   ADD_PHASE_PRODUCT = 'ADD_PHASE_PRODUCT',
   /** Update phase products. */
   UPDATE_PHASE_PRODUCT = 'UPDATE_PHASE_PRODUCT',
   /** Delete phase products. */
   DELETE_PHASE_PRODUCT = 'DELETE_PHASE_PRODUCT',
+  /**
+   * Workstream permissions.
+   */
   /** Workstream create permission. */
   WORKSTREAM_CREATE = 'workStream.create',
   /** Workstream view permission. */
@@ -104,6 +125,9 @@ export enum Permission {
   WORKSTREAM_EDIT = 'workStream.edit',
   /** Workstream delete permission. */
   WORKSTREAM_DELETE = 'workStream.delete',
+  /**
+   * Work permissions.
+   */
   /** Work create permission. */
   WORK_CREATE = 'work.create',
   /** Work view permission. */
@@ -112,6 +136,9 @@ export enum Permission {
   WORK_EDIT = 'work.edit',
   /** Work delete permission. */
   WORK_DELETE = 'work.delete',
+  /**
+   * Work item permissions.
+   */
   /** Work item create permission. */
   WORKITEM_CREATE = 'workItem.create',
   /** Work item view permission. */
@@ -120,6 +147,9 @@ export enum Permission {
   WORKITEM_EDIT = 'workItem.edit',
   /** Work item delete permission. */
   WORKITEM_DELETE = 'workItem.delete',
+  /**
+   * Work-management permission settings.
+   */
   /** View work-management permission settings. */
   WORK_MANAGEMENT_PERMISSION_VIEW = 'workManagementPermission.view',
   /** Edit work-management permission settings. */

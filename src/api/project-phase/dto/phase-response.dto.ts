@@ -2,6 +2,9 @@ import { ProjectStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PhaseProductResponseDto } from 'src/api/phase-product/dto/phase-product-response.dto';
 
+/**
+ * Response model for phase member rows embedded in phase responses.
+ */
 export class ProjectPhaseMemberDto {
   @ApiProperty()
   id: string;
@@ -25,6 +28,9 @@ export class ProjectPhaseMemberDto {
   updatedBy: number;
 }
 
+/**
+ * Response model for phase approval rows embedded in phase responses.
+ */
 export class ProjectPhaseApprovalDto {
   @ApiProperty()
   id: string;
@@ -60,6 +66,11 @@ export class ProjectPhaseApprovalDto {
   updatedBy: number;
 }
 
+/**
+ * Response payload for phase/work endpoints. Relation arrays are included only
+ * when requested via the `fields` query parameter (`products`, `members`,
+ * `approvals`, or `all`).
+ */
 export class PhaseResponseDto {
   @ApiProperty()
   id: string;
@@ -121,12 +132,24 @@ export class PhaseResponseDto {
   @ApiProperty()
   updatedBy: number;
 
-  @ApiPropertyOptional({ type: () => [PhaseProductResponseDto] })
+  @ApiPropertyOptional({
+    type: () => [PhaseProductResponseDto],
+    description:
+      'Conditionally populated when `fields` includes `products` (or `all`).',
+  })
   products?: PhaseProductResponseDto[];
 
-  @ApiPropertyOptional({ type: () => [ProjectPhaseMemberDto] })
+  @ApiPropertyOptional({
+    type: () => [ProjectPhaseMemberDto],
+    description:
+      'Conditionally populated when `fields` includes `members` (or `all`).',
+  })
   members?: ProjectPhaseMemberDto[];
 
-  @ApiPropertyOptional({ type: () => [ProjectPhaseApprovalDto] })
+  @ApiPropertyOptional({
+    type: () => [ProjectPhaseApprovalDto],
+    description:
+      'Conditionally populated when `fields` includes `approvals` (or `all`).',
+  })
   approvals?: ProjectPhaseApprovalDto[];
 }

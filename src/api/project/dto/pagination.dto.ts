@@ -2,6 +2,12 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
+/**
+ * Parses string/number pagination input into an integer.
+ *
+ * @param value Raw query value.
+ * @returns Parsed integer or `undefined` for invalid/empty input.
+ */
 function parseNumberInput(value: unknown): number | undefined {
   if (typeof value === 'undefined' || value === null || value === '') {
     return undefined;
@@ -24,6 +30,12 @@ function parseNumberInput(value: unknown): number | undefined {
   return parsed;
 }
 
+/**
+ * Base pagination DTO for list-style query DTOs.
+ *
+ * Provides `page` (default 1, min 1) and `perPage` (default 20, min 1,
+ * max 200).
+ */
 export class PaginationDto {
   @ApiPropertyOptional({
     description: 'Page number',

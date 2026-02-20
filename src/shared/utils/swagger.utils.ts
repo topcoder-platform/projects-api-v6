@@ -16,7 +16,10 @@ import {
   SWAGGER_ADMIN_ALLOWED_SCOPES_KEY,
   SWAGGER_ADMIN_ONLY_KEY,
 } from '../guards/adminOnly.guard';
-import { SWAGGER_REQUIRED_ROLES_KEY } from '../guards/tokenRoles.guard';
+import {
+  SWAGGER_ANY_AUTHENTICATED_KEY,
+  SWAGGER_REQUIRED_ROLES_KEY,
+} from '../guards/tokenRoles.guard';
 
 type SwaggerOperation = {
   description?: string;
@@ -125,6 +128,7 @@ function ensureErrorResponses(operation: SwaggerOperation): void {
 function getAuthorizationLines(operation: SwaggerOperation): string[] {
   const roles = parseStringArray(operation[SWAGGER_REQUIRED_ROLES_KEY]);
   const scopes = parseStringArray(operation[SWAGGER_REQUIRED_SCOPES_KEY]);
+  const isAnyAuthenticated = Boolean(operation[SWAGGER_ANY_AUTHENTICATED_KEY]);
   const permissions = parsePermissionArray(
     operation[SWAGGER_REQUIRED_PERMISSIONS_KEY],
   );
@@ -137,6 +141,10 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
   );
 
   const authorizationLines: string[] = [];
+
+  if (isAnyAuthenticated) {
+    authorizationLines.push('Any authenticated token is allowed.');
+  }
 
   if (roles.length > 0) {
     authorizationLines.push(`Allowed user roles (any): ${roles.join(', ')}`);

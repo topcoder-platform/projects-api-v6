@@ -27,6 +27,7 @@ import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { hasAdminRole } from 'src/shared/utils/permission.utils';
 
+// TODO [DRY]: Move to `src/shared/interfaces/project-permission-context.interface.ts`.
 interface ProjectPermissionContext {
   id: bigint;
   directProjectId: bigint | null;
@@ -78,12 +79,31 @@ const TERMINAL_PHASE_STATUSES = new Set<ProjectStatus>([
 ]);
 
 @Injectable()
+/**
+ * Business logic for project phases. Handles CRUD, ordered insertion/reordering
+ * of phases within a project, optional product-template seeding on creation,
+ * and member assignment. Used by `ProjectPhaseController` (direct phase routes)
+ * and `WorkController` (workstream-scoped work routes).
+ */
 export class ProjectPhaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
   ) {}
 
+  /**
+   * Lists phases for a project with optional field selection, sort, member-only
+   * filtering, and optional phase id whitelist support for alias controllers.
+   *
+   * @param projectId - Project id from the route.
+   * @param query - Query DTO with `fields`, `sort`, and `memberOnly`.
+   * @param user - Authenticated user.
+   * @param options - Optional constraints (for example `phaseIds` whitelist).
+   * @returns Phase response DTO array.
+   * @throws {BadRequestException} When route ids or sort criteria are invalid.
+   * @throws {ForbiddenException} When the caller lacks view permission.
+   * @throws {NotFoundException} When the project does not exist.
+   */
   async listPhases(
     projectId: string,
     query: PhaseListQueryDto,
@@ -177,6 +197,17 @@ export class ProjectPhaseService {
       .map((phase) => this.filterFields(phase, query.fields));
   }
 
+  /**
+   * Fetches one project phase with products, members, and approvals.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param user - Authenticated user.
+   * @returns Phase response DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks view permission.
+   * @throws {NotFoundException} When the phase is not found.
+   */
   async getPhase(
     projectId: string,
     phaseId: string,
@@ -231,6 +262,18 @@ export class ProjectPhaseService {
     return this.toDto(phase);
   }
 
+  /**
+   * Creates a phase inside a transaction, resolves insertion order, optionally
+   * seeds a phase product from a product template, and bulk-creates members.
+   *
+   * @param projectId - Project id from the route.
+   * @param dto - Create payload.
+   * @param user - Authenticated user.
+   * @returns Created phase response DTO.
+   * @throws {BadRequestException} When ids, date range, or template id are invalid.
+   * @throws {ForbiddenException} When the caller lacks create permission.
+   * @throws {NotFoundException} When the project or created phase is not found.
+   */
   async createPhase(
     projectId: string,
     dto: CreatePhaseDto,
@@ -388,6 +431,19 @@ export class ProjectPhaseService {
     return response;
   }
 
+  /**
+   * Updates mutable phase fields, validates date and status transitions, and
+   * reorders sibling phases when order is changed.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param dto - Update payload.
+   * @param user - Authenticated user.
+   * @returns Updated phase response DTO.
+   * @throws {BadRequestException} When ids, dates, or status transition are invalid.
+   * @throws {ForbiddenException} When the caller lacks update permission.
+   * @throws {NotFoundException} When the phase is not found.
+   */
   async updatePhase(
     projectId: string,
     phaseId: string,
@@ -520,6 +576,17 @@ export class ProjectPhaseService {
     return response;
   }
 
+  /**
+   * Soft deletes a phase and reindexes remaining phase order values.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param user - Authenticated user.
+   * @returns Nothing.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks delete permission.
+   * @throws {NotFoundException} When the phase is not found.
+   */
   async deletePhase(
     projectId: string,
     phaseId: string,
@@ -586,6 +653,12 @@ export class ProjectPhaseService {
     void deletedPhase;
   }
 
+  /**
+   * Parses `fields` CSV and maps to relation include flags.
+   *
+   * @param fields - CSV list of requested fields.
+   * @returns Include flags for products, members, and approvals.
+   */
   private parseFieldSelection(fields?: string): {
     includeProducts: boolean;
     includeMembers: boolean;
@@ -608,6 +681,14 @@ export class ProjectPhaseService {
     };
   }
 
+  /**
+   * Validates and maps a sort expression to Prisma `orderBy`.
+   *
+   * @param sort - Sort expression (`field direction`).
+   * @returns Prisma-compatible orderBy object.
+   * @throws {BadRequestException} When sort field or direction is invalid.
+   */
+  // TODO [DRY]: Extract a shared `parseSortParam(sort, allowedFields)` helper to `src/shared/utils/query.utils.ts`.
   private parseSortCriteria(sort?: string): {
     [key: string]: 'asc' | 'desc';
   } {
@@ -644,6 +725,13 @@ export class ProjectPhaseService {
     };
   }
 
+  /**
+   * Applies top-level response projection for legacy `/v5` `fields` behavior.
+   *
+   * @param phase - Full phase DTO.
+   * @param fields - Requested fields CSV.
+   * @returns Filtered phase DTO.
+   */
   private filterFields(
     phase: PhaseResponseDto,
     fields?: string,
@@ -669,6 +757,12 @@ export class ProjectPhaseService {
     return filtered as unknown as PhaseResponseDto;
   }
 
+  /**
+   * Maps a phase entity with optional relations to response DTO shape.
+   *
+   * @param phase - Phase entity from Prisma.
+   * @returns Serialized phase DTO.
+   */
   private toDto(phase: PhaseWithRelations): PhaseResponseDto {
     const response: PhaseResponseDto = {
       id: phase.id.toString(),
@@ -730,6 +824,12 @@ export class ProjectPhaseService {
     return response;
   }
 
+  /**
+   * Maps a phase member entity to response DTO and serializes `bigint` ids.
+   *
+   * @param member - Phase member entity.
+   * @returns Phase member DTO.
+   */
   private toPhaseMemberDto(member: ProjectPhaseMember): ProjectPhaseMemberDto {
     return {
       id: member.id.toString(),
@@ -742,6 +842,12 @@ export class ProjectPhaseService {
     };
   }
 
+  /**
+   * Maps a phase approval entity to response DTO and serializes `bigint` ids.
+   *
+   * @param approval - Phase approval entity.
+   * @returns Phase approval DTO.
+   */
   private toPhaseApprovalDto(
     approval: ProjectPhaseApproval,
   ): ProjectPhaseApprovalDto {
@@ -760,6 +866,14 @@ export class ProjectPhaseService {
     };
   }
 
+  /**
+   * Validates that start date is not after end date.
+   *
+   * @param startDate - Candidate start date.
+   * @param endDate - Candidate end date.
+   * @returns Nothing.
+   * @throws {BadRequestException} When `startDate` is after `endDate`.
+   */
   private validateDateRange(
     startDate?: Date | null,
     endDate?: Date | null,
@@ -773,6 +887,14 @@ export class ProjectPhaseService {
     }
   }
 
+  /**
+   * Validates phase status transitions from non-terminal states only.
+   *
+   * @param currentStatus - Current persisted status.
+   * @param requestedStatus - Requested status update.
+   * @returns Nothing.
+   * @throws {BadRequestException} When transitioning out of terminal status.
+   */
   private validateStatusTransition(
     currentStatus?: ProjectStatus | null,
     requestedStatus?: ProjectStatus | null,
@@ -792,6 +914,13 @@ export class ProjectPhaseService {
     }
   }
 
+  /**
+   * Returns active phases in a project with minimal fields used for ordering.
+   *
+   * @param tx - Transaction client.
+   * @param projectId - Project id.
+   * @returns Array of phase ids and order values.
+   */
   private async getActiveProjectPhaseOrders(
     tx: Prisma.TransactionClient,
     projectId: bigint,
@@ -808,6 +937,12 @@ export class ProjectPhaseService {
     });
   }
 
+  /**
+   * Stably sorts phases by `order` (nulls last), then by id.
+   *
+   * @param phases - Phase rows.
+   * @returns Sorted phase rows.
+   */
   private sortPhasesByOrder<T extends { id: bigint; order: number | null }>(
     phases: T[],
   ): T[] {
@@ -829,6 +964,14 @@ export class ProjectPhaseService {
     });
   }
 
+  /**
+   * Normalizes a requested order value into the inclusive `[1, maxOrder]` range.
+   *
+   * @param requestedOrder - Requested order from input.
+   * @param maxOrder - Max accepted order.
+   * @param fallbackOrder - Fallback order when omitted.
+   * @returns Normalized order.
+   */
   private resolveRequestedOrder(
     requestedOrder: number | undefined,
     maxOrder: number,
@@ -850,6 +993,17 @@ export class ProjectPhaseService {
     return normalizedOrder;
   }
 
+  /**
+   * Reindexes phase order values based on the provided sorted phase id list.
+   *
+   * @param tx - Transaction client.
+   * @param projectId - Project id.
+   * @param orderedPhaseIds - Phase ids in desired order.
+   * @param auditUserId - User id for audit fields.
+   * @param skipPhaseId - Optional phase id to skip.
+   * @returns Nothing.
+   */
+  // TODO [PERF/QUALITY]: Replace per-row updates with a batched `UPDATE ... CASE WHEN` or `updateMany` strategy to avoid N round-trips in the transaction.
   private async reindexProjectPhases(
     tx: Prisma.TransactionClient,
     projectId: bigint,
@@ -901,6 +1055,12 @@ export class ProjectPhaseService {
     }
   }
 
+  /**
+   * Builds phase product details payload from a product template.
+   *
+   * @param template - Product template row.
+   * @returns Details object for phase product creation.
+   */
   private buildPhaseProductDetailsFromTemplate(
     template: ProductTemplate,
   ): Record<string, unknown> {
@@ -924,6 +1084,13 @@ export class ProjectPhaseService {
     };
   }
 
+  /**
+   * Safely converts unknown JSON-like data into an object DTO payload.
+   *
+   * @param value - Candidate details value.
+   * @returns Plain object, or empty object when invalid.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private toDetailsObject(value: unknown): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return {};
@@ -932,6 +1099,13 @@ export class ProjectPhaseService {
     return value as Record<string, unknown>;
   }
 
+  /**
+   * Converts an arbitrary value into Prisma JSON input semantics.
+   *
+   * @param value - Candidate JSON value.
+   * @returns Prisma JSON input value, JsonNull, or undefined.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private toJsonInput(
     value: unknown,
   ): Prisma.InputJsonValue | Prisma.JsonNullValueInput | undefined {
@@ -946,6 +1120,12 @@ export class ProjectPhaseService {
     return value as Prisma.InputJsonValue;
   }
 
+  /**
+   * Parses comma-separated values into a normalized lowercased token set.
+   *
+   * @param value - CSV string.
+   * @returns Set of normalized tokens.
+   */
   private parseCsv(value: string): Set<string> {
     return new Set(
       value
@@ -955,6 +1135,12 @@ export class ProjectPhaseService {
     );
   }
 
+  /**
+   * Parses an optional string as bigint.
+   *
+   * @param value - Optional raw value.
+   * @returns Parsed bigint or undefined.
+   */
   private parseOptionalBigInt(value?: string): bigint | undefined {
     if (!value || value.trim().length === 0) {
       return undefined;
@@ -967,6 +1153,14 @@ export class ProjectPhaseService {
     }
   }
 
+  /**
+   * Determines whether the user is effectively an admin for member filters.
+   *
+   * @param user - Authenticated user.
+   * @param projectMembers - Active project members.
+   * @returns `true` if caller has admin access.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private isAdminUser(
     user: JwtUser,
     projectMembers: Array<{
@@ -985,6 +1179,16 @@ export class ProjectPhaseService {
     );
   }
 
+  /**
+   * Enforces named permission checks against project member context.
+   *
+   * @param permission - Permission to evaluate.
+   * @param user - Authenticated user.
+   * @param projectMembers - Active project members.
+   * @returns Nothing.
+   * @throws {ForbiddenException} When permission is missing.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private ensureNamedPermission(
     permission: Permission,
     user: JwtUser,
@@ -1005,6 +1209,14 @@ export class ProjectPhaseService {
     }
   }
 
+  /**
+   * Loads project metadata and active members for permission evaluation.
+   *
+   * @param projectId - Parsed project id.
+   * @returns Permission context payload.
+   * @throws {NotFoundException} When the project does not exist.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private async getProjectPermissionContext(
     projectId: bigint,
   ): Promise<ProjectPermissionContext> {
@@ -1039,6 +1251,15 @@ export class ProjectPhaseService {
     return project;
   }
 
+  /**
+   * Parses a route id into bigint and throws on invalid values.
+   *
+   * @param value - Raw route id value.
+   * @param entityName - Entity name for error messages.
+   * @returns Parsed bigint id.
+   * @throws {BadRequestException} When parsing fails.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private parseId(value: string, entityName: string): bigint {
     try {
       return BigInt(value);
@@ -1047,6 +1268,14 @@ export class ProjectPhaseService {
     }
   }
 
+  /**
+   * Parses the authenticated user id for audit fields.
+   *
+   * @param user - Authenticated user.
+   * @returns Numeric user id.
+   */
+  // TODO [SECURITY]: Returning `-1` silently when `user.userId` is invalid can corrupt audit trails; throw `UnauthorizedException` instead.
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private getAuditUserId(user: JwtUser): number {
     const userId = Number.parseInt(String(user.userId || ''), 10);
 

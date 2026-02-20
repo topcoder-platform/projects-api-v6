@@ -348,9 +348,6 @@ export const PERMISSION = {
 
   /**
    * @description Permission policy: LIST_COPILOT_OPPORTUNITY.
-   * @todo `projectRoles` currently uses `USER_ROLE.PROJECT_MANAGER`, which is a
-   * Topcoder role value and will never match a project member role. Replace
-   * with `PROJECT_MEMBER_ROLE.PROJECT_MANAGER` or move it to `topcoderRoles`.
    */
   LIST_COPILOT_OPPORTUNITY: {
     meta: {
@@ -359,7 +356,7 @@ export const PERMISSION = {
       description: 'Who can apply for copilot opportunity.',
     },
     topcoderRoles: [USER_ROLE.TOPCODER_ADMIN],
-    projectRoles: [USER_ROLE.PROJECT_MANAGER],
+    projectRoles: [PROJECT_MEMBER_ROLE.PROJECT_MANAGER],
     scopes: SCOPES_PROJECTS_WRITE,
   },
 

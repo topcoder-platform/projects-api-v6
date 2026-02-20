@@ -47,6 +47,10 @@ function serializeBigInt(value: unknown): unknown {
     return value.toString();
   }
 
+  if (value instanceof Date) {
+    return value;
+  }
+
   if (Array.isArray(value)) {
     return value.map((entry) => serializeBigInt(entry));
   }

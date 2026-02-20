@@ -184,4 +184,34 @@ describe('PermissionGuard', () => {
     expect(result).toBe(true);
     expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
   });
+
+  it('does not refetch project members when a zero-member project was already loaded', async () => {
+    const permission: Permission = {
+      projectRoles: true,
+    };
+
+    reflectorMock.getAllAndOverride.mockReturnValue([permission]);
+    permissionServiceMock.isPermissionRequireProjectMembers.mockReturnValue(
+      true,
+    );
+    permissionServiceMock.hasPermission.mockReturnValue(true);
+    prismaServiceMock.projectMember.findMany.mockResolvedValue([]);
+
+    const request = {
+      user: {
+        userId: '123',
+        isMachine: false,
+      },
+      params: {
+        projectId: '1001',
+      },
+    };
+
+    await guard.canActivate(createExecutionContext(request));
+    await guard.canActivate(createExecutionContext(request));
+
+    expect(prismaServiceMock.projectMember.findMany).toHaveBeenCalledTimes(1);
+    expect(request.projectContext.projectMembersLoaded).toBe(true);
+    expect(request.projectContext.projectMembers).toEqual([]);
+  });
 });

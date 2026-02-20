@@ -116,6 +116,10 @@ export interface ProjectContext {
    */
   projectId?: string;
   /**
+   * Whether members were already loaded for the current `projectId`.
+   */
+  projectMembersLoaded?: boolean;
+  /**
    * Cached project members for the current project id.
    */
   projectMembers: ProjectMember[];

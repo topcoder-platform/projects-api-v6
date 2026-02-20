@@ -83,6 +83,7 @@ export class CopilotOpportunityController {
     return result.data;
   }
 
+  @Get('copilot/opportunity/:id')
   @Get('copilots/opportunity/:id')
   @Roles(...Object.values(UserRole))
   @Scopes(

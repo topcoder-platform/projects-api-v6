@@ -319,6 +319,12 @@ async function postEventWithRetry(
   );
 }
 
+/**
+ * Builds `{ resource: 'project', data }` payload.
+ *
+ * @todo These `buildXxxEventPayload` functions are structurally identical.
+ * Replace with `buildEventPayload(resource, data)` + resource constants map.
+ */
 function buildProjectEventPayload(project: unknown): unknown {
   return {
     resource: 'project',
@@ -326,6 +332,9 @@ function buildProjectEventPayload(project: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.member', data }` payload.
+ */
 function buildMemberEventPayload(member: unknown): unknown {
   return {
     resource: 'project.member',
@@ -333,6 +342,9 @@ function buildMemberEventPayload(member: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.member.invite', data }` payload.
+ */
 function buildInviteEventPayload(invite: unknown): unknown {
   return {
     resource: 'project.member.invite',
@@ -340,6 +352,9 @@ function buildInviteEventPayload(invite: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'attachment', data }` payload.
+ */
 function buildAttachmentEventPayload(attachment: unknown): unknown {
   return {
     resource: 'attachment',
@@ -347,6 +362,9 @@ function buildAttachmentEventPayload(attachment: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.phase', data }` payload.
+ */
 function buildPhaseEventPayload(phase: unknown): unknown {
   return {
     resource: 'project.phase',
@@ -354,6 +372,9 @@ function buildPhaseEventPayload(phase: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.phase.product', data }` payload.
+ */
 function buildPhaseProductEventPayload(phaseProduct: unknown): unknown {
   return {
     resource: 'project.phase.product',
@@ -361,6 +382,9 @@ function buildPhaseProductEventPayload(phaseProduct: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'timeline', data }` payload.
+ */
 function buildTimelineEventPayload(timeline: unknown): unknown {
   return {
     resource: 'timeline',
@@ -368,6 +392,9 @@ function buildTimelineEventPayload(timeline: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'milestone', data }` payload.
+ */
 function buildMilestoneEventPayload(milestone: unknown): unknown {
   return {
     resource: 'milestone',
@@ -375,6 +402,9 @@ function buildMilestoneEventPayload(milestone: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.workstream', data }` payload.
+ */
 function buildWorkstreamEventPayload(workstream: unknown): unknown {
   return {
     resource: 'project.workstream',
@@ -382,6 +412,9 @@ function buildWorkstreamEventPayload(workstream: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.work', data }` payload.
+ */
 function buildWorkEventPayload(work: unknown): unknown {
   return {
     resource: 'project.work',
@@ -389,6 +422,9 @@ function buildWorkEventPayload(work: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.workitem', data }` payload.
+ */
 function buildWorkItemEventPayload(workItem: unknown): unknown {
   return {
     resource: 'project.workitem',
@@ -396,6 +432,9 @@ function buildWorkItemEventPayload(workItem: unknown): unknown {
   };
 }
 
+/**
+ * Builds `{ resource: 'project.setting', data }` payload.
+ */
 function buildSettingEventPayload(setting: unknown): unknown {
   return {
     resource: 'project.setting',
@@ -403,6 +442,16 @@ function buildSettingEventPayload(setting: unknown): unknown {
   };
 }
 
+/**
+ * Publishes a project event envelope.
+ *
+ * @param topic Kafka topic name.
+ * @param project Domain payload wrapped as `resource: 'project'`.
+ * @param callback Optional success callback.
+ *
+ * @todo All `publishXxxEvent` helpers share identical try/catch + retry
+ * wrappers. Consolidate into `publishEvent(topic, resource, data, callback?)`.
+ */
 export async function publishProjectEvent(
   topic: string,
   project: unknown,
@@ -422,6 +471,9 @@ export async function publishProjectEvent(
   }
 }
 
+/**
+ * Publishes a project-member event envelope.
+ */
 export async function publishMemberEvent(
   topic: string,
   member: unknown,
@@ -441,6 +493,9 @@ export async function publishMemberEvent(
   }
 }
 
+/**
+ * Publishes a project-member-invite event envelope.
+ */
 export async function publishInviteEvent(
   topic: string,
   invite: unknown,
@@ -460,6 +515,9 @@ export async function publishInviteEvent(
   }
 }
 
+/**
+ * Publishes an attachment event envelope.
+ */
 export async function publishAttachmentEvent(
   topic: string,
   attachment: unknown,
@@ -479,6 +537,9 @@ export async function publishAttachmentEvent(
   }
 }
 
+/**
+ * Publishes a project-phase event envelope.
+ */
 export async function publishPhaseEvent(
   topic: string,
   phase: unknown,
@@ -498,6 +559,9 @@ export async function publishPhaseEvent(
   }
 }
 
+/**
+ * Publishes a phase-product event envelope.
+ */
 export async function publishPhaseProductEvent(
   topic: string,
   phaseProduct: unknown,
@@ -517,6 +581,9 @@ export async function publishPhaseProductEvent(
   }
 }
 
+/**
+ * Publishes a timeline event envelope.
+ */
 export async function publishTimelineEvent(
   topic: string,
   timeline: unknown,
@@ -536,6 +603,9 @@ export async function publishTimelineEvent(
   }
 }
 
+/**
+ * Publishes a milestone event envelope.
+ */
 export async function publishMilestoneEvent(
   topic: string,
   milestone: unknown,
@@ -555,6 +625,9 @@ export async function publishMilestoneEvent(
   }
 }
 
+/**
+ * Publishes a workstream event envelope.
+ */
 export async function publishWorkstreamEvent(
   topic: string,
   workstream: unknown,
@@ -574,6 +647,9 @@ export async function publishWorkstreamEvent(
   }
 }
 
+/**
+ * Publishes a work event envelope.
+ */
 export async function publishWorkEvent(
   topic: string,
   work: unknown,
@@ -593,6 +669,9 @@ export async function publishWorkEvent(
   }
 }
 
+/**
+ * Publishes a work-item event envelope.
+ */
 export async function publishWorkItemEvent(
   topic: string,
   workItem: unknown,
@@ -612,6 +691,9 @@ export async function publishWorkItemEvent(
   }
 }
 
+/**
+ * Publishes a project-setting event envelope.
+ */
 export async function publishSettingEvent(
   topic: string,
   setting: unknown,
@@ -631,6 +713,9 @@ export async function publishSettingEvent(
   }
 }
 
+/**
+ * Publishes a raw notification payload without resource wrapping.
+ */
 export async function publishNotificationEvent(
   topic: string,
   payload: unknown,
@@ -650,6 +735,11 @@ export async function publishNotificationEvent(
   }
 }
 
+/**
+ * Backward-compatible alias for `publishNotificationEvent`.
+ *
+ * @deprecated Use `publishNotificationEvent` instead.
+ */
 export async function publishRawEvent(
   topic: string,
   payload: unknown,

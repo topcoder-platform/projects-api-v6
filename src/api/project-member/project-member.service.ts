@@ -34,6 +34,18 @@ import {
 } from 'src/shared/utils/member.utils';
 import { publishMemberEvent } from 'src/shared/utils/event.utils';
 
+/**
+ * Manages the project member lifecycle: add, update, delete, list, and get.
+ *
+ * The service enforces permissions through `PermissionService`, validates
+ * Topcoder roles through `MemberService`, and publishes member events through
+ * `publishMemberEvent`.
+ *
+ * Member creation also cancels open invites for the same user in a
+ * transaction. A manager-to-copilot promotion with
+ * `action: complete-copilot-requests` completes open copilot workflow records
+ * atomically.
+ */
 @Injectable()
 export class ProjectMemberService {
   private readonly logger = LoggerService.forRoot('ProjectMemberService');
@@ -44,6 +56,19 @@ export class ProjectMemberService {
     private readonly memberService: MemberService,
   ) {}
 
+  /**
+   * Adds a member to a project.
+   *
+   * @param projectId Project identifier.
+   * @param dto Member creation payload.
+   * @param user Authenticated caller.
+   * @param fields Optional CSV list of additional member profile fields.
+   * @returns The created member response enriched with requested fields.
+   * @throws {NotFoundException} If the project cannot be found.
+   * @throws {ForbiddenException} If permissions or role constraints fail.
+   * @throws {BadRequestException} If ids are invalid or role cannot be resolved.
+   * @throws {ConflictException} If the target user is already a member.
+   */
   async addMember(
     projectId: string,
     dto: CreateMemberDto,
@@ -171,6 +196,19 @@ export class ProjectMemberService {
     return this.hydrateMemberResponse(createdMember, fields);
   }
 
+  /**
+   * Updates a project member.
+   *
+   * @param projectId Project identifier.
+   * @param memberId Member identifier.
+   * @param dto Member update payload.
+   * @param user Authenticated caller.
+   * @param fields Optional CSV list of additional member profile fields.
+   * @returns The updated member response enriched with requested fields.
+   * @throws {NotFoundException} If the project or member cannot be found.
+   * @throws {ForbiddenException} If permissions or role constraints fail.
+   * @throws {BadRequestException} If ids are invalid.
+   */
   async updateMember(
     projectId: string,
     memberId: string,
@@ -288,6 +326,17 @@ export class ProjectMemberService {
     return this.hydrateMemberResponse(updatedMember, fields);
   }
 
+  /**
+   * Deletes a project member by soft-deleting the member record.
+   *
+   * @param projectId Project identifier.
+   * @param memberId Member identifier.
+   * @param user Authenticated caller.
+   * @returns Resolves when deletion logic and follow-up updates complete.
+   * @throws {NotFoundException} If the project or member cannot be found.
+   * @throws {ForbiddenException} If role-specific delete permission is missing.
+   * @throws {BadRequestException} If ids are invalid.
+   */
   async deleteMember(
     projectId: string,
     memberId: string,
@@ -387,6 +436,17 @@ export class ProjectMemberService {
     );
   }
 
+  /**
+   * Lists project members optionally filtered by role and enriched fields.
+   *
+   * @param projectId Project identifier.
+   * @param query Member list query parameters.
+   * @param user Authenticated caller.
+   * @returns A list of serialized member records.
+   * @throws {NotFoundException} If the project cannot be found.
+   * @throws {ForbiddenException} If read permission is missing.
+   * @throws {BadRequestException} If ids are invalid.
+   */
   async listMembers(
     projectId: string,
     query: MemberListQueryDto,
@@ -442,6 +502,18 @@ export class ProjectMemberService {
     return this.hydrateMemberListResponse(members, query.fields);
   }
 
+  /**
+   * Gets a single member by project and member ids.
+   *
+   * @param projectId Project identifier.
+   * @param memberId Member identifier.
+   * @param query Member query parameters.
+   * @param user Authenticated caller.
+   * @returns A serialized member record.
+   * @throws {NotFoundException} If the project or member cannot be found.
+   * @throws {ForbiddenException} If read permission is missing.
+   * @throws {BadRequestException} If ids are invalid.
+   */
   async getMember(
     projectId: string,
     memberId: string,
@@ -498,6 +570,18 @@ export class ProjectMemberService {
     return this.hydrateMemberResponse(member, query.fields);
   }
 
+  /**
+   * Enforces role-specific permissions when deleting another member.
+   *
+   * @param role Role of the member being deleted.
+   * @param user Authenticated caller.
+   * @param projectMembers Current active project members for permission checks.
+   * @returns Nothing.
+   * @throws {ForbiddenException} If role-specific delete permission is missing.
+   */
+  // TODO: DRY: This role-branch permission check mirrors
+  // `ensureDeleteInvitePermission`; extract shared
+  // `assertRoleDeletePermission(role, user, members, permMap)` helper.
   private ensureDeletePermission(
     role: ProjectMemberRole,
     user: JwtUser,
@@ -544,6 +628,19 @@ export class ProjectMemberService {
     }
   }
 
+  /**
+   * Completes open copilot workflow records for a promoted copilot member.
+   *
+   * @param tx Active transaction client.
+   * @param projectId Project identifier.
+   * @param memberUserId User id of the promoted member.
+   * @returns Resolves when workflow updates are applied.
+   * @throws {Prisma.PrismaClientKnownRequestError} If transaction operations
+   * fail due to database constraints.
+   */
+  // TODO: QUALITY: This intentionally performs sequential queries in one
+  // transaction for atomicity, but can create N+1-like load with large
+  // `requestIds`; consider batching opportunity/application fetches.
   private async completeCopilotRequests(
     tx: Prisma.TransactionClient,
     projectId: bigint,
@@ -666,6 +763,14 @@ export class ProjectMemberService {
     }
   }
 
+  /**
+   * Enriches a list of members with optional profile fields.
+   *
+   * @param members Member entities.
+   * @param fields Optional CSV list of additional profile fields.
+   * @returns Enriched member response objects.
+   * @throws {BadRequestException} If field parsing fails validation.
+   */
   private async hydrateMemberListResponse(
     members: ProjectMember[],
     fields?: string,
@@ -686,6 +791,14 @@ export class ProjectMemberService {
     );
   }
 
+  /**
+   * Enriches a single member with optional profile fields.
+   *
+   * @param member Member entity.
+   * @param fields Optional CSV list of additional profile fields.
+   * @returns Enriched member response object.
+   * @throws {BadRequestException} If field parsing fails validation.
+   */
   private async hydrateMemberResponse(
     member: ProjectMember,
     fields?: string,
@@ -706,6 +819,16 @@ export class ProjectMemberService {
     return response;
   }
 
+  /**
+   * Parses and validates a numeric id value.
+   *
+   * @param value Raw id string.
+   * @param label Friendly entity label for error messages.
+   * @returns Parsed bigint id.
+   * @throws {BadRequestException} If the id is not numeric.
+   */
+  // TODO: DRY: `parseId` is duplicated across project member, invite, and
+  // setting flows; extract a shared service helper.
   private parseId(value: string, label: string): bigint {
     const normalized = String(value || '').trim();
     if (!/^\d+$/.test(normalized)) {
@@ -715,6 +838,15 @@ export class ProjectMemberService {
     return BigInt(normalized);
   }
 
+  /**
+   * Resolves the authenticated actor id as a trimmed string.
+   *
+   * @param user Authenticated caller.
+   * @returns Normalized user id string.
+   * @throws {ForbiddenException} If the user id is missing.
+   */
+  // TODO: DRY: `getActorUserId` is duplicated across project member, invite,
+  // and setting flows; extract a shared service helper.
   private getActorUserId(user: JwtUser): string {
     if (!user?.userId || String(user.userId).trim().length === 0) {
       throw new ForbiddenException('Authenticated user id is missing.');
@@ -723,6 +855,15 @@ export class ProjectMemberService {
     return String(user.userId).trim();
   }
 
+  /**
+   * Resolves the authenticated actor id as a numeric audit id.
+   *
+   * @param user Authenticated caller.
+   * @returns Numeric user id used for audit columns.
+   * @throws {ForbiddenException} If the user id is missing or non-numeric.
+   */
+  // TODO: DRY: `getAuditUserId` is duplicated across project member, invite,
+  // and setting flows; extract a shared service helper.
   private getAuditUserId(user: JwtUser): number {
     const parsedUserId = Number.parseInt(this.getActorUserId(user), 10);
 
@@ -733,6 +874,15 @@ export class ProjectMemberService {
     return parsedUserId;
   }
 
+  /**
+   * Parses a CSV list of additional member fields.
+   *
+   * @param fields Raw CSV string.
+   * @returns Normalized list of field names.
+   * @throws {BadRequestException} When field input fails validation.
+   */
+  // TODO: DRY: `parseFields` is duplicated across project member, invite, and
+  // setting flows; extract a shared service helper.
   private parseFields(fields?: string): string[] {
     if (!fields || fields.trim().length === 0) {
       return [];
@@ -744,6 +894,15 @@ export class ProjectMemberService {
       .filter((field) => field.length > 0);
   }
 
+  /**
+   * Converts entity payloads into API-safe primitives.
+   *
+   * @param payload Payload containing Prisma entities.
+   * @returns Payload with bigint/decimal values normalized.
+   * @throws {TypeError} If recursive traversal encounters unsupported values.
+   */
+  // TODO: DRY: `normalizeEntity` is identical to the implementation in
+  // `project-invite.service.ts`; extract to `src/shared/utils/entity.utils.ts`.
   private normalizeEntity<T>(payload: T): T {
     const walk = (input: unknown): unknown => {
       if (typeof input === 'bigint') {
@@ -776,6 +935,16 @@ export class ProjectMemberService {
     return walk(payload) as T;
   }
 
+  /**
+   * Publishes a member-related Kafka event with defensive logging.
+   *
+   * @param topic Kafka topic name.
+   * @param payload Event payload.
+   * @returns Nothing.
+   * @throws {Error} The underlying publisher may reject and is handled here.
+   */
+  // TODO: DRY: `publishEvent` is near-identical to `publishMember` in
+  // `project-invite.service.ts`; consolidate into shared event helper.
   private publishEvent(topic: string, payload: unknown): void {
     void publishMemberEvent(topic, payload).catch((error) => {
       this.logger.error(

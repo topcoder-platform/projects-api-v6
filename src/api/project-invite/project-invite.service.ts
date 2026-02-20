@@ -51,6 +51,21 @@ interface InviteTargetByEmail {
   email: string;
 }
 
+/**
+ * Manages project invite lifecycle across creation, updates, reads, and cancel.
+ *
+ * The service supports bulk invite creation from handles/emails, invite state
+ * transitions, and copilot workflow side effects.
+ *
+ * Accepting or request-approving an invite auto-creates a `ProjectMember`
+ * record when needed and updates linked copilot application state.
+ *
+ * Refusing or canceling an invite can move linked applications back to
+ * `pending` when no open invites remain.
+ *
+ * `PROJECT_MEMBER_ADDED` events are published when invite acceptance yields a
+ * project member.
+ */
 @Injectable()
 export class ProjectInviteService {
   private readonly logger = LoggerService.forRoot('ProjectInviteService');
@@ -63,6 +78,18 @@ export class ProjectInviteService {
     private readonly emailService: EmailService,
   ) {}
 
+  /**
+   * Creates invites for project users identified by handles or emails.
+   *
+   * @param projectId Project identifier.
+   * @param dto Invite creation payload.
+   * @param user Authenticated caller.
+   * @param fields Optional CSV list of additional response fields.
+   * @returns Bulk invite response with `success` and optional `failed` targets.
+   * @throws {NotFoundException} If the project is not found.
+   * @throws {ForbiddenException} If role-specific invite permission is missing.
+   * @throws {BadRequestException} If handles/emails are both missing.
+   */
   async createInvites(
     projectId: string,
     dto: CreateInviteDto,
@@ -241,6 +268,20 @@ export class ProjectInviteService {
     };
   }
 
+  /**
+   * Updates invite status and applies member/copilot side effects.
+   *
+   * @param projectId Project identifier.
+   * @param inviteId Invite identifier.
+   * @param dto Invite update payload.
+   * @param user Authenticated caller.
+   * @param fields Optional CSV list of additional response fields.
+   * @returns The updated invite response payload.
+   * @throws {NotFoundException} If the project or invite is not found.
+   * @throws {ForbiddenException} If update permission is missing.
+   * @throws {BadRequestException} If status/id/user resolution is invalid.
+   * @throws {ConflictException} If linked opportunity is not active.
+   */
   async updateInvite(
     projectId: string,
     inviteId: string,
@@ -253,6 +294,9 @@ export class ProjectInviteService {
         'Cannot change invite status to "canceled". Delete the invite instead.',
       );
     }
+    // TODO: SECURITY: No explicit state-machine transition guard exists here.
+    // Add allowed transitions (for example:
+    // pending -> accepted|refused and requested -> request_approved|refused).
 
     const parsedProjectId = this.parseId(projectId, 'Project');
     const parsedInviteId = this.parseId(inviteId, 'Invite');
@@ -328,6 +372,8 @@ export class ProjectInviteService {
       await this.ensureActiveOpportunity(invite.applicationId);
     }
 
+    // TODO: QUALITY: `work_manager` is a magic string. Extract a named
+    // constant and reuse it where source comparisons occur.
     const source = dto.source || 'work_manager';
 
     const { updatedInvite, projectMember } = await this.prisma.$transaction(
@@ -385,6 +431,9 @@ export class ProjectInviteService {
               source,
             );
           } else {
+            // TODO: SECURITY: This currently cancels all project copilot
+            // requests when `applicationId` is null. Scope cancellation to only
+            // superseded requests.
             await this.cancelProjectCopilotWorkflow(tx, parsedProjectId);
           }
         } else if (
@@ -414,6 +463,17 @@ export class ProjectInviteService {
     return this.hydrateInviteResponse(updatedInvite, fields);
   }
 
+  /**
+   * Soft-cancels an invite by setting status to `canceled`.
+   *
+   * @param projectId Project identifier.
+   * @param inviteId Invite identifier.
+   * @param user Authenticated caller.
+   * @returns Resolves when cancel operation and side effects complete.
+   * @throws {NotFoundException} If the project or invite is not found.
+   * @throws {ForbiddenException} If delete permission is missing.
+   * @throws {BadRequestException} If ids are invalid.
+   */
   async deleteInvite(
     projectId: string,
     inviteId: string,
@@ -501,6 +561,16 @@ export class ProjectInviteService {
     });
   }
 
+  /**
+   * Lists project invites visible to the current user.
+   *
+   * @param projectId Project identifier.
+   * @param query Invite list query.
+   * @param user Authenticated caller.
+   * @returns Visible invite responses.
+   * @throws {NotFoundException} If the project is not found.
+   * @throws {ForbiddenException} If no read permission is granted.
+   */
   async listInvites(
     projectId: string,
     query: InviteListQueryDto,
@@ -564,6 +634,17 @@ export class ProjectInviteService {
     return this.hydrateInviteListResponse(visibleInvites, query.fields);
   }
 
+  /**
+   * Gets a single invite if the current caller can read it.
+   *
+   * @param projectId Project identifier.
+   * @param inviteId Invite identifier.
+   * @param query Invite query.
+   * @param user Authenticated caller.
+   * @returns Invite response payload.
+   * @throws {NotFoundException} If the project or invite is not found.
+   * @throws {ForbiddenException} If read permission is missing.
+   */
   async getInvite(
     projectId: string,
     inviteId: string,
@@ -633,6 +714,16 @@ export class ProjectInviteService {
     return this.hydrateInviteResponse(invite, query.fields);
   }
 
+  /**
+   * Resolves invite targets from provided handles.
+   *
+   * @param dto Invite creation payload.
+   * @param failed Mutable array collecting failed target reasons.
+   * @param memberUserIds Existing member user ids.
+   * @param existingInvites Existing open invites.
+   * @returns User-backed invite targets.
+   * @throws {BadRequestException} When handle payload normalization fails.
+   */
   private async resolveHandleTargets(
     dto: CreateInviteDto,
     failed: InviteFailureDto[],
@@ -648,6 +739,8 @@ export class ProjectInviteService {
     );
     const lowerCaseHandles = dto.handles.map((handle) => handle.toLowerCase());
 
+    // TODO: DRY: `(foundUser as any).handleLower` and `(user as any).userId`
+    // rely on unsafe casts. Type `MemberDetail` to include these fields.
     const filteredUsers = foundUsers.filter((foundUser) =>
       lowerCaseHandles.includes(
         String(
@@ -713,6 +806,16 @@ export class ProjectInviteService {
     return targets;
   }
 
+  /**
+   * Resolves invite targets from provided emails.
+   *
+   * @param dto Invite creation payload.
+   * @param failed Mutable array collecting failed target reasons.
+   * @param memberUserIds Existing member user ids.
+   * @param existingInvites Existing open invites.
+   * @returns User-backed targets and email-only targets.
+   * @throws {BadRequestException} If email validation or parsing fails.
+   */
   private async resolveEmailTargets(
     dto: CreateInviteDto,
     failed: InviteFailureDto[],
@@ -813,6 +916,17 @@ export class ProjectInviteService {
     };
   }
 
+  /**
+   * Validates that user targets can be invited for the requested project role.
+   *
+   * @param role Target invite role.
+   * @param targets Candidate user targets.
+   * @param failed Mutable array collecting failed target reasons.
+   * @returns Only targets that satisfy role constraints.
+   * @throws {ForbiddenException} Role validation may fail at downstream calls.
+   */
+  // TODO: QUALITY: This calls `memberService.getUserRoles` sequentially in a
+  // loop. Batch requests or use `Promise.all` to reduce latency.
   private async validateUserTargetsByRole(
     role: ProjectMemberRole,
     targets: InviteTargetByUser[],
@@ -843,6 +957,13 @@ export class ProjectInviteService {
     return validTargets;
   }
 
+  /**
+   * Ensures the application points to an active copilot opportunity.
+   *
+   * @param applicationId Copilot application identifier.
+   * @returns Resolves when the opportunity is active.
+   * @throws {ConflictException} If application/opportunity is missing/inactive.
+   */
   private async ensureActiveOpportunity(applicationId: bigint): Promise<void> {
     const application = await this.prisma.copilotApplication.findFirst({
       where: {
@@ -872,6 +993,15 @@ export class ProjectInviteService {
     }
   }
 
+  /**
+   * Updates copilot application/opportunity/request states by invite source.
+   *
+   * @param tx Active transaction client.
+   * @param applicationId Application identifier.
+   * @param source Invite update source value.
+   * @returns Resolves after related entities are updated.
+   * @throws {Prisma.PrismaClientKnownRequestError} If transaction updates fail.
+   */
   private async updateCopilotApplicationStateBySource(
     tx: Prisma.TransactionClient,
     applicationId: bigint,
@@ -943,6 +1073,18 @@ export class ProjectInviteService {
     }
   }
 
+  /**
+   * Cancels project-level copilot workflow records.
+   *
+   * @param tx Active transaction client.
+   * @param projectId Project identifier.
+   * @returns Resolves when request/opportunity/application/invite status
+   * updates complete.
+   * @throws {Prisma.PrismaClientKnownRequestError} If transaction updates fail.
+   */
+  // TODO: SECURITY: This can cancel all copilot requests in the project when
+  // invoked from invite acceptance without `applicationId`. Narrow the scope to
+  // superseded workflow records only.
   private async cancelProjectCopilotWorkflow(
     tx: Prisma.TransactionClient,
     projectId: bigint,
@@ -1043,6 +1185,14 @@ export class ProjectInviteService {
     }
   }
 
+  /**
+   * Resets an application to pending when no open invites reference it.
+   *
+   * @param tx Active transaction client.
+   * @param applicationId Application identifier.
+   * @returns Resolves when the application status is reconciled.
+   * @throws {Prisma.PrismaClientKnownRequestError} If transaction updates fail.
+   */
   private async updateApplicationToPendingIfNoOpenInvites(
     tx: Prisma.TransactionClient,
     applicationId: bigint,
@@ -1069,6 +1219,17 @@ export class ProjectInviteService {
     }
   }
 
+  /**
+   * Enforces role-specific permissions when deleting another user's invite.
+   *
+   * @param role Invite target role.
+   * @param user Authenticated caller.
+   * @param projectMembers Active project members for permission evaluation.
+   * @returns Nothing.
+   * @throws {ForbiddenException} If required delete permission is missing.
+   */
+  // TODO: SECURITY: `projectMembers` is typed as `any[]`, which bypasses type
+  // safety and can hide invalid data shape issues. Use `ProjectMember[]`.
   private ensureDeleteInvitePermission(
     role: ProjectMemberRole,
     user: JwtUser,
@@ -1115,6 +1276,14 @@ export class ProjectInviteService {
     }
   }
 
+  /**
+   * Resolves user id for invite acceptance from invite or current user context.
+   *
+   * @param invite Invite entity.
+   * @param user Authenticated caller.
+   * @returns Resolved user id or `null`.
+   * @throws {BadRequestException} When caller id cannot be parsed.
+   */
   private resolveInviteUserId(
     invite: ProjectMemberInvite,
     user: JwtUser,
@@ -1131,6 +1300,14 @@ export class ProjectInviteService {
     return null;
   }
 
+  /**
+   * Determines whether the invite belongs to the current user.
+   *
+   * @param invite Invite entity.
+   * @param user Authenticated caller.
+   * @returns `true` when owned by user id or matched email.
+   * @throws {BadRequestException} When caller identity cannot be parsed.
+   */
   private isOwnInvite(invite: ProjectMemberInvite, user: JwtUser): boolean {
     const currentUserId = this.parseOptionalId(user.userId);
     const currentUserEmail = this.getUserEmail(user);
@@ -1148,6 +1325,14 @@ export class ProjectInviteService {
     return false;
   }
 
+  /**
+   * Hydrates invite list responses with requested user profile fields.
+   *
+   * @param invites Invite entities.
+   * @param fields Optional CSV response fields.
+   * @returns Hydrated invite response list.
+   * @throws {BadRequestException} When field parsing fails.
+   */
   private async hydrateInviteListResponse(
     invites: ProjectMemberInvite[],
     fields?: string,
@@ -1173,6 +1358,14 @@ export class ProjectInviteService {
     );
   }
 
+  /**
+   * Hydrates a single invite response payload.
+   *
+   * @param invite Invite entity.
+   * @param fields Optional CSV response fields.
+   * @returns Hydrated invite response.
+   * @throws {BadRequestException} When field parsing fails.
+   */
   private async hydrateInviteResponse(
     invite: ProjectMemberInvite,
     fields?: string,
@@ -1181,6 +1374,16 @@ export class ProjectInviteService {
     return response;
   }
 
+  /**
+   * Parses and validates required numeric id values.
+   *
+   * @param value Raw id value.
+   * @param label Friendly name used in error message text.
+   * @returns Parsed bigint id.
+   * @throws {BadRequestException} If value is not numeric.
+   */
+  // TODO: DRY: `parseId` is duplicated across project member, invite, and
+  // setting services; consolidate into shared helper/base service.
   private parseId(value: string, label: string): bigint {
     const normalized = String(value || '').trim();
     if (!/^\d+$/.test(normalized)) {
@@ -1190,6 +1393,15 @@ export class ProjectInviteService {
     return BigInt(normalized);
   }
 
+  /**
+   * Parses optional id values into bigint.
+   *
+   * @param value Raw id-like value.
+   * @returns Parsed bigint or `null` when missing/invalid.
+   * @throws {BadRequestException} If parsing fails unexpectedly.
+   */
+  // TODO: DRY: `parseOptionalId` follows patterns duplicated in other services;
+  // consolidate into shared helper/base service.
   private parseOptionalId(
     value: string | number | bigint | null | undefined,
   ): bigint | null {
@@ -1205,6 +1417,15 @@ export class ProjectInviteService {
     return BigInt(normalized);
   }
 
+  /**
+   * Resolves authenticated caller id as a normalized string.
+   *
+   * @param user Authenticated caller.
+   * @returns Trimmed caller id.
+   * @throws {ForbiddenException} If caller id is missing.
+   */
+  // TODO: DRY: `getActorUserId` is duplicated across project member, invite,
+  // and setting services; centralize.
   private getActorUserId(user: JwtUser): string {
     if (!user?.userId || String(user.userId).trim().length === 0) {
       throw new ForbiddenException('Authenticated user id is missing.');
@@ -1213,6 +1434,15 @@ export class ProjectInviteService {
     return String(user.userId).trim();
   }
 
+  /**
+   * Resolves authenticated caller id as numeric audit id.
+   *
+   * @param user Authenticated caller.
+   * @returns Numeric audit user id.
+   * @throws {ForbiddenException} If caller id is missing or non-numeric.
+   */
+  // TODO: DRY: `getAuditUserId` is duplicated across project member, invite,
+  // and setting services; centralize.
   private getAuditUserId(user: JwtUser): number {
     const parsedUserId = Number.parseInt(this.getActorUserId(user), 10);
 
@@ -1223,6 +1453,14 @@ export class ProjectInviteService {
     return parsedUserId;
   }
 
+  /**
+   * Parses CSV field selection for invite response hydration.
+   *
+   * @param fields Raw CSV field list.
+   * @returns Normalized field names.
+   * @throws {BadRequestException} If field parsing fails.
+   */
+  // TODO: DRY: `parseFields` is duplicated across services; centralize.
   private parseFields(fields?: string): string[] {
     if (!fields || fields.trim().length === 0) {
       return [];
@@ -1234,6 +1472,15 @@ export class ProjectInviteService {
       .filter((field) => field.length > 0);
   }
 
+  /**
+   * Extracts user email claim from token payload.
+   *
+   * @param user Authenticated caller.
+   * @returns Lower-cased email if present.
+   * @throws {BadRequestException} If payload claims are malformed.
+   */
+  // TODO: SECURITY: Iterating all payload keys ending with `email` is fragile
+  // and may match unintended claims. Use explicit claim key(s).
   private getUserEmail(user: JwtUser): string | undefined {
     const payload = user.tokenPayload || {};
 
@@ -1249,6 +1496,14 @@ export class ProjectInviteService {
     return undefined;
   }
 
+  /**
+   * Resolves UNIQUE_GMAIL_VALIDATION runtime toggle.
+   *
+   * @returns `true` when unique Gmail validation is enabled.
+   * @throws {Error} Never intentionally thrown.
+   */
+  // TODO: SECURITY: Reading `process.env` at call-time should be replaced with
+  // injected `ConfigService` configuration for testability and consistency.
   private isUniqueGmailValidationEnabled(): boolean {
     return (
       String(process.env.UNIQUE_GMAIL_VALIDATION || 'false').toLowerCase() ===
@@ -1256,6 +1511,15 @@ export class ProjectInviteService {
     );
   }
 
+  /**
+   * Normalizes Prisma entities for API/event payload serialization.
+   *
+   * @param payload Input payload.
+   * @returns Payload with bigint and decimal values normalized.
+   * @throws {TypeError} If recursive traversal fails.
+   */
+  // TODO: DRY: `normalizeEntity` is identical to member service implementation;
+  // extract to shared utility (`src/shared/utils/entity.utils.ts`).
   private normalizeEntity<T>(payload: T): T {
     const walk = (input: unknown): unknown => {
       if (typeof input === 'bigint') {
@@ -1289,6 +1553,16 @@ export class ProjectInviteService {
     return walk(payload) as T;
   }
 
+  /**
+   * Publishes member event payloads and logs failures.
+   *
+   * @param topic Kafka topic.
+   * @param payload Event payload.
+   * @returns Nothing.
+   * @throws {Error} Publisher errors are caught and logged.
+   */
+  // TODO: DRY: `publishMember` is near-identical to member service
+  // `publishEvent`; consolidate into shared helper.
   private publishMember(topic: string, payload: unknown): void {
     void publishMemberEvent(topic, payload).catch((error) => {
       this.logger.error(

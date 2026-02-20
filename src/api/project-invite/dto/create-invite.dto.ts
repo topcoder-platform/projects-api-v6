@@ -8,6 +8,12 @@ import {
   IsString,
 } from 'class-validator';
 
+/**
+ * DTO for bulk project invite creation.
+ *
+ * `emails` are supported only for `customer` role targets.
+ * `handles` resolve to existing Topcoder users.
+ */
 export class CreateInviteDto {
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

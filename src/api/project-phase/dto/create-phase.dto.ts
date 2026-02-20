@@ -26,6 +26,7 @@ function parseOptionalNumber(value: unknown): number | undefined {
 
   return parsed;
 }
+// TODO [DRY]: Duplicated in `create-phase-product.dto.ts` and `workstream.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
 
 function parseOptionalInteger(value: unknown): number | undefined {
   const parsed = parseOptionalNumber(value);
@@ -36,6 +37,7 @@ function parseOptionalInteger(value: unknown): number | undefined {
 
   return Math.trunc(parsed);
 }
+// TODO [DRY]: Duplicated in `create-phase-product.dto.ts` and `workstream.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
 
 function parseOptionalIntegerArray(value: unknown): number[] | undefined {
   if (!Array.isArray(value)) {
@@ -46,19 +48,25 @@ function parseOptionalIntegerArray(value: unknown): number[] | undefined {
     .map((entry) => parseOptionalInteger(entry))
     .filter((entry): entry is number => typeof entry === 'number');
 }
+// TODO [DRY]: Duplicated in `create-phase-product.dto.ts` and `workstream.dto.ts`; extract to `src/shared/utils/dto-transform.utils.ts`.
 
+/**
+ * Create payload for project phase creation endpoints:
+ * `POST /projects/:projectId/phases` and
+ * `POST /projects/:projectId/workstreams/:workStreamId/works`.
+ */
 export class CreatePhaseDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Human-readable phase/work name.' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Optional phase description.' })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Optional requirements narrative.' })
   @IsOptional()
   @IsString()
   requirements?: string;
@@ -70,40 +78,46 @@ export class CreatePhaseDto {
   @IsEnum(ProjectStatus)
   status: ProjectStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Planned phase start date.' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   startDate?: Date;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Planned phase end date.' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   endDate?: Date;
 
-  @ApiPropertyOptional({ minimum: 0 })
+  @ApiPropertyOptional({ minimum: 0, description: 'Planned duration in days.' })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsInt()
   @Min(0)
   duration?: number;
 
-  @ApiPropertyOptional({ minimum: 0 })
+  @ApiPropertyOptional({ minimum: 0, description: 'Planned budget amount.' })
   @IsOptional()
   @Transform(({ value }) => parseOptionalNumber(value))
   @IsNumber()
   @Min(0)
   budget?: number;
 
-  @ApiPropertyOptional({ minimum: 0 })
+  @ApiPropertyOptional({
+    minimum: 0,
+    description: 'Actual spent budget amount.',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalNumber(value))
   @IsNumber()
   @Min(0)
   spentBudget?: number;
 
-  @ApiPropertyOptional({ minimum: 0 })
+  @ApiPropertyOptional({
+    minimum: 0,
+    description: 'Progress percentage value.',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalNumber(value))
   @IsNumber()
@@ -118,20 +132,28 @@ export class CreatePhaseDto {
   @IsObject()
   details?: Record<string, unknown>;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Optional explicit order position within project phases.',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsInt()
   order?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Optional product template id to seed one PhaseProduct during creation.',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsInt()
   @Min(1)
   productTemplateId?: number;
 
-  @ApiPropertyOptional({ type: [Number] })
+  @ApiPropertyOptional({
+    type: [Number],
+    description: 'Optional user ids for bulk phase-member assignment.',
+  })
   @IsOptional()
   @IsArray()
   @Transform(({ value }) => parseOptionalIntegerArray(value))

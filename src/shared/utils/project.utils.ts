@@ -34,8 +34,9 @@ const DEFAULT_FIELDS: ParsedProjectFields = {
 /**
  * Normalizes string comparisons.
  *
- * @todo Duplicate helper exists in other shared modules. Consolidate in a
- * shared string utility.
+ * @todo Duplicate helper exists in other shared modules (including
+ * `normalize` variants in permission/member utilities). Consolidate in a
+ * single shared string utility.
  */
 function normalize(value: string): string {
   return value.trim().toLowerCase();
@@ -44,8 +45,9 @@ function normalize(value: string): string {
 /**
  * Normalizes user ids to trimmed string form.
  *
- * @todo Duplicate helper exists in other shared modules. Consolidate in a
- * shared string utility.
+ * @todo Duplicate helper exists in other shared modules (including
+ * `src/shared/utils/member.utils.ts#normalizeUserId`). Consolidate user-id
+ * normalization in one shared utility.
  */
 function normalizeUserId(
   value: string | number | bigint | null | undefined,

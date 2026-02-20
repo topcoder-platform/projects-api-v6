@@ -19,6 +19,7 @@ import { PermissionService } from 'src/shared/services/permission.service';
 import { hasAdminRole } from 'src/shared/utils/permission.utils';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
 
+// TODO [DRY]: Move to `src/shared/interfaces/project-permission-context.interface.ts`.
 interface ProjectPermissionContext {
   id: bigint;
   members: Array<{
@@ -29,6 +30,12 @@ interface ProjectPermissionContext {
 }
 
 @Injectable()
+/**
+ * Business logic for project attachments. Handles two attachment types: `link`
+ * (stored as-is) and `file` (transferred asynchronously from a caller-supplied
+ * S3 bucket to `ATTACHMENTS_S3_BUCKET`). Enforces per-attachment read access
+ * via `allowedUsers` and resolves creator handles via `MemberService`.
+ */
 export class ProjectAttachmentService {
   private readonly logger = LoggerService.forRoot('ProjectAttachmentService');
 
@@ -39,6 +46,17 @@ export class ProjectAttachmentService {
     private readonly memberService: MemberService,
   ) {}
 
+  /**
+   * Fetches all non-deleted attachments for a project, filters by
+   * `allowedUsers`, and enriches creator handles.
+   *
+   * @param projectId - Project id from the route.
+   * @param user - Authenticated user.
+   * @returns Visible attachment DTO list.
+   * @throws {BadRequestException} When project id is invalid.
+   * @throws {ForbiddenException} When the caller lacks view permission.
+   * @throws {NotFoundException} When the project is not found.
+   */
   async listAttachments(
     projectId: string,
     user: JwtUser,
@@ -77,6 +95,18 @@ export class ProjectAttachmentService {
     );
   }
 
+  /**
+   * Fetches one non-deleted attachment. For `file` attachments, adds a
+   * presigned download URL to the response.
+   *
+   * @param projectId - Project id from the route.
+   * @param attachmentId - Attachment id from the route.
+   * @param user - Authenticated user.
+   * @returns Attachment DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When caller lacks view permission.
+   * @throws {NotFoundException} When project/attachment is missing or hidden.
+   */
   async getAttachment(
     projectId: string,
     attachmentId: string,
@@ -125,6 +155,19 @@ export class ProjectAttachmentService {
     return response;
   }
 
+  /**
+   * Creates link or file attachments. Link attachments are inserted directly.
+   * File attachments validate source metadata, create a destination path,
+   * persist the row, and trigger asynchronous S3 transfer.
+   *
+   * @param projectId - Project id from the route.
+   * @param dto - Attachment create payload.
+   * @param user - Authenticated user.
+   * @returns Created attachment DTO.
+   * @throws {BadRequestException} When route ids, file metadata, or path are invalid.
+   * @throws {ForbiddenException} When caller lacks create permission.
+   * @throws {NotFoundException} When project is missing.
+   */
   async createAttachment(
     projectId: string,
     dto: CreateAttachmentDto,
@@ -173,6 +216,7 @@ export class ProjectAttachmentService {
         's3Bucket and contentType are required for file attachments.',
       );
     }
+    // TODO [SECURITY]: Validate that `s3Bucket` is an allowed/trusted bucket (e.g., a whitelist in `APP_CONFIG`) to prevent reading from arbitrary S3 buckets.
 
     const fileName = basename(dto.path);
     if (!fileName) {
@@ -217,6 +261,7 @@ export class ProjectAttachmentService {
       process.env.NODE_ENV !== 'development' || APP_CONFIG.enableFileUpload;
 
     if (shouldTransfer) {
+      // TODO [SECURITY/RELIABILITY]: Consider a two-phase approach: transfer first, then insert the DB record. Alternatively, add a `transferStatus` column and a background reconciliation job.
       void this.fileService
         .transferFile(
           dto.s3Bucket,
@@ -235,6 +280,19 @@ export class ProjectAttachmentService {
     return response;
   }
 
+  /**
+   * Updates an attachment with creator-only enforcement unless the caller has
+   * `UPDATE_PROJECT_ATTACHMENT_NOT_OWN`.
+   *
+   * @param projectId - Project id from the route.
+   * @param attachmentId - Attachment id from the route.
+   * @param dto - Attachment update payload.
+   * @param user - Authenticated user.
+   * @returns Updated attachment DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When caller lacks edit permissions.
+   * @throws {NotFoundException} When project/attachment is missing.
+   */
   async updateAttachment(
     projectId: string,
     attachmentId: string,
@@ -309,6 +367,18 @@ export class ProjectAttachmentService {
     return response;
   }
 
+  /**
+   * Soft deletes an attachment and, for file attachments, triggers asynchronous
+   * S3 deletion.
+   *
+   * @param projectId - Project id from the route.
+   * @param attachmentId - Attachment id from the route.
+   * @param user - Authenticated user.
+   * @returns Nothing.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When caller lacks delete permission.
+   * @throws {NotFoundException} When project/attachment is missing.
+   */
   async deleteAttachment(
     projectId: string,
     attachmentId: string,
@@ -355,6 +425,7 @@ export class ProjectAttachmentService {
       (process.env.NODE_ENV !== 'development' || APP_CONFIG.enableFileUpload);
 
     if (shouldDeleteFile) {
+      // TODO [SECURITY/RELIABILITY]: S3 object may not be deleted if the async call fails. Consider a deletion queue or synchronous delete.
       void this.fileService
         .deleteFile(APP_CONFIG.attachmentsS3Bucket, attachment.path)
         .catch((error) => {
@@ -366,6 +437,14 @@ export class ProjectAttachmentService {
     }
   }
 
+  /**
+   * Loads project members required for permission checks.
+   *
+   * @param projectId - Parsed project id.
+   * @returns Permission context.
+   * @throws {NotFoundException} When project does not exist.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private async getProjectPermissionContext(
     projectId: bigint,
   ): Promise<ProjectPermissionContext> {
@@ -398,11 +477,27 @@ export class ProjectAttachmentService {
     return project;
   }
 
+  /**
+   * Builds destination path for canonical attachment storage.
+   *
+   * @param projectId - Parsed project id.
+   * @param fileName - File basename.
+   * @returns Destination object key path.
+   */
+  // TODO [BUG]: The prefix appears twice in the path. Verify the intended path structure and fix to `${prefix}/${projectId}/${fileName}`.
   private buildDestinationPath(projectId: bigint, fileName: string): string {
     const prefix = APP_CONFIG.projectAttachmentPathPrefix;
     return `${prefix}/${projectId.toString()}/${prefix}/${fileName}`;
   }
 
+  /**
+   * Evaluates attachment read visibility for the current user.
+   *
+   * @param attachment - Attachment row.
+   * @param user - Authenticated user.
+   * @param isAdmin - Whether caller has admin visibility.
+   * @returns `true` when attachment is readable.
+   */
   private hasReadAccessToAttachment(
     attachment: ProjectAttachment,
     user: JwtUser,
@@ -428,6 +523,16 @@ export class ProjectAttachmentService {
     return allowedUsers.includes(userId);
   }
 
+  /**
+   * Enforces a named permission using project members context.
+   *
+   * @param permission - Permission to verify.
+   * @param user - Authenticated user.
+   * @param projectMembers - Active project members.
+   * @returns Nothing.
+   * @throws {ForbiddenException} When permission is missing.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private ensureNamedPermission(
     permission: Permission,
     user: JwtUser,
@@ -448,6 +553,14 @@ export class ProjectAttachmentService {
     }
   }
 
+  /**
+   * Determines whether caller should bypass attachment-level user filtering.
+   *
+   * @param user - Authenticated user.
+   * @param projectMembers - Active project members.
+   * @returns `true` when caller has admin-level access.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private isAdminUser(
     user: JwtUser,
     projectMembers: Array<{
@@ -466,6 +579,14 @@ export class ProjectAttachmentService {
     );
   }
 
+  /**
+   * Resolves attachment download URL. In development file-upload bypass mode,
+   * returns raw path.
+   *
+   * @param path - Attachment storage path.
+   * @returns Download URL or raw path.
+   */
+  // TODO [SECURITY]: Ensure `NODE_ENV` is not accidentally set to `development` in production deployments, as this bypasses presigned URL generation.
   private async resolveDownloadUrl(path: string): Promise<string> {
     const shouldUseRealUploadFlow =
       process.env.NODE_ENV !== 'development' || APP_CONFIG.enableFileUpload;
@@ -480,6 +601,13 @@ export class ProjectAttachmentService {
     );
   }
 
+  /**
+   * Maps attachment row plus optional computed values into response DTO.
+   *
+   * @param attachment - Attachment row.
+   * @param extra - Optional URL/handle enrichment values.
+   * @returns Attachment response DTO.
+   */
   private toDto(
     attachment: ProjectAttachment,
     extra: {
@@ -524,6 +652,12 @@ export class ProjectAttachmentService {
     return response;
   }
 
+  /**
+   * Resolves creator handle map for attachment rows.
+   *
+   * @param attachments - Attachment rows.
+   * @returns Map of numeric user id to handle.
+   */
   private async getCreatorHandleMap(
     attachments: ProjectAttachment[],
   ): Promise<Map<number, string>> {
@@ -553,6 +687,14 @@ export class ProjectAttachmentService {
     return map;
   }
 
+  /**
+   * Resolves createdBy handle from enriched map with current-user fallback.
+   *
+   * @param attachment - Attachment row.
+   * @param creatorHandleMap - Map of creator ids to handles.
+   * @param user - Optional authenticated user for fallback.
+   * @returns Resolved handle string or empty string.
+   */
   private resolveCreatedByHandle(
     attachment: ProjectAttachment,
     creatorHandleMap: Map<number, string>,
@@ -577,6 +719,15 @@ export class ProjectAttachmentService {
     return '';
   }
 
+  /**
+   * Parses route ids into bigint values.
+   *
+   * @param value - Raw route id.
+   * @param entityName - Entity label for exception messages.
+   * @returns Parsed bigint id.
+   * @throws {BadRequestException} When parsing fails.
+   */
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private parseId(value: string, entityName: string): bigint {
     try {
       return BigInt(value);
@@ -585,6 +736,14 @@ export class ProjectAttachmentService {
     }
   }
 
+  /**
+   * Parses authenticated user id for audit columns.
+   *
+   * @param user - Authenticated user.
+   * @returns Numeric user id.
+   */
+  // TODO [SECURITY]: Returning `-1` silently when `user.userId` is invalid can corrupt audit trails; throw `UnauthorizedException` instead.
+  // TODO [DRY]: Extract to `src/shared/utils/service.utils.ts` or a shared base service.
   private getAuditUserId(user: JwtUser): number {
     const userId = Number.parseInt(String(user.userId || ''), 10);
 

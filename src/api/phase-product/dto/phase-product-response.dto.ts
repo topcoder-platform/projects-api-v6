@@ -1,5 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * Response payload for phase product/work-item endpoints.
+ */
 export class PhaseProductResponseDto {
   @ApiProperty()
   id: string;
@@ -16,7 +19,10 @@ export class PhaseProductResponseDto {
   @ApiPropertyOptional()
   billingAccountId?: string | null;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Template id as string. Returns `"0"` when no template was applied.',
+  })
   templateId: string;
 
   @ApiPropertyOptional()
