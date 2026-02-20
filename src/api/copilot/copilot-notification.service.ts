@@ -9,7 +9,11 @@ import {
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { MemberService } from 'src/shared/services/member.service';
-import { getCopilotRequestData, getCopilotTypeLabel, readString } from './copilot.utils';
+import {
+  getCopilotRequestData,
+  getCopilotTypeLabel,
+  readString,
+} from './copilot.utils';
 
 // TODO [CONFIG]: TEMPLATE_IDS are hardcoded SendGrid template ids; move these values to environment-based configuration.
 const TEMPLATE_IDS = {
@@ -381,5 +385,4 @@ export class CopilotNotificationService {
 
     return `${day}-${month}-${year}`;
   }
-
 }

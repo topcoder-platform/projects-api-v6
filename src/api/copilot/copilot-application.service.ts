@@ -63,7 +63,11 @@ export class CopilotApplicationService {
     dto: CreateCopilotApplicationDto,
     user: JwtUser,
   ): Promise<CopilotApplicationResponseDto> {
-    ensureNamedPermission(this.permissionService, NamedPermission.APPLY_COPILOT_OPPORTUNITY, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.APPLY_COPILOT_OPPORTUNITY,
+      user,
+    );
 
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
     const parsedUserId = this.parseUserId(user);
@@ -263,5 +267,4 @@ export class CopilotApplicationService {
 
     return BigInt(normalized);
   }
-
 }

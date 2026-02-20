@@ -97,7 +97,9 @@ async function validateVersionedReference(
       );
     }
 
-    throw new BadRequestException(`${entityName} not found for key ${reference.key}.`);
+    throw new BadRequestException(
+      `${entityName} not found for key ${reference.key}.`,
+    );
   }
 
   return normalizeResolvedReference(reference, found.version);

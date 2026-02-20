@@ -86,7 +86,11 @@ export class CopilotRequestService {
     query: CopilotRequestListQueryDto,
     user: JwtUser,
   ): Promise<PaginatedRequestResponse> {
-    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
     const includeProjectInResponse = isAdminOrManager(user);
 
     const parsedProjectId = projectId
@@ -163,7 +167,11 @@ export class CopilotRequestService {
     copilotRequestId: string,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
 
@@ -211,7 +219,11 @@ export class CopilotRequestService {
     dto: CreateCopilotRequestDto,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedProjectId = parseNumericId(projectId, 'Project');
     const auditUserId = getAuditUserId(user);
@@ -300,7 +312,11 @@ export class CopilotRequestService {
     dto: UpdateCopilotRequestDto,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
     const auditUserId = getAuditUserId(user);
@@ -414,7 +430,11 @@ export class CopilotRequestService {
     type: string | undefined,
     user: JwtUser,
   ): Promise<unknown> {
-    ensureNamedPermission(this.permissionService, NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedProjectId = parseNumericId(projectId, 'Project');
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
@@ -728,5 +748,4 @@ export class CopilotRequestService {
 
     return 0;
   }
-
 }

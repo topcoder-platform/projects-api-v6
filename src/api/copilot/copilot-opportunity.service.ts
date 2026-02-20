@@ -241,7 +241,11 @@ export class CopilotOpportunityService {
     dto: AssignCopilotDto,
     user: JwtUser,
   ): Promise<{ id: string }> {
-    ensureNamedPermission(this.permissionService, NamedPermission.ASSIGN_COPILOT_OPPORTUNITY, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.ASSIGN_COPILOT_OPPORTUNITY,
+      user,
+    );
 
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
     const parsedApplicationId = parseNumericId(
@@ -437,7 +441,11 @@ export class CopilotOpportunityService {
     opportunityId: string,
     user: JwtUser,
   ): Promise<{ id: string }> {
-    ensureNamedPermission(this.permissionService, NamedPermission.CANCEL_COPILOT_OPPORTUNITY, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.CANCEL_COPILOT_OPPORTUNITY,
+      user,
+    );
 
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
     const auditUserId = getAuditUserId(user);
@@ -624,5 +632,4 @@ export class CopilotOpportunityService {
       memberships.map((membership) => membership.projectId.toString()),
     );
   }
-
 }

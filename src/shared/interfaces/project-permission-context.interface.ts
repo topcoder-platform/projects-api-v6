@@ -18,8 +18,7 @@ export interface ProjectPermissionContextBase {
 /**
  * Full project permission context used by phase/product services.
  */
-export interface ProjectPermissionContext
-  extends ProjectPermissionContextBase {
+export interface ProjectPermissionContext extends ProjectPermissionContextBase {
   directProjectId: bigint | null;
   billingAccountId: bigint | null;
 }

@@ -86,10 +86,7 @@ export function getAuditUserId(user: JwtUser): number {
 /**
  * Resolves the authenticated user id as an audit id, with fallback.
  */
-export function getAuditUserIdOrDefault(
-  user: JwtUser,
-  fallback = -1,
-): number {
+export function getAuditUserIdOrDefault(user: JwtUser, fallback = -1): number {
   const userId = Number.parseInt(String(user.userId || ''), 10);
 
   if (Number.isNaN(userId)) {
@@ -207,7 +204,9 @@ export function ensureRoleScopedPermission(
 ): void {
   const rule = roleRules[role] || defaultRule;
 
-  if (!permissionService.hasNamedPermission(rule.permission, user, projectMembers)) {
+  if (
+    !permissionService.hasNamedPermission(rule.permission, user, projectMembers)
+  ) {
     throw new ForbiddenException(rule.message);
   }
 }
