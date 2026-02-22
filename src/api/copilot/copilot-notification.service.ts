@@ -4,10 +4,10 @@ import {
   CopilotOpportunity,
   CopilotOpportunityType,
   CopilotRequest,
-  ProjectMemberRole,
 } from '@prisma/client';
+import { UserRole } from 'src/shared/enums/userRole.enum';
+import { EventBusService } from 'src/shared/modules/global/eventBus.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { MemberService } from 'src/shared/services/member.service';
 import {
   getCopilotRequestData,
@@ -23,6 +23,7 @@ const TEMPLATE_IDS = {
   COPILOT_OPPORTUNITY_COMPLETED: 'd-dc448919d11b4e7d8b4ba351c4b67b8b',
   COPILOT_OPPORTUNITY_CANCELED: 'd-2a67ba71e82f4d70891fe6989c3522a3',
 } as const;
+const EXTERNAL_ACTION_EMAIL_TOPIC = 'external.action.email';
 
 type OpportunityWithRequest = CopilotOpportunity & {
   copilotRequest?: CopilotRequest | null;
@@ -34,23 +35,28 @@ type ApplicationWithMembership = CopilotApplication & {
   };
 };
 
+type NotificationRecipient = {
+  email?: string | null;
+  handle?: string | null;
+};
+
 /**
  * Email notification dispatcher for copilot lifecycle events.
- * Email dispatch is currently disabled: publishEmail is a stub that logs and returns
- * without sending to Kafka/SendGrid.
  */
 @Injectable()
 export class CopilotNotificationService {
   private readonly logger = LoggerService.forRoot('CopilotNotificationService');
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly memberService: MemberService,
+    private readonly eventBusService: EventBusService,
   ) {}
 
   /**
-   * Sends application notifications to project managers and request creator.
-   * Recipient resolution: manager/project_manager project members + request creator, deduplicated.
+   * Sends application notifications to all Project Manager role users and the
+   * opportunity creator.
+   * Recipient resolution: identity-role subjects for `Project Manager` plus
+   * `opportunity.createdBy`, deduplicated by email.
    *
    * @param opportunity Opportunity that must include copilotRequest relation.
    * @param application Newly created application.
@@ -60,43 +66,19 @@ export class CopilotNotificationService {
     opportunity: OpportunityWithRequest,
     application: CopilotApplication,
   ): Promise<void> {
-    if (!opportunity.projectId) {
+    const [projectManagerUsers, opportunityCreatorUsers] = await Promise.all([
+      this.memberService.getRoleSubjects(UserRole.PROJECT_MANAGER),
+      this.memberService.getMemberDetailsByUserIds([opportunity.createdBy]),
+    ]);
+
+    const recipients = this.deduplicateRecipientsByEmail([
+      ...projectManagerUsers,
+      ...opportunityCreatorUsers,
+    ]);
+
+    if (recipients.length === 0) {
       return;
     }
-
-    const projectMembers = await this.prisma.projectMember.findMany({
-      where: {
-        projectId: opportunity.projectId,
-        role: {
-          in: [ProjectMemberRole.manager, ProjectMemberRole.project_manager],
-        },
-        deletedAt: null,
-      },
-      select: {
-        userId: true,
-      },
-    });
-
-    const requestCreatorId =
-      typeof opportunity.copilotRequest?.createdBy === 'number'
-        ? BigInt(opportunity.copilotRequest.createdBy)
-        : null;
-
-    const recipientIds = Array.from(
-      new Set(
-        [
-          ...projectMembers.map((member) => member.userId),
-          ...(requestCreatorId ? [requestCreatorId] : []),
-        ].map((id) => id.toString()),
-      ),
-    );
-
-    if (recipientIds.length === 0) {
-      return;
-    }
-
-    const recipients =
-      await this.memberService.getMemberDetailsByUserIds(recipientIds);
 
     const requestData = getCopilotRequestData(opportunity.copilotRequest?.data);
     const opportunityType = this.resolveOpportunityType(
@@ -105,23 +87,17 @@ export class CopilotNotificationService {
     );
 
     await Promise.all(
-      recipients
-        .filter((recipient) => Boolean(recipient.email))
-        .map((recipient) =>
-          this.publishEmail(
-            TEMPLATE_IDS.APPLY_COPILOT,
-            [String(recipient.email)],
-            {
-              user_name: recipient.handle,
-              opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}#applications`,
-              work_manager_url: this.getWorkManagerUrl(),
-              opportunity_type: getCopilotTypeLabel(opportunityType),
-              opportunity_title:
-                readString(requestData.opportunityTitle) ||
-                `Opportunity ${opportunity.id.toString()}`,
-            },
-          ),
-        ),
+      recipients.map((recipient) =>
+        this.publishEmail(TEMPLATE_IDS.APPLY_COPILOT, [recipient.email], {
+          user_name: recipient.handle,
+          opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}#applications`,
+          work_manager_url: this.getWorkManagerUrl(),
+          opportunity_type: getCopilotTypeLabel(opportunityType),
+          opportunity_title:
+            readString(requestData.opportunityTitle) ||
+            `Opportunity ${opportunity.id.toString()}`,
+        }),
+      ),
     );
 
     this.logger.log(
@@ -285,24 +261,65 @@ export class CopilotNotificationService {
    * @param templateId Template identifier.
    * @param recipients Recipient emails.
    * @param data Template payload.
-   * @returns Resolved promise (dispatch currently disabled).
+   * @returns Resolved promise when publish succeeds or fails.
    */
-  private publishEmail(
+  private async publishEmail(
     templateId: string,
     recipients: string[],
     data: Record<string, unknown>,
   ): Promise<void> {
     if (recipients.length === 0) {
-      return Promise.resolve();
+      return;
     }
 
-    // TODO [SECURITY/FUNCTIONALITY]: Email dispatch is fully disabled; templateId and data are discarded and nothing is sent. Re-enable Kafka/SendGrid before production use.
-    void templateId;
-    void data;
-    this.logger.warn(
-      `Copilot email Kafka publication is disabled. Skipped ${recipients.length} recipient(s).`,
-    );
-    return Promise.resolve();
+    try {
+      await this.eventBusService.publishProjectEvent(
+        EXTERNAL_ACTION_EMAIL_TOPIC,
+        {
+          data,
+          sendgrid_template_id: templateId,
+          recipients,
+          version: 'v3',
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish copilot email event to ${EXTERNAL_ACTION_EMAIL_TOPIC}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Deduplicates recipients by normalized email.
+   *
+   * @param recipients Potential recipients from role and creator lookups.
+   * @returns Deduplicated recipients preserving first-seen handle values.
+   */
+  private deduplicateRecipientsByEmail(
+    recipients: NotificationRecipient[],
+  ): Array<{ email: string; handle: string }> {
+    const recipientByEmail = new Map<
+      string,
+      { email: string; handle: string }
+    >();
+
+    recipients.forEach((recipient) => {
+      const normalizedEmail = String(recipient.email || '')
+        .trim()
+        .toLowerCase();
+
+      if (!normalizedEmail || recipientByEmail.has(normalizedEmail)) {
+        return;
+      }
+
+      recipientByEmail.set(normalizedEmail, {
+        email: normalizedEmail,
+        handle: String(recipient.handle || '').trim() || normalizedEmail,
+      });
+    });
+
+    return Array.from(recipientByEmail.values());
   }
 
   /**

@@ -7,8 +7,20 @@ import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { MemberDetail } from 'src/shared/utils/member.utils';
 
 export interface MemberRoleRecord {
+  id?: string | number;
   roleName: string;
 }
+
+type RoleSubjectRecord = {
+  subjectID?: string | number;
+  userId?: string | number;
+  handle?: string;
+  email?: string;
+};
+
+type RoleDetailResponse = {
+  subjects?: RoleSubjectRecord[];
+};
 
 /**
  * Member and identity enrichment service.
@@ -192,6 +204,91 @@ export class MemberService {
     } catch (error) {
       this.logger.warn(
         `Failed to fetch roles for userId=${normalizedUserId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Looks up role members from Identity API by role name.
+   *
+   * Resolves `/roles?filter=roleName=<roleName>` and then
+   * `/roles/:id?fields=subjects`, returning the `subjects` list normalized to
+   * `MemberDetail` shape.
+   *
+   * @param roleName identity role name (for example `Project Manager`)
+   * @returns role subject list with optional `userId`, `handle`, and `email`
+   */
+  async getRoleSubjects(roleName: string): Promise<MemberDetail[]> {
+    if (!this.identityApiUrl) {
+      this.logger.warn('IDENTITY_API_URL is not configured.');
+      return [];
+    }
+
+    const normalizedRoleName = String(roleName || '').trim();
+    if (!normalizedRoleName) {
+      return [];
+    }
+
+    try {
+      const token = await this.m2mService.getM2MToken();
+      const identityApiBaseUrl = this.identityApiUrl.replace(/\/$/, '');
+
+      const rolesResponse = await firstValueFrom(
+        this.httpService.get(`${identityApiBaseUrl}/roles`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          params: {
+            filter: `roleName=${normalizedRoleName}`,
+          },
+        }),
+      );
+
+      const roles = Array.isArray(rolesResponse.data)
+        ? (rolesResponse.data as MemberRoleRecord[])
+        : [];
+
+      const roleId = String(
+        roles.find(
+          (role) =>
+            String(role.roleName || '').toLowerCase() ===
+            normalizedRoleName.toLowerCase(),
+        )?.id || '',
+      ).trim();
+
+      if (!roleId) {
+        return [];
+      }
+
+      const roleDetailResponse = await firstValueFrom(
+        this.httpService.get(`${identityApiBaseUrl}/roles/${roleId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          params: {
+            fields: 'subjects',
+          },
+        }),
+      );
+
+      const subjects = Array.isArray(
+        (roleDetailResponse.data as RoleDetailResponse)?.subjects,
+      )
+        ? ((roleDetailResponse.data as RoleDetailResponse)
+            .subjects as RoleSubjectRecord[])
+        : [];
+
+      return subjects.map((subject) => ({
+        userId: subject.subjectID || subject.userId || null,
+        handle: subject.handle || null,
+        email: subject.email ? String(subject.email).toLowerCase() : null,
+      }));
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch role subjects for roleName=${normalizedRoleName}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
