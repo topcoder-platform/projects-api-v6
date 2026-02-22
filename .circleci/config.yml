@@ -73,10 +73,10 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: corepack pnpm install --frozen-lockfile
+          command: npm exec --yes pnpm@10.28.2 -- install --frozen-lockfile
       - run:
           name: Run deployment validation tests
-          command: corepack pnpm test:deployment
+          command: npm exec --yes pnpm@10.28.2 -- test:deployment
 
   deployment-validation-prod:
     <<: *node_defaults
@@ -88,10 +88,10 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: corepack pnpm install --frozen-lockfile
+          command: npm exec --yes pnpm@10.28.2 -- install --frozen-lockfile
       - run:
           name: Run deployment validation tests
-          command: corepack pnpm test:deployment
+          command: npm exec --yes pnpm@10.28.2 -- test:deployment
 
 workflows:
   version: 2
