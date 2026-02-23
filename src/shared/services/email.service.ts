@@ -19,6 +19,12 @@ export interface InviteEmailInitiator {
 }
 
 export interface InviteEmailOptions {
+  /**
+   * Indicates invite target already has a Topcoder account.
+   *
+   * `true` uses the known-user invite template and Join/Decline flow.
+   * `false` uses the unknown-user invite template and Register flow.
+   */
   isSSO?: boolean;
 }
 
@@ -44,7 +50,7 @@ export class EmailService {
    * Publishes a project invite email event.
    *
    * No-ops when `invite.email` is empty or when
-   * `SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED` is unset.
+   * no invite template id env var can be resolved.
    *
    * Publishes payload to `external.action.email`.
    *
@@ -72,12 +78,10 @@ export class EmailService {
       return;
     }
 
-    // TODO: validate this env var at startup and throw if missing, rather than silently skipping.
-    // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
-    const templateId = process.env.SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED;
+    const templateId = this.resolveInviteTemplateId(Boolean(options?.isSSO));
     if (!templateId) {
       this.logger.warn(
-        `Skipping invite email publish for projectId=${projectId} recipient=${recipient}: SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED is not configured.`,
+        `Skipping invite email publish for projectId=${projectId} recipient=${recipient}: no invite template id is configured for knownUser=${String(Boolean(options?.isSSO))}.`,
       );
       return;
     }
@@ -131,6 +135,30 @@ export class EmailService {
         error instanceof Error ? error.stack : undefined,
       );
     }
+  }
+
+  /**
+   * Resolves invite email template id by target account state.
+   *
+   * Prefers dedicated known/unknown template env vars and falls back to the
+   * legacy `SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED` for compatibility.
+   *
+   * @param isKnownUser Whether the invite target is an existing Topcoder user.
+   * @returns SendGrid template id, or `null` when no compatible env var exists.
+   */
+  private resolveInviteTemplateId(isKnownUser: boolean): string | null {
+    const knownTemplateId =
+      process.env.SENDGRID_PROJECT_INVITATION_KNOWN_USER_TEMPLATE_ID;
+    const unknownTemplateId =
+      process.env.SENDGRID_PROJECT_INVITATION_UNKNOWN_USER_TEMPLATE_ID;
+    const legacyTemplateId =
+      process.env.SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED;
+
+    if (isKnownUser) {
+      return knownTemplateId || legacyTemplateId || null;
+    }
+
+    return unknownTemplateId || legacyTemplateId || null;
   }
 
   /**

@@ -320,7 +320,9 @@ Reference source: `.env.example`.
 | `SFDC_BILLING_ACCOUNT_MARKUP_FIELD` | - | `Mark_Up__c` | SOQL field name |
 | `SFDC_BILLING_ACCOUNT_ACTIVE_FIELD` | - | `Active__c` | SOQL field name |
 | `INVITE_EMAIL_SUBJECT` | - | - | Email subject for invites |
-| `SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED` | - | - | SendGrid template ID |
+| `SENDGRID_PROJECT_INVITATION_KNOWN_USER_TEMPLATE_ID` | - | - | SendGrid template ID for registered users (Join/Decline invite email) |
+| `SENDGRID_PROJECT_INVITATION_UNKNOWN_USER_TEMPLATE_ID` | - | - | SendGrid template ID for unregistered emails (Register invite email) |
+| `SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED` | - | - | Legacy fallback SendGrid template ID when dedicated invite template vars are unset |
 | `SENDGRID_TEMPLATE_COPILOT_ALREADY_PART_OF_PROJECT` | - | - | SendGrid template ID |
 | `SENDGRID_TEMPLATE_INFORM_PM_COPILOT_APPLICATION_ACCEPTED` | - | - | SendGrid template ID |
 | `COPILOT_PORTAL_URL` | - | - | Copilot portal URL (used in invite emails) |
