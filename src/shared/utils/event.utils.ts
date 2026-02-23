@@ -85,6 +85,7 @@ function buildBusApiConfig(): Record<string, unknown> {
   return {
     BUSAPI_URL: process.env.BUSAPI_URL,
     KAFKA_URL: process.env.KAFKA_URL,
+    KAFKA_ERROR_TOPIC: process.env.KAFKA_ERROR_TOPIC,
     KAFKA_CLIENT_CERT: process.env.KAFKA_CLIENT_CERT,
     KAFKA_CLIENT_CERT_KEY: process.env.KAFKA_CLIENT_CERT_KEY,
     AUTH0_URL: process.env.AUTH0_URL,

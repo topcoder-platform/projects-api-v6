@@ -128,7 +128,9 @@ describe('Deployment validation', () => {
       'AUTH0_AUDIENCE',
       'AUTH0_CLIENT_ID',
       'AUTH0_CLIENT_SECRET',
+      'BUSAPI_URL',
       'KAFKA_URL',
+      'KAFKA_ERROR_TOPIC',
     ];
 
     const missing = required.filter((key) => !process.env[key]);

@@ -294,6 +294,7 @@ Reference source: `.env.example`.
 | `AUTH0_CLIENT_ID` | ✅ | - | M2M client ID |
 | `AUTH0_CLIENT_SECRET` | ✅ | - | M2M client secret |
 | `KAFKA_URL` | ✅ | - | Kafka broker URL |
+| `KAFKA_ERROR_TOPIC` | ✅ | - | Kafka topic used by `tc-bus-api-wrapper` for error events |
 | `KAFKA_CLIENT_CERT` | - | - | Kafka TLS cert |
 | `KAFKA_CLIENT_CERT_KEY` | - | - | Kafka TLS key |
 | `BUSAPI_URL` | ✅ | - | Topcoder Bus API base URL |
