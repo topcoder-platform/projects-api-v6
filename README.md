@@ -293,10 +293,10 @@ Reference source: `.env.example`.
 | `AUTH0_PROXY_SERVER_URL` | - | - | Auth0 proxy (optional) |
 | `AUTH0_CLIENT_ID` | ✅ | - | M2M client ID |
 | `AUTH0_CLIENT_SECRET` | ✅ | - | M2M client secret |
-| `KAFKA_URL` | ✅ | - | Kafka broker URL |
-| `KAFKA_ERROR_TOPIC` | ✅ | - | Kafka topic used by `tc-bus-api-wrapper` for error events |
-| `KAFKA_CLIENT_CERT` | - | - | Kafka TLS cert |
-| `KAFKA_CLIENT_CERT_KEY` | - | - | Kafka TLS key |
+| `KAFKA_URL` | - | - | Legacy/compatibility setting; not used by current `tc-bus-api-wrapper` client init |
+| `KAFKA_ERROR_TOPIC` | ✅ | - | Kafka topic used by `tc-bus-api-wrapper` for `postError` routing (required by wrapper init) |
+| `KAFKA_CLIENT_CERT` | - | - | Legacy/compatibility setting; not used by current `tc-bus-api-wrapper` client init |
+| `KAFKA_CLIENT_CERT_KEY` | - | - | Legacy/compatibility setting; not used by current `tc-bus-api-wrapper` client init |
 | `BUSAPI_URL` | ✅ | - | Topcoder Bus API base URL |
 | `KAFKA_PROJECT_CREATED_TOPIC` | ✅ | `project.created` | Kafka topic |
 | `KAFKA_PROJECT_UPDATED_TOPIC` | ✅ | `project.updated` | Kafka topic |

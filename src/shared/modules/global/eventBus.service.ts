@@ -39,7 +39,6 @@ type EventBusClient = {
 
 const EVENT_BUS_REQUIRED_ENV_KEYS = [
   'BUSAPI_URL',
-  'KAFKA_URL',
   'KAFKA_ERROR_TOPIC',
   'AUTH0_URL',
   'AUTH0_AUDIENCE',
@@ -145,13 +144,9 @@ export class EventBusService {
 
     try {
       // TODO (quality): TOKEN_CACHE_TIME is hardcoded to 900 seconds. Expose as an environment variable (e.g., AUTH0_TOKEN_CACHE_TIME) for operational flexibility.
-      // TODO (security): KAFKA_CLIENT_CERT and KAFKA_CLIENT_CERT_KEY are passed directly from environment variables without validation. Ensure these are properly formatted PEM strings before passing to the client.
       const client = busApiFactory({
         BUSAPI_URL: process.env.BUSAPI_URL,
-        KAFKA_URL: process.env.KAFKA_URL,
         KAFKA_ERROR_TOPIC: process.env.KAFKA_ERROR_TOPIC,
-        KAFKA_CLIENT_CERT: process.env.KAFKA_CLIENT_CERT,
-        KAFKA_CLIENT_CERT_KEY: process.env.KAFKA_CLIENT_CERT_KEY,
         AUTH0_URL: process.env.AUTH0_URL,
         AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
         AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
@@ -175,7 +170,6 @@ export class EventBusService {
   private buildConfigStatus(): EventBusConfigStatus {
     return {
       BUSAPI_URL: this.toConfigStatus(process.env.BUSAPI_URL),
-      KAFKA_URL: this.toConfigStatus(process.env.KAFKA_URL),
       KAFKA_ERROR_TOPIC: this.toConfigStatus(process.env.KAFKA_ERROR_TOPIC),
       AUTH0_URL: this.toConfigStatus(process.env.AUTH0_URL),
       AUTH0_AUDIENCE: this.toConfigStatus(process.env.AUTH0_AUDIENCE),

@@ -129,7 +129,6 @@ describe('Deployment validation', () => {
       'AUTH0_CLIENT_ID',
       'AUTH0_CLIENT_SECRET',
       'BUSAPI_URL',
-      'KAFKA_URL',
       'KAFKA_ERROR_TOPIC',
     ];
 
