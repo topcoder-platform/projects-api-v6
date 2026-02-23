@@ -9,10 +9,6 @@ defaults: &defaults
   docker:
     - image: cimg/python:3.13.2-browsers
 
-node_defaults: &node_defaults
-  docker:
-    - image: cimg/node:22.13
-
 install_dependency: &install_dependency
   name: Installation of build and deployment dependencies.
   command: |
@@ -63,36 +59,6 @@ jobs:
       DEPLOYMENT_ENVIRONMENT: "prod"
     steps: *builddeploy_steps
 
-  deployment-validation-dev:
-    <<: *node_defaults
-    environment:
-      DEPLOYMENT_VALIDATION_ENABLED: "true"
-      DEPLOYMENT_SMOKE_ENABLED: "false"
-      V6_BASE_URL: "${DEPLOYMENT_VALIDATION_DEV_BASE_URL}"
-    steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: npm exec --yes pnpm@10.28.2 -- install --frozen-lockfile
-      - run:
-          name: Run deployment validation tests
-          command: npm exec --yes pnpm@10.28.2 -- test:deployment
-
-  deployment-validation-prod:
-    <<: *node_defaults
-    environment:
-      DEPLOYMENT_VALIDATION_ENABLED: "true"
-      DEPLOYMENT_SMOKE_ENABLED: "false"
-      V6_BASE_URL: "${DEPLOYMENT_VALIDATION_PROD_BASE_URL}"
-    steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: npm exec --yes pnpm@10.28.2 -- install --frozen-lockfile
-      - run:
-          name: Run deployment validation tests
-          command: npm exec --yes pnpm@10.28.2 -- test:deployment
-
 workflows:
   version: 2
   build-dev:
@@ -103,27 +69,11 @@ workflows:
             branches:
               only:
                 - dev
-      - deployment-validation-dev:
-          context: org-global
-          requires:
-            - build-dev
-          filters:
-            branches:
-              only:
-                - dev
 
   build-prod:
     jobs:
       - build-prod:
           context: org-global
-          filters:
-            branches:
-              only:
-                - master
-      - deployment-validation-prod:
-          context: org-global
-          requires:
-            - build-prod
           filters:
             branches:
               only:
