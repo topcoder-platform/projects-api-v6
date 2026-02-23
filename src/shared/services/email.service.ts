@@ -18,6 +18,10 @@ export interface InviteEmailInitiator {
   email?: string;
 }
 
+export interface InviteEmailOptions {
+  isSSO?: boolean;
+}
+
 const EXTERNAL_ACTION_EMAIL_TOPIC = 'external.action.email';
 const DEFAULT_INVITE_EMAIL_SUBJECT = 'You are invited to Topcoder';
 const DEFAULT_INVITE_EMAIL_SECTION_TITLE = 'Project Invitation';
@@ -48,6 +52,7 @@ export class EmailService {
    * @param invite invite payload containing recipient info
    * @param initiator invite initiator details
    * @param projectName optional project display name
+   * @param options additional invite-email options
    * @returns resolved promise when publish succeeds or is skipped
    */
   async sendInviteEmail(
@@ -55,6 +60,7 @@ export class EmailService {
     invite: InviteEmailPayload,
     initiator: InviteEmailInitiator,
     projectName?: string,
+    options?: InviteEmailOptions,
   ): Promise<void> {
     const recipient = invite.email?.trim().toLowerCase();
     // TODO: add basic email format validation before publishing the event.
@@ -100,8 +106,7 @@ export class EmailService {
                 projectName: normalizedProjectName,
                 projectId,
                 initiator: this.normalizeInitiator(initiator),
-                // TODO: determine if SSO status should be dynamic based on the invitee's identity provider.
-                isSSO: false,
+                isSSO: options?.isSSO ?? false,
               },
             ],
           },

@@ -204,6 +204,9 @@ export class ProjectInviteService {
     );
 
     const emailOnlyTargets = emailTargets.emailOnlyTargets;
+    const userIdsResolvedFromEmails = new Set(
+      emailTargets.userTargets.map((target) => String(target.userId)),
+    );
 
     const status =
       dto.role !== ProjectMemberRole.copilot || canInviteCopilotDirectly
@@ -250,13 +253,17 @@ export class ProjectInviteService {
     for (const invite of success) {
       const normalizedInvite = this.normalizeEntity(invite);
       const recipient = invite.email?.trim().toLowerCase();
+      const isKnownEmailUserInvite =
+        invite.userId !== null &&
+        userIdsResolvedFromEmails.has(String(invite.userId));
+
       if (
         invite.email &&
-        !invite.userId &&
-        invite.status === InviteStatus.pending
+        invite.status === InviteStatus.pending &&
+        (!invite.userId || isKnownEmailUserInvite)
       ) {
         this.logger.log(
-          `Dispatching invite email publish for inviteId=${String(invite.id)} projectId=${projectId} recipient=${recipient}`,
+          `Dispatching invite email publish for inviteId=${String(invite.id)} projectId=${projectId} recipient=${recipient} isSSO=${String(Boolean(isKnownEmailUserInvite))}`,
         );
         void this.emailService.sendInviteEmail(
           projectId,
@@ -266,6 +273,9 @@ export class ProjectInviteService {
             handle: user.handle,
           },
           project.name,
+          {
+            isSSO: Boolean(isKnownEmailUserInvite),
+          },
         );
         continue;
       }
