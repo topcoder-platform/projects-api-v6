@@ -37,6 +37,18 @@ type EventBusClient = {
   }) => Promise<unknown>;
 };
 
+const EVENT_BUS_REQUIRED_ENV_KEYS = [
+  'BUSAPI_URL',
+  'KAFKA_URL',
+  'AUTH0_URL',
+  'AUTH0_AUDIENCE',
+  'AUTH0_CLIENT_ID',
+  'AUTH0_CLIENT_SECRET',
+] as const;
+
+type EventBusRequiredEnvKey = (typeof EVENT_BUS_REQUIRED_ENV_KEYS)[number];
+type EventBusConfigStatus = Record<EventBusRequiredEnvKey, 'set' | 'empty'>;
+
 @Injectable()
 /**
  * Service responsible for publishing events to Kafka through tc-bus-api-wrapper.
@@ -44,6 +56,7 @@ type EventBusClient = {
 export class EventBusService {
   private readonly logger = LoggerService.forRoot('EventBusService');
   private readonly client: EventBusClient | null;
+  private clientInitReason = 'uninitialized';
 
   /**
    * Creates the event-bus client if the runtime supports it.
@@ -64,6 +77,9 @@ export class EventBusService {
   async publishProjectEvent(topic: string, payload: unknown): Promise<void> {
     // TODO (security): The 'topic' parameter is not validated. A caller passing an untrusted or user-supplied topic string could publish to unintended Kafka topics. Validate against an allowlist of known topics.
     if (!this.client) {
+      this.logger.error(
+        `Event bus client unavailable for topic ${topic}. initReason=${this.clientInitReason}. configStatus=${this.serializeConfigStatus(this.buildConfigStatus())}`,
+      );
       throw new ServiceUnavailableException(
         'Event bus client is not configured.',
       );
@@ -100,25 +116,36 @@ export class EventBusService {
     const busApiFactory = busApi as unknown as (
       config: Record<string, unknown>,
     ) => EventBusClient;
+    const configStatus = this.buildConfigStatus();
 
     if (typeof busApiFactory !== 'function') {
+      this.clientInitReason = 'bus-api-wrapper-unavailable';
       this.logger.warn(
-        'tc-bus-api-wrapper is not available. Event publishing disabled.',
+        `tc-bus-api-wrapper is not available. Event publishing disabled. configStatus=${this.serializeConfigStatus(configStatus)}`,
       );
       return null;
     }
 
-    if (!process.env.AUTH0_URL || !process.env.AUTH0_AUDIENCE) {
+    const missingAuthEnv = this.getMissingAuthEnv(configStatus);
+    if (missingAuthEnv.length > 0) {
+      this.clientInitReason = `missing-auth-env:${missingAuthEnv.join(',')}`;
       this.logger.warn(
-        'Missing AUTH0_URL or AUTH0_AUDIENCE. Event publishing disabled.',
+        `Missing ${missingAuthEnv.join(', ')}. Event publishing disabled. configStatus=${this.serializeConfigStatus(configStatus)}`,
       );
       return null;
+    }
+
+    const missingRequiredEnv = this.getMissingRequiredEnv(configStatus);
+    if (missingRequiredEnv.length > 0) {
+      this.logger.warn(
+        `Event bus config has empty required values: ${missingRequiredEnv.join(', ')}. Initialization may fail. configStatus=${this.serializeConfigStatus(configStatus)}`,
+      );
     }
 
     try {
       // TODO (quality): TOKEN_CACHE_TIME is hardcoded to 900 seconds. Expose as an environment variable (e.g., AUTH0_TOKEN_CACHE_TIME) for operational flexibility.
       // TODO (security): KAFKA_CLIENT_CERT and KAFKA_CLIENT_CERT_KEY are passed directly from environment variables without validation. Ensure these are properly formatted PEM strings before passing to the client.
-      return busApiFactory({
+      const client = busApiFactory({
         BUSAPI_URL: process.env.BUSAPI_URL,
         KAFKA_URL: process.env.KAFKA_URL,
         KAFKA_CLIENT_CERT: process.env.KAFKA_CLIENT_CERT,
@@ -130,11 +157,50 @@ export class EventBusService {
         AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
         TOKEN_CACHE_TIME: 900,
       });
+      this.clientInitReason = 'initialized';
+      return client;
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.clientInitReason = `client-init-failed:${errorMessage}`;
       this.logger.warn(
-        `Failed to initialize event bus client: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to initialize event bus client: ${errorMessage}. configStatus=${this.serializeConfigStatus(configStatus)}`,
       );
       return null;
     }
+  }
+
+  private buildConfigStatus(): EventBusConfigStatus {
+    return {
+      BUSAPI_URL: this.toConfigStatus(process.env.BUSAPI_URL),
+      KAFKA_URL: this.toConfigStatus(process.env.KAFKA_URL),
+      AUTH0_URL: this.toConfigStatus(process.env.AUTH0_URL),
+      AUTH0_AUDIENCE: this.toConfigStatus(process.env.AUTH0_AUDIENCE),
+      AUTH0_CLIENT_ID: this.toConfigStatus(process.env.AUTH0_CLIENT_ID),
+      AUTH0_CLIENT_SECRET: this.toConfigStatus(process.env.AUTH0_CLIENT_SECRET),
+    };
+  }
+
+  private toConfigStatus(value: string | undefined): 'set' | 'empty' {
+    return typeof value === 'string' && value.trim().length > 0
+      ? 'set'
+      : 'empty';
+  }
+
+  private getMissingAuthEnv(status: EventBusConfigStatus): string[] {
+    const authKeys: Array<EventBusRequiredEnvKey> = [
+      'AUTH0_URL',
+      'AUTH0_AUDIENCE',
+    ];
+
+    return authKeys.filter((key) => status[key] === 'empty');
+  }
+
+  private getMissingRequiredEnv(status: EventBusConfigStatus): string[] {
+    return EVENT_BUS_REQUIRED_ENV_KEYS.filter((key) => status[key] === 'empty');
+  }
+
+  private serializeConfigStatus(status: EventBusConfigStatus): string {
+    return JSON.stringify(status);
   }
 }

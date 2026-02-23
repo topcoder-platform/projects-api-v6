@@ -249,11 +249,15 @@ export class ProjectInviteService {
 
     for (const invite of success) {
       const normalizedInvite = this.normalizeEntity(invite);
+      const recipient = invite.email?.trim().toLowerCase();
       if (
         invite.email &&
         !invite.userId &&
         invite.status === InviteStatus.pending
       ) {
+        this.logger.log(
+          `Dispatching invite email publish for inviteId=${String(invite.id)} projectId=${projectId} recipient=${recipient}`,
+        );
         void this.emailService.sendInviteEmail(
           projectId,
           normalizedInvite,
@@ -262,6 +266,13 @@ export class ProjectInviteService {
             handle: user.handle,
           },
           project.name,
+        );
+        continue;
+      }
+
+      if (invite.email) {
+        this.logger.log(
+          `Skipping invite email publish for inviteId=${String(invite.id)} projectId=${projectId} recipient=${recipient} reason=${this.getInviteEmailSkipReason(invite)}`,
         );
       }
     }
@@ -1285,6 +1296,28 @@ export class ProjectInviteService {
     }
 
     return null;
+  }
+
+  /**
+   * Returns a stable reason when invite-email publishing is not attempted.
+   *
+   * @param invite Invite entity.
+   * @returns Machine-friendly skip reason.
+   */
+  private getInviteEmailSkipReason(invite: ProjectMemberInvite): string {
+    if (!invite.email) {
+      return 'missing-email';
+    }
+
+    if (invite.userId) {
+      return 'invite-linked-to-user';
+    }
+
+    if (invite.status !== InviteStatus.pending) {
+      return `status-${String(invite.status)}`;
+    }
+
+    return 'not-eligible';
   }
 
   /**

@@ -60,6 +60,9 @@ export class EmailService {
     // TODO: add basic email format validation before publishing the event.
 
     if (!recipient) {
+      this.logger.warn(
+        `Skipping invite email publish for projectId=${projectId}: recipient email is missing.`,
+      );
       return;
     }
 
@@ -68,7 +71,7 @@ export class EmailService {
     const templateId = process.env.SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED;
     if (!templateId) {
       this.logger.warn(
-        'SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED is not configured.',
+        `Skipping invite email publish for projectId=${projectId} recipient=${recipient}: SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED is not configured.`,
       );
       return;
     }
@@ -110,6 +113,9 @@ export class EmailService {
     };
 
     try {
+      this.logger.log(
+        `Publishing invite email event to ${EXTERNAL_ACTION_EMAIL_TOPIC} for projectId=${projectId} recipient=${recipient}`,
+      );
       await this.eventBusService.publishProjectEvent(
         EXTERNAL_ACTION_EMAIL_TOPIC,
         payload,
