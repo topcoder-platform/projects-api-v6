@@ -151,6 +151,95 @@ describe('ProjectService', () => {
     );
   });
 
+  it('lists own email invites when invite userId is missing', async () => {
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean => {
+        if (permission === Permission.READ_PROJECT_ANY) {
+          return false;
+        }
+
+        if (permission === Permission.READ_PROJECT_MEMBER) {
+          return true;
+        }
+
+        if (permission === Permission.READ_PROJECT_INVITE_NOT_OWN) {
+          return false;
+        }
+
+        if (permission === Permission.READ_PROJECT_INVITE_OWN) {
+          return true;
+        }
+
+        return true;
+      },
+    );
+
+    prismaMock.project.count.mockResolvedValue(1);
+    prismaMock.project.findMany.mockResolvedValue([
+      {
+        id: BigInt(1001),
+        name: 'Demo',
+        type: 'app',
+        status: 'in_review',
+        lastActivityAt: new Date(),
+        lastActivityUserId: '100',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 100,
+        updatedBy: 100,
+        version: 'v3',
+        terms: [],
+        groups: [],
+        members: [],
+        invites: [
+          {
+            id: BigInt(1),
+            projectId: BigInt(1001),
+            userId: null,
+            email: 'JMGasper+devtest140@gmail.com',
+            role: 'customer',
+            status: 'pending',
+            deletedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: BigInt(2),
+            projectId: BigInt(1001),
+            userId: null,
+            email: 'someone-else@example.com',
+            role: 'customer',
+            status: 'pending',
+            deletedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+        attachments: [],
+      },
+    ]);
+
+    const result = await service.listProjects(
+      {
+        page: 1,
+        perPage: 20,
+        fields: 'invites',
+      },
+      {
+        userId: '88770025',
+        email: 'jmgasper+devtest140@gmail.com',
+        isMachine: false,
+      },
+    );
+
+    expect(result.total).toBe(1);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].invites).toHaveLength(1);
+    expect(result.data[0].invites?.[0].email).toBe(
+      'JMGasper+devtest140@gmail.com',
+    );
+  });
+
   it('does not load relation payloads by default in project listing', async () => {
     permissionServiceMock.hasNamedPermission.mockImplementation(
       (permission: Permission): boolean =>

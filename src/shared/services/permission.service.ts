@@ -196,14 +196,18 @@ export class PermissionService {
         return false;
       }
 
-      if (!invite.userId) {
-        return false;
+      if (
+        invite.userId &&
+        this.normalizeUserId(invite.userId) ===
+          this.normalizeUserId(user.userId)
+      ) {
+        return true;
       }
 
-      return (
-        this.normalizeUserId(invite.userId) ===
-        this.normalizeUserId(user.userId)
-      );
+      const inviteEmail = this.normalizeEmail(invite.email);
+      const userEmail = this.getUserEmail(user);
+
+      return Boolean(inviteEmail && userEmail && inviteEmail === userEmail);
     });
 
     // TODO: extract to private isAdminManagerOrCopilot() helper to reduce duplication.
@@ -571,6 +575,64 @@ export class PermissionService {
   ): string {
     // TODO: duplicated with src/shared/utils/member.utils.ts#normalizeUserId; extract shared normalization utility.
     return String(userId || '').trim();
+  }
+
+  /**
+   * Reads normalized user email from parsed claims.
+   *
+   * Uses `JwtUser.email` first, then falls back to suffix-based lookup in
+   * `tokenPayload` for compatibility with namespaced claims.
+   *
+   * @param user authenticated JWT user
+   * @returns lower-cased email or `undefined`
+   */
+  private getUserEmail(user: JwtUser): string | undefined {
+    const directEmail = this.normalizeEmail(user.email);
+
+    if (directEmail) {
+      return directEmail;
+    }
+
+    const payload = user.tokenPayload;
+
+    if (!payload || typeof payload !== 'object') {
+      return undefined;
+    }
+
+    for (const key of Object.keys(payload)) {
+      if (!key.toLowerCase().endsWith('email')) {
+        continue;
+      }
+
+      const value = (payload as Record<string, unknown>)[key];
+      if (typeof value !== 'string') {
+        continue;
+      }
+
+      const normalizedEmail = this.normalizeEmail(value);
+
+      if (normalizedEmail) {
+        return normalizedEmail;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Normalizes email values for case-insensitive comparisons.
+   *
+   * @param value raw email value
+   * @returns lower-cased trimmed email or `undefined`
+   */
+  private normalizeEmail(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalizedEmail = value.trim().toLowerCase();
+
+    return normalizedEmail.length > 0 ? normalizedEmail : undefined;
   }
 
   /**

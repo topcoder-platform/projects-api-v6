@@ -60,6 +60,50 @@ function normalizeUserId(
 }
 
 /**
+ * Normalizes emails for case-insensitive comparisons.
+ */
+function normalizeEmail(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim().toLowerCase();
+}
+
+/**
+ * Extracts normalized user email from parsed claims.
+ *
+ * Prefers `JwtUser.email` and falls back to namespaced payload keys ending in
+ * `email`.
+ */
+function getUserEmail(user: JwtUser): string {
+  const directEmail = normalizeEmail(user.email);
+  if (directEmail.length > 0) {
+    return directEmail;
+  }
+
+  const payload = user.tokenPayload;
+  if (!payload || typeof payload !== 'object') {
+    return '';
+  }
+
+  for (const key of Object.keys(payload)) {
+    if (!key.toLowerCase().endsWith('email')) {
+      continue;
+    }
+
+    const normalizedEmail = normalizeEmail(
+      (payload as Record<string, unknown>)[key],
+    );
+    if (normalizedEmail.length > 0) {
+      return normalizedEmail;
+    }
+  }
+
+  return '';
+}
+
+/**
  * Parses comma-separated values into a trimmed non-empty string list.
  */
 function parseCsv(value: string): string[] {
@@ -366,28 +410,46 @@ export function buildProjectWhereClause(
 
   if (!isAdmin || memberOnly) {
     const userId = toBigInt(normalizeUserId(user.userId));
+    const userEmail = getUserEmail(user);
+    const visibilityFilters: Prisma.ProjectWhereInput[] = [];
 
     if (userId) {
+      visibilityFilters.push(
+        {
+          members: {
+            some: {
+              userId,
+              deletedAt: null,
+            },
+          },
+        },
+        {
+          invites: {
+            some: {
+              userId,
+              status: 'pending',
+              deletedAt: null,
+            },
+          },
+        },
+      );
+    }
+
+    if (userEmail.length > 0) {
+      visibilityFilters.push({
+        invites: {
+          some: {
+            email: userEmail,
+            status: 'pending',
+            deletedAt: null,
+          },
+        },
+      });
+    }
+
+    if (visibilityFilters.length > 0) {
       appendAndCondition(where, {
-        OR: [
-          {
-            members: {
-              some: {
-                userId,
-                deletedAt: null,
-              },
-            },
-          },
-          {
-            invites: {
-              some: {
-                userId,
-                status: 'pending',
-                deletedAt: null,
-              },
-            },
-          },
-        ],
+        OR: visibilityFilters,
       });
     }
   }
@@ -443,6 +505,7 @@ export function buildProjectIncludeClause(
 
 type InviteLike = {
   userId?: string | number | bigint | null;
+  email?: string | null;
 };
 
 /**
@@ -450,7 +513,7 @@ type InviteLike = {
  *
  * Returns:
  * - all invites when `hasReadAll` is true,
- * - only own invites when `hasReadOwn` is true,
+ * - only own invites (by `userId` or `email`) when `hasReadOwn` is true,
  * - empty list otherwise.
  */
 export function filterInvitesByPermission<T extends InviteLike>(
@@ -472,13 +535,19 @@ export function filterInvitesByPermission<T extends InviteLike>(
   }
 
   const normalizedUserId = normalizeUserId(user.userId);
+  const normalizedUserEmail = getUserEmail(user);
 
   return invites.filter((invite) => {
-    if (!invite.userId) {
+    const inviteUserId = normalizeUserId(invite.userId);
+    if (inviteUserId.length > 0 && inviteUserId === normalizedUserId) {
+      return true;
+    }
+
+    if (normalizedUserEmail.length === 0) {
       return false;
     }
 
-    return normalizeUserId(invite.userId) === normalizedUserId;
+    return normalizeEmail(invite.email) === normalizedUserEmail;
   });
 }
 

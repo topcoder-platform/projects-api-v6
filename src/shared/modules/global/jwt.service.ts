@@ -33,6 +33,10 @@ export interface JwtUser {
    */
   userId?: string;
   /**
+   * User email extracted from token claims.
+   */
+  email?: string;
+  /**
    * Topcoder handle extracted from token claims.
    */
   handle?: string;
@@ -346,6 +350,13 @@ export class JwtService implements OnModuleInit {
         const value = payload[key];
         if (typeof value === 'string' && value.trim().length > 0) {
           user.handle = value;
+        }
+      }
+
+      if (!user.email && lowerKey.endsWith('email')) {
+        const value = payload[key];
+        if (typeof value === 'string' && value.trim().length > 0) {
+          user.email = value.trim().toLowerCase();
         }
       }
 

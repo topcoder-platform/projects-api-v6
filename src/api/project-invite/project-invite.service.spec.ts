@@ -375,6 +375,106 @@ describe('ProjectInviteService', () => {
     );
   });
 
+  it('accepts email-only invite and creates project member for authenticated user', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      members: [],
+    });
+
+    prismaMock.projectMemberInvite.findFirst.mockResolvedValue({
+      id: BigInt(11),
+      projectId: BigInt(1001),
+      userId: null,
+      email: 'jmgasper+devtest140@gmail.com',
+      role: ProjectMemberRole.customer,
+      status: InviteStatus.pending,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: 1,
+      updatedBy: 1,
+      deletedAt: null,
+      deletedBy: null,
+      applicationId: null,
+    });
+
+    const txMock = {
+      projectMemberInvite: {
+        update: jest.fn().mockResolvedValue({
+          id: BigInt(11),
+          projectId: BigInt(1001),
+          userId: null,
+          email: 'jmgasper+devtest140@gmail.com',
+          role: ProjectMemberRole.customer,
+          status: InviteStatus.accepted,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 1,
+          updatedBy: 99,
+          deletedAt: null,
+          deletedBy: null,
+          applicationId: null,
+        }),
+      },
+      projectMember: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({
+          id: BigInt(778),
+          projectId: BigInt(1001),
+          userId: BigInt(88770025),
+          role: ProjectMemberRole.customer,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 99,
+          updatedBy: 99,
+          deletedAt: null,
+          deletedBy: null,
+        }),
+      },
+      copilotRequest: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+
+    prismaMock.$transaction.mockImplementation(
+      (callback: (tx: unknown) => Promise<unknown>) => callback(txMock),
+    );
+
+    await service.updateInvite(
+      '1001',
+      '11',
+      {
+        status: InviteStatus.accepted,
+      },
+      {
+        userId: '88770025',
+        isMachine: false,
+        tokenPayload: {
+          email: 'jmgasper+devtest140@gmail.com',
+        },
+      },
+      undefined,
+    );
+
+    expect(txMock.projectMember.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          projectId: BigInt(1001),
+          role: ProjectMemberRole.customer,
+          userId: BigInt(88770025),
+        }),
+      }),
+    );
+    expect(eventUtils.publishMemberEventSafely).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_MEMBER_ADDED,
+      expect.objectContaining({
+        id: '778',
+        projectId: '1001',
+        userId: '88770025',
+      }),
+      expect.anything(),
+    );
+  });
+
   it('blocks deleting not-own requested invite without permission', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
