@@ -30,7 +30,10 @@ import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { EmailService } from 'src/shared/services/email.service';
+import {
+  EmailService,
+  type InviteEmailInitiator,
+} from 'src/shared/services/email.service';
 import { IdentityService } from 'src/shared/services/identity.service';
 import { MemberService } from 'src/shared/services/member.service';
 import { PermissionService } from 'src/shared/services/permission.service';
@@ -58,6 +61,11 @@ interface InviteTargetByUser {
 
 interface InviteTargetByEmail {
   email: string;
+}
+
+interface InviteMemberName {
+  firstName?: string;
+  lastName?: string;
 }
 
 /**
@@ -207,6 +215,9 @@ export class ProjectInviteService {
     const userIdsResolvedFromEmails = new Set(
       emailTargets.userTargets.map((target) => String(target.userId)),
     );
+    const knownInviteeNamesByUserId = await this.getMemberNameMapByUserIds(
+      emailTargets.userTargets.map((target) => target.userId),
+    );
 
     const status =
       dto.role !== ProjectMemberRole.copilot || canInviteCopilotDirectly
@@ -250,6 +261,8 @@ export class ProjectInviteService {
       return created;
     });
 
+    let inviteInitiatorPromise: Promise<InviteEmailInitiator> | null = null;
+
     for (const invite of success) {
       const normalizedInvite = this.normalizeEntity(invite);
       const recipient = invite.email?.trim().toLowerCase();
@@ -262,16 +275,27 @@ export class ProjectInviteService {
         invite.status === InviteStatus.pending &&
         (!invite.userId || isKnownEmailUserInvite)
       ) {
+        if (!inviteInitiatorPromise) {
+          inviteInitiatorPromise = this.resolveInviteEmailInitiator(user);
+        }
+
+        const inviteeNames =
+          invite.userId !== null
+            ? knownInviteeNamesByUserId.get(String(invite.userId))
+            : undefined;
+        const invitePayload = {
+          ...normalizedInvite,
+          firstName: inviteeNames?.firstName,
+          lastName: inviteeNames?.lastName,
+        };
+
         this.logger.log(
           `Dispatching invite email publish for inviteId=${String(invite.id)} projectId=${projectId} recipient=${recipient} isSSO=${String(Boolean(isKnownEmailUserInvite))}`,
         );
         void this.emailService.sendInviteEmail(
           projectId,
-          normalizedInvite,
-          {
-            userId: user.userId,
-            handle: user.handle,
-          },
+          invitePayload,
+          await inviteInitiatorPromise,
           project.name,
           {
             isSSO: Boolean(isKnownEmailUserInvite),
@@ -1484,6 +1508,99 @@ export class ProjectInviteService {
     }
 
     return undefined;
+  }
+
+  /**
+   * Resolves invite initiator details for email templates.
+   *
+   * Uses token context first and enriches with Member API profile fields when
+   * the caller user id is available.
+   *
+   * @param user Authenticated caller.
+   * @returns Normalized initiator payload for invite emails.
+   */
+  private async resolveInviteEmailInitiator(
+    user: JwtUser,
+  ): Promise<InviteEmailInitiator> {
+    const initiator: InviteEmailInitiator = {
+      userId: user.userId,
+      handle: user.handle,
+      email: this.getUserEmail(user),
+    };
+
+    const initiatorUserId = this.parseOptionalId(user.userId);
+    if (!initiatorUserId) {
+      return initiator;
+    }
+
+    const memberDetails = await this.memberService.getMemberDetailsByUserIds([
+      initiatorUserId,
+    ]);
+    const matchedInitiator = memberDetails.find(
+      (detail) =>
+        String(detail.userId || '').trim() === String(initiatorUserId),
+    );
+
+    if (!matchedInitiator) {
+      return initiator;
+    }
+
+    if (matchedInitiator.firstName) {
+      initiator.firstName = String(matchedInitiator.firstName).trim();
+    }
+    if (matchedInitiator.lastName) {
+      initiator.lastName = String(matchedInitiator.lastName).trim();
+    }
+    if (matchedInitiator.email) {
+      initiator.email = String(matchedInitiator.email).trim().toLowerCase();
+    }
+    if (matchedInitiator.handle) {
+      initiator.handle = String(matchedInitiator.handle).trim();
+    }
+
+    return initiator;
+  }
+
+  /**
+   * Builds a lookup map of member first/last names keyed by user id.
+   *
+   * @param userIds User ids to resolve in Member API.
+   * @returns Map of user id to first/last name values.
+   */
+  private async getMemberNameMapByUserIds(
+    userIds: Array<string | number | bigint>,
+  ): Promise<Map<string, InviteMemberName>> {
+    const normalizedUserIds = Array.from(
+      new Set(
+        userIds
+          .map((userId) => String(userId || '').trim())
+          .filter((userId) => userId.length > 0),
+      ),
+    );
+
+    if (normalizedUserIds.length === 0) {
+      return new Map();
+    }
+
+    const details =
+      await this.memberService.getMemberDetailsByUserIds(normalizedUserIds);
+    const detailsMap = new Map<string, InviteMemberName>();
+
+    for (const detail of details) {
+      const userId = String(detail.userId || '').trim();
+      if (!userId) {
+        continue;
+      }
+
+      detailsMap.set(userId, {
+        firstName: detail.firstName
+          ? String(detail.firstName).trim()
+          : undefined,
+        lastName: detail.lastName ? String(detail.lastName).trim() : undefined,
+      });
+    }
+
+    return detailsMap;
   }
 
   /**

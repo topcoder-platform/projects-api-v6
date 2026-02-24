@@ -8,6 +8,8 @@ export interface InviteEmailPayload {
   role?: string;
   email?: string | null;
   status?: string;
+  firstName?: string | null;
+  lastName?: string | null;
 }
 
 export interface InviteEmailInitiator {
@@ -29,8 +31,29 @@ export interface InviteEmailOptions {
 }
 
 const EXTERNAL_ACTION_EMAIL_TOPIC = 'external.action.email';
-const DEFAULT_INVITE_EMAIL_SUBJECT = 'You are invited to Topcoder';
-const DEFAULT_INVITE_EMAIL_SECTION_TITLE = 'Project Invitation';
+const TOPCODER_PROD_ROOT_URL = 'topcoder.com';
+const TOPCODER_DEV_ROOT_URL = 'topcoder-dev.com';
+
+type KnownUserInviteTemplatePayload = {
+  projectName: string;
+  firstName: string;
+  lastName: string;
+  projectId: string;
+  joinProjectUrl: string;
+  declineProjectUrl: string;
+  initiatorFirstName: string;
+  initiatorLastName: string;
+};
+
+type UnknownUserInviteTemplatePayload = {
+  projectName: string;
+  firstName: string;
+  lastName: string;
+  projectId: string;
+  registerUrl: string;
+  initiatorFirstName: string;
+  initiatorLastName: string;
+};
 
 /**
  * Project-invite email publisher.
@@ -49,7 +72,7 @@ export class EmailService {
   /**
    * Publishes a project invite email event.
    *
-   * No-ops when `invite.email` is empty or when
+   * No-ops when `invite.email` is empty, `invite.id` is missing, or when
    * no invite template id env var can be resolved.
    *
    * Publishes payload to `external.action.email`.
@@ -78,6 +101,14 @@ export class EmailService {
       return;
     }
 
+    const inviteId = this.normalizeId(invite.id);
+    if (!inviteId) {
+      this.logger.warn(
+        `Skipping invite email publish for projectId=${projectId} recipient=${recipient}: invite id is missing.`,
+      );
+      return;
+    }
+
     const templateId = this.resolveInviteTemplateId(Boolean(options?.isSSO));
     if (!templateId) {
       this.logger.warn(
@@ -86,36 +117,45 @@ export class EmailService {
       return;
     }
 
+    const normalizedProjectId = String(projectId).trim();
     const normalizedProjectName = projectName?.trim() || `Project ${projectId}`;
+    const rootUrl = this.resolveRootUrl();
+    const joinProjectUrl = this.buildWorkInviteActionUrl(
+      rootUrl,
+      normalizedProjectId,
+      inviteId,
+      'accept',
+    );
+    const declineProjectUrl = this.buildWorkInviteActionUrl(
+      rootUrl,
+      normalizedProjectId,
+      inviteId,
+      'decline',
+    );
+    const registerUrl = this.buildRegisterUrl(rootUrl, joinProjectUrl);
+    const normalizedInitiator = this.normalizeInitiator(initiator);
+    const knownUserPayload: KnownUserInviteTemplatePayload = {
+      projectName: normalizedProjectName,
+      firstName: this.normalizeName(invite.firstName),
+      lastName: this.normalizeName(invite.lastName),
+      projectId: normalizedProjectId,
+      joinProjectUrl,
+      declineProjectUrl,
+      initiatorFirstName: this.normalizeName(normalizedInitiator.firstName),
+      initiatorLastName: this.normalizeName(normalizedInitiator.lastName),
+    };
+    const unknownUserPayload: UnknownUserInviteTemplatePayload = {
+      projectName: normalizedProjectName,
+      firstName: this.normalizeName(invite.firstName),
+      lastName: this.normalizeName(invite.lastName),
+      projectId: normalizedProjectId,
+      registerUrl,
+      initiatorFirstName: this.normalizeName(normalizedInitiator.firstName),
+      initiatorLastName: this.normalizeName(normalizedInitiator.lastName),
+    };
+
     const payload = {
-      data: {
-        // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
-        workManagerUrl: process.env.WORK_MANAGER_URL || '',
-        // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
-        accountsAppURL: process.env.ACCOUNTS_APP_URL || '',
-        subject:
-          // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
-          process.env.INVITE_EMAIL_SUBJECT || DEFAULT_INVITE_EMAIL_SUBJECT,
-        projects: [
-          {
-            name: normalizedProjectName,
-            projectId,
-            sections: [
-              {
-                EMAIL_INVITES: true,
-                title:
-                  // TODO: cache these values as private readonly fields in the constructor, consistent with other services.
-                  process.env.INVITE_EMAIL_SECTION_TITLE ||
-                  DEFAULT_INVITE_EMAIL_SECTION_TITLE,
-                projectName: normalizedProjectName,
-                projectId,
-                initiator: this.normalizeInitiator(initiator),
-                isSSO: options?.isSSO ?? false,
-              },
-            ],
-          },
-        ],
-      },
+      data: options?.isSSO ? knownUserPayload : unknownUserPayload,
       sendgrid_template_id: templateId,
       recipients: [recipient],
       version: 'v3',
@@ -177,5 +217,69 @@ export class EmailService {
       lastName: initiator.lastName || 'User',
       email: initiator.email,
     };
+  }
+
+  /**
+   * Resolves the Topcoder root URL for invite links.
+   *
+   * `production` uses `topcoder.com`; all other environments use
+   * `topcoder-dev.com`.
+   *
+   * @returns Root URL domain.
+   */
+  private resolveRootUrl(): string {
+    return process.env.NODE_ENV === 'production'
+      ? TOPCODER_PROD_ROOT_URL
+      : TOPCODER_DEV_ROOT_URL;
+  }
+
+  /**
+   * Builds a Work app invite action URL.
+   *
+   * @param rootUrl Root URL domain.
+   * @param projectId Project id.
+   * @param inviteId Invite id.
+   * @param action URL action segment (`accept` or `decline`).
+   * @returns Work invite action URL.
+   */
+  private buildWorkInviteActionUrl(
+    rootUrl: string,
+    projectId: string,
+    inviteId: string,
+    action: 'accept' | 'decline',
+  ): string {
+    return `https://work.${rootUrl}/projects/${projectId}/${action}/${inviteId}`;
+  }
+
+  /**
+   * Builds accounts registration URL for unknown-user invites.
+   *
+   * @param rootUrl Root URL domain.
+   * @param returnUrl Return URL after registration.
+   * @returns Accounts sign-up URL including regSource and return URL.
+   */
+  private buildRegisterUrl(rootUrl: string, returnUrl: string): string {
+    return `https://accounts.${rootUrl}/?mode=signUp&regSource=tcBusiness&retUrl=${returnUrl}`;
+  }
+
+  /**
+   * Normalizes template name values to plain strings.
+   *
+   * @param value Raw name value.
+   * @returns Trimmed string or empty string.
+   */
+  private normalizeName(value?: string | null): string {
+    return String(value || '').trim();
+  }
+
+  /**
+   * Converts id-like values to trimmed string.
+   *
+   * @param value Raw id-like value.
+   * @returns Normalized id string or null when empty.
+   */
+  private normalizeId(value?: string | number | bigint | null): string | null {
+    const normalized = String(value ?? '').trim();
+    return normalized.length > 0 ? normalized : null;
   }
 }
