@@ -33,6 +33,8 @@ export interface InviteEmailOptions {
 const EXTERNAL_ACTION_EMAIL_TOPIC = 'external.action.email';
 const TOPCODER_PROD_ROOT_URL = 'topcoder.com';
 const TOPCODER_DEV_ROOT_URL = 'topcoder-dev.com';
+const DEFAULT_INVITE_EMAIL_SUBJECT = 'You are invited to Topcoder';
+const DEFAULT_INVITE_EMAIL_SECTION_TITLE = 'Project Invitation';
 
 type KnownUserInviteTemplatePayload = {
   projectName: string;
@@ -53,6 +55,24 @@ type UnknownUserInviteTemplatePayload = {
   registerUrl: string;
   initiatorFirstName: string;
   initiatorLastName: string;
+};
+
+type LegacyInviteTemplatePayload = {
+  workManagerUrl: string;
+  accountsAppURL: string;
+  subject: string;
+  projects: Array<{
+    name: string;
+    projectId: string;
+    sections: Array<{
+      EMAIL_INVITES: boolean;
+      title: string;
+      projectName: string;
+      projectId: string;
+      initiator: InviteEmailInitiator;
+      isSSO: boolean;
+    }>;
+  }>;
 };
 
 /**
@@ -109,10 +129,11 @@ export class EmailService {
       return;
     }
 
-    const templateId = this.resolveInviteTemplateId(Boolean(options?.isSSO));
+    const isKnownUser = Boolean(options?.isSSO);
+    const templateId = this.resolveInviteTemplateId(isKnownUser);
     if (!templateId) {
       this.logger.warn(
-        `Skipping invite email publish for projectId=${projectId} recipient=${recipient}: no invite template id is configured for knownUser=${String(Boolean(options?.isSSO))}.`,
+        `Skipping invite email publish for projectId=${projectId} recipient=${recipient}: no invite template id is configured for knownUser=${String(isKnownUser)}.`,
       );
       return;
     }
@@ -153,9 +174,19 @@ export class EmailService {
       initiatorFirstName: this.normalizeName(normalizedInitiator.firstName),
       initiatorLastName: this.normalizeName(normalizedInitiator.lastName),
     };
+    const useLegacyPayload = this.isLegacyTemplateId(templateId);
 
     const payload = {
-      data: options?.isSSO ? knownUserPayload : unknownUserPayload,
+      data: useLegacyPayload
+        ? this.buildLegacyInviteTemplatePayload(
+            normalizedProjectName,
+            normalizedProjectId,
+            normalizedInitiator,
+            isKnownUser,
+          )
+        : isKnownUser
+          ? knownUserPayload
+          : unknownUserPayload,
       sendgrid_template_id: templateId,
       recipients: [recipient],
       version: 'v3',
@@ -202,6 +233,18 @@ export class EmailService {
   }
 
   /**
+   * Checks whether selected template id maps to the legacy invite template.
+   *
+   * @param templateId Resolved template id.
+   * @returns `true` when legacy template id is being used.
+   */
+  private isLegacyTemplateId(templateId: string): boolean {
+    const legacyTemplateId =
+      process.env.SENDGRID_TEMPLATE_PROJECT_MEMBER_INVITED;
+    return Boolean(legacyTemplateId && templateId === legacyTemplateId);
+  }
+
+  /**
    * Normalizes initiator details and applies display-name defaults.
    *
    * @param initiator initiator details from API/service context
@@ -216,6 +259,46 @@ export class EmailService {
       firstName: initiator.firstName || 'Connect',
       lastName: initiator.lastName || 'User',
       email: initiator.email,
+    };
+  }
+
+  /**
+   * Builds payload expected by legacy invite template.
+   *
+   * @param projectName Project display name.
+   * @param projectId Project id.
+   * @param initiator Normalized invite initiator.
+   * @param isKnownUser Whether invite target already has a Topcoder account.
+   * @returns Legacy invite payload data.
+   */
+  private buildLegacyInviteTemplatePayload(
+    projectName: string,
+    projectId: string,
+    initiator: InviteEmailInitiator,
+    isKnownUser: boolean,
+  ): LegacyInviteTemplatePayload {
+    return {
+      workManagerUrl: process.env.WORK_MANAGER_URL || '',
+      accountsAppURL: process.env.ACCOUNTS_APP_URL || '',
+      subject: process.env.INVITE_EMAIL_SUBJECT || DEFAULT_INVITE_EMAIL_SUBJECT,
+      projects: [
+        {
+          name: projectName,
+          projectId,
+          sections: [
+            {
+              EMAIL_INVITES: true,
+              title:
+                process.env.INVITE_EMAIL_SECTION_TITLE ||
+                DEFAULT_INVITE_EMAIL_SECTION_TITLE,
+              projectName,
+              projectId,
+              initiator,
+              isSSO: isKnownUser,
+            },
+          ],
+        },
+      ],
     };
   }
 

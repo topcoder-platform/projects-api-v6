@@ -137,9 +137,21 @@ describe('EmailService', () => {
 
     expect(eventBusServiceMock.publishProjectEvent).toHaveBeenCalledTimes(1);
     const [, payload] = eventBusServiceMock.publishProjectEvent.mock.calls[0];
-    expect(
-      (payload as { sendgrid_template_id?: string }).sendgrid_template_id,
-    ).toBe('legacy-template-id');
+    const normalizedPayload = payload as {
+      sendgrid_template_id?: string;
+      data?: {
+        projects?: Array<{
+          sections?: Array<{
+            isSSO?: boolean;
+          }>;
+        }>;
+      };
+    };
+
+    expect(normalizedPayload.sendgrid_template_id).toBe('legacy-template-id');
+    expect(normalizedPayload.data?.projects?.[0]?.sections?.[0]?.isSSO).toBe(
+      true,
+    );
   });
 
   it('skips publish when no invite template is configured', async () => {
