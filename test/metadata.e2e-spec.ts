@@ -438,6 +438,21 @@ describe('Metadata (e2e)', () => {
     );
   });
 
+  it('lists project types for authenticated users', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/v6/projects/metadata/projectTypes')
+      .set('Authorization', 'Bearer user-token')
+      .expect(200);
+
+    expect(response.body).toEqual([]);
+  });
+
+  it('rejects project type list without authentication', async () => {
+    await request(app.getHttpServer())
+      .get('/v6/projects/metadata/projectTypes')
+      .expect(401);
+  });
+
   it('creates a new form version with auto-incremented version', async () => {
     const response = await request(app.getHttpServer())
       .post('/v6/projects/metadata/form/form_key/versions')

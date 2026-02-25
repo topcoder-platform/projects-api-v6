@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
+import { AnyAuthenticated } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { getAuditUserIdNumber } from '../utils/metadata-utils';
 import { CreateProjectTypeDto } from './dto/create-project-type.dto';
@@ -26,14 +27,17 @@ import { ProjectTypeService } from './project-type.service';
 
 @ApiTags('Metadata - Project Types')
 @ApiBearerAuth()
+@AnyAuthenticated()
 @Controller('/projects/metadata/projectTypes')
 /**
  * REST controller for project type metadata.
+ *
+ * Read endpoints allow any authenticated caller. Write endpoints require admin
+ * access via `@AdminOnly()`.
  */
 export class ProjectTypeController {
   constructor(private readonly projectTypeService: ProjectTypeService) {}
 
-  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get()
   @ApiOperation({ summary: 'List project types' })
   @ApiResponse({ status: 200, type: [ProjectTypeResponseDto] })
@@ -44,7 +48,6 @@ export class ProjectTypeController {
     return this.projectTypeService.findAll();
   }
 
-  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get(':key')
   @ApiOperation({ summary: 'Get project type by key' })
   @ApiParam({ name: 'key', description: 'Project type key' })
