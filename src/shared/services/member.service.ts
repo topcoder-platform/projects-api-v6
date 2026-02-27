@@ -6,7 +6,19 @@ import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { MemberDetail } from 'src/shared/utils/member.utils';
 
 export interface MemberRoleRecord {
+  id?: string | number;
   roleName: string;
+}
+
+export interface RoleSubjectRecord {
+  email?: string;
+  handle?: string;
+  subjectID?: string | number;
+  userId?: string | number;
+}
+
+interface RoleSubjectsResponseRecord {
+  subjects?: RoleSubjectRecord[];
 }
 
 @Injectable()
@@ -150,6 +162,97 @@ export class MemberService {
     } catch (error) {
       this.logger.warn(
         `Failed to fetch roles for userId=${normalizedUserId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  async getRoleSubjectsByRoleName(
+    roleName: string,
+  ): Promise<RoleSubjectRecord[]> {
+    if (!this.identityApiUrl) {
+      this.logger.warn('IDENTITY_API_URL is not configured.');
+      return [];
+    }
+
+    const normalizedRoleName = String(roleName || '').trim();
+    if (!normalizedRoleName) {
+      return [];
+    }
+
+    const identityUrl = this.identityApiUrl.replace(/\/$/, '');
+
+    try {
+      const token = await this.m2mService.getM2MToken();
+
+      const rolesResponse = await firstValueFrom(
+        this.httpService.get(`${identityUrl}/roles`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          params: {
+            filter: `roleName=${normalizedRoleName}`,
+          },
+        }),
+      );
+
+      const roles = Array.isArray(rolesResponse.data)
+        ? (rolesResponse.data as MemberRoleRecord[])
+        : [];
+
+      const roleIds = roles
+        .filter(
+          (role) => String(role.roleName || '').trim() === normalizedRoleName,
+        )
+        .map((role) => String(role.id || '').trim())
+        .filter((roleId) => roleId.length > 0);
+
+      if (roleIds.length === 0) {
+        return [];
+      }
+
+      const subjectLists = await Promise.all(
+        roleIds.map(async (roleId) => {
+          const roleResponse = await firstValueFrom(
+            this.httpService.get(`${identityUrl}/roles/${roleId}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              params: {
+                fields: 'subjects',
+              },
+            }),
+          );
+
+          const payload = roleResponse.data as RoleSubjectsResponseRecord;
+          return Array.isArray(payload?.subjects) ? payload.subjects : [];
+        }),
+      );
+
+      const uniqueSubjects = new Map<string, RoleSubjectRecord>();
+
+      subjectLists.flat().forEach((subject) => {
+        const email = String(subject.email || '')
+          .trim()
+          .toLowerCase();
+        const subjectId = String(
+          subject.subjectID || subject.userId || '',
+        ).trim();
+
+        const key = email || subjectId;
+        if (!key || uniqueSubjects.has(key)) {
+          return;
+        }
+
+        uniqueSubjects.set(key, subject);
+      });
+
+      return Array.from(uniqueSubjects.values());
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch role subjects for role=${normalizedRoleName}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }

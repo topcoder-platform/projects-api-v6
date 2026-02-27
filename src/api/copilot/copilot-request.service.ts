@@ -17,6 +17,7 @@ import { Permission as NamedPermission } from 'src/shared/constants/permissions'
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
+import { CopilotNotificationService } from './copilot-notification.service';
 import {
   CopilotRequestListQueryDto,
   CopilotRequestResponseDto,
@@ -65,6 +66,7 @@ export class CopilotRequestService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
+    private readonly notificationService: CopilotNotificationService,
   ) {}
 
   async listRequests(
@@ -205,7 +207,7 @@ export class CopilotRequestService {
         },
       });
 
-      await this.approveRequestInternal(
+      const opportunity = await this.approveRequestInternal(
         tx,
         parsedProjectId,
         request.id,
@@ -213,7 +215,7 @@ export class CopilotRequestService {
         auditUserId,
       );
 
-      return tx.copilotRequest.findFirst({
+      const createdRequest = await tx.copilotRequest.findFirst({
         where: {
           id: request.id,
           deletedAt: null,
@@ -229,13 +231,23 @@ export class CopilotRequestService {
           },
         },
       });
+
+      return {
+        opportunity,
+        request: createdRequest,
+      };
     });
 
-    if (!created) {
+    if (!created.request) {
       throw new NotFoundException('Unable to create copilot request.');
     }
 
-    return this.formatRequest(created, isAdminOrManager(user));
+    await this.notificationService.sendOpportunityPostedNotification(
+      created.opportunity,
+      created.request,
+    );
+
+    return this.formatRequest(created.request, isAdminOrManager(user));
   }
 
   async updateRequest(
@@ -358,6 +370,20 @@ export class CopilotRequestService {
         type,
         auditUserId,
       ),
+    );
+
+    const request = opportunity.copilotRequestId
+      ? await this.prisma.copilotRequest.findFirst({
+          where: {
+            id: opportunity.copilotRequestId,
+            deletedAt: null,
+          },
+        })
+      : null;
+
+    await this.notificationService.sendOpportunityPostedNotification(
+      opportunity,
+      request,
     );
 
     return normalizeEntity(opportunity);

@@ -4,15 +4,22 @@ import {
   CopilotOpportunity,
   CopilotOpportunityType,
   CopilotRequest,
-  ProjectMemberRole,
 } from '@prisma/client';
+import { UserRole } from 'src/shared/enums/userRole.enum';
+import { EventBusService } from 'src/shared/modules/global/eventBus.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { MemberService } from 'src/shared/services/member.service';
+import {
+  MemberService,
+  RoleSubjectRecord,
+} from 'src/shared/services/member.service';
 import { getCopilotRequestData, getCopilotTypeLabel } from './copilot.utils';
+
+const EXTERNAL_ACTION_EMAIL_TOPIC = 'external.action.email';
 
 const TEMPLATE_IDS = {
   APPLY_COPILOT: 'd-d7c1f48628654798a05c8e09e52db14f',
+  CREATE_REQUEST: 'd-3efdc91da580479d810c7acd50a4c17f',
+  INFORM_PM_COPILOT_APPLICATION_ACCEPTED: 'd-b35d073e302b4279a1bd208fcfe96f58',
   COPILOT_APPLICATION_ACCEPTED: 'd-eef5e7568c644940b250e76d026ced5b',
   COPILOT_ALREADY_PART_OF_PROJECT: 'd-003d41cdc9de4bbc9e14538e8f2e0585',
   COPILOT_OPPORTUNITY_COMPLETED: 'd-dc448919d11b4e7d8b4ba351c4b67b8b',
@@ -29,56 +36,103 @@ type ApplicationWithMembership = CopilotApplication & {
   };
 };
 
+type EmailRecipient = {
+  email?: string | null;
+  handle?: string | null;
+};
+
 @Injectable()
 export class CopilotNotificationService {
   private readonly logger = LoggerService.forRoot('CopilotNotificationService');
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly memberService: MemberService,
+    private readonly eventBusService: EventBusService,
   ) {}
+
+  async sendOpportunityPostedNotification(
+    opportunity: CopilotOpportunity,
+    copilotRequest?: CopilotRequest | null,
+  ): Promise<void> {
+    const roleSubjects = await this.memberService.getRoleSubjectsByRoleName(
+      UserRole.TC_COPILOT,
+    );
+
+    const recipients = this.mergeRecipients(roleSubjects);
+    const requestData = getCopilotRequestData(copilotRequest?.data);
+    const opportunityType = this.resolveOpportunityType(
+      opportunity,
+      requestData,
+    );
+
+    if (recipients.length > 0) {
+      await Promise.all(
+        recipients.map((recipient) =>
+          this.publishEmail(
+            process.env.SENDGRID_TEMPLATE_COPILOT_REQUEST_CREATED ||
+              TEMPLATE_IDS.CREATE_REQUEST,
+            [recipient.email],
+            {
+              user_name: recipient.handle || 'Copilot',
+              opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}`,
+              work_manager_url: this.getWorkManagerUrl(),
+              opportunity_type: getCopilotTypeLabel(opportunityType),
+              opportunity_title:
+                this.readString(requestData.opportunityTitle) ||
+                `Opportunity ${opportunity.id.toString()}`,
+              start_date: this.formatDate(requestData.startDate),
+            },
+          ),
+        ),
+      );
+    }
+
+    const slackRecipient = String(process.env.COPILOTS_SLACK_EMAIL || '')
+      .trim()
+      .toLowerCase();
+
+    if (slackRecipient) {
+      await this.publishEmail(
+        process.env.SENDGRID_TEMPLATE_COPILOT_REQUEST_CREATED ||
+          TEMPLATE_IDS.CREATE_REQUEST,
+        [slackRecipient],
+        {
+          user_name: 'Copilots',
+          opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}`,
+          work_manager_url: this.getWorkManagerUrl(),
+          opportunity_type: getCopilotTypeLabel(opportunityType),
+          opportunity_title:
+            this.readString(requestData.opportunityTitle) ||
+            `Opportunity ${opportunity.id.toString()}`,
+          start_date: this.formatDate(requestData.startDate),
+        },
+      );
+    }
+
+    this.logger.log(
+      `Sent new copilot opportunity notifications for opportunity=${opportunity.id.toString()}`,
+    );
+  }
 
   async sendCopilotApplicationNotification(
     opportunity: OpportunityWithRequest,
     application: CopilotApplication,
   ): Promise<void> {
-    if (!opportunity.projectId) {
-      return;
-    }
-
-    const projectMembers = await this.prisma.projectMember.findMany({
-      where: {
-        projectId: opportunity.projectId,
-        role: {
-          in: [ProjectMemberRole.manager, ProjectMemberRole.project_manager],
-        },
-        deletedAt: null,
-      },
-      select: {
-        userId: true,
-      },
-    });
-
-    const requestCreatorId =
-      typeof opportunity.copilotRequest?.createdBy === 'number'
-        ? BigInt(opportunity.copilotRequest.createdBy)
-        : null;
-
-    const recipientIds = Array.from(
-      new Set(
-        [
-          ...projectMembers.map((member) => member.userId),
-          ...(requestCreatorId ? [requestCreatorId] : []),
-        ].map((id) => id.toString()),
-      ),
+    const pmRoleRecipients = await this.memberService.getRoleSubjectsByRoleName(
+      UserRole.PROJECT_MANAGER,
+    );
+    const creatorRecipients =
+      await this.memberService.getMemberDetailsByUserIds([
+        opportunity.createdBy,
+      ]);
+    const normalizedRecipients = this.mergeRecipients(
+      pmRoleRecipients,
+      creatorRecipients,
     );
 
-    if (recipientIds.length === 0) {
+    if (normalizedRecipients.length === 0) {
       return;
     }
-
-    const recipients =
-      await this.memberService.getMemberDetailsByUserIds(recipientIds);
 
     const requestData = getCopilotRequestData(opportunity.copilotRequest?.data);
     const opportunityType = this.resolveOpportunityType(
@@ -87,23 +141,17 @@ export class CopilotNotificationService {
     );
 
     await Promise.all(
-      recipients
-        .filter((recipient) => Boolean(recipient.email))
-        .map((recipient) =>
-          this.publishEmail(
-            TEMPLATE_IDS.APPLY_COPILOT,
-            [String(recipient.email)],
-            {
-              user_name: recipient.handle,
-              opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}#applications`,
-              work_manager_url: this.getWorkManagerUrl(),
-              opportunity_type: getCopilotTypeLabel(opportunityType),
-              opportunity_title:
-                this.readString(requestData.opportunityTitle) ||
-                `Opportunity ${opportunity.id.toString()}`,
-            },
-          ),
-        ),
+      normalizedRecipients.map((recipient) =>
+        this.publishEmail(TEMPLATE_IDS.APPLY_COPILOT, [recipient.email], {
+          user_name: recipient.handle || 'Project Manager',
+          opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}#applications`,
+          work_manager_url: this.getWorkManagerUrl(),
+          opportunity_type: getCopilotTypeLabel(opportunityType),
+          opportunity_title:
+            this.readString(requestData.opportunityTitle) ||
+            `Opportunity ${opportunity.id.toString()}`,
+        }),
+      ),
     );
 
     this.logger.log(
@@ -132,11 +180,7 @@ export class CopilotNotificationService {
       requestData,
     );
 
-    const membershipRole = String(
-      application.existingMembership?.role || '',
-    ).toLowerCase();
-
-    const templateId = ['copilot', 'manager'].includes(membershipRole)
+    const templateId = application.existingMembership
       ? TEMPLATE_IDS.COPILOT_ALREADY_PART_OF_PROJECT
       : TEMPLATE_IDS.COPILOT_APPLICATION_ACCEPTED;
 
@@ -153,6 +197,58 @@ export class CopilotNotificationService {
 
     this.logger.log(
       `Sent copilot assignment notification for opportunity=${opportunity.id.toString()} application=${application.id.toString()}`,
+    );
+  }
+
+  async sendCopilotInviteAcceptedNotification(
+    opportunity: OpportunityWithRequest,
+    application: CopilotApplication,
+  ): Promise<void> {
+    const pmRoleRecipients = await this.memberService.getRoleSubjectsByRoleName(
+      UserRole.PROJECT_MANAGER,
+    );
+    const creatorRecipients =
+      await this.memberService.getMemberDetailsByUserIds([
+        opportunity.createdBy,
+      ]);
+    const normalizedRecipients = this.mergeRecipients(
+      pmRoleRecipients,
+      creatorRecipients,
+    );
+
+    if (normalizedRecipients.length === 0) {
+      return;
+    }
+
+    const [invitee] = await this.memberService.getMemberDetailsByUserIds([
+      application.userId,
+    ]);
+    const requestData = getCopilotRequestData(opportunity.copilotRequest?.data);
+    const opportunityType = this.resolveOpportunityType(
+      opportunity,
+      requestData,
+    );
+    const templateId =
+      process.env.SENDGRID_TEMPLATE_INFORM_PM_COPILOT_APPLICATION_ACCEPTED ||
+      TEMPLATE_IDS.INFORM_PM_COPILOT_APPLICATION_ACCEPTED;
+
+    await Promise.all(
+      normalizedRecipients.map((recipient) =>
+        this.publishEmail(templateId, [recipient.email], {
+          user_name: recipient.handle || 'Project Manager',
+          opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}#applications`,
+          work_manager_url: this.getWorkManagerUrl(),
+          opportunity_type: getCopilotTypeLabel(opportunityType),
+          opportunity_title:
+            this.readString(requestData.opportunityTitle) ||
+            `Opportunity ${opportunity.id.toString()}`,
+          copilot_handle: invitee?.handle || '',
+        }),
+      ),
+    );
+
+    this.logger.log(
+      `Sent copilot invite accepted notifications for opportunity=${opportunity.id.toString()} application=${application.id.toString()}`,
     );
   }
 
@@ -235,21 +331,39 @@ export class CopilotNotificationService {
     );
   }
 
-  private publishEmail(
+  private async publishEmail(
     templateId: string,
     recipients: string[],
     data: Record<string, unknown>,
   ): Promise<void> {
-    if (recipients.length === 0) {
-      return Promise.resolve();
+    const normalizedRecipients = recipients
+      .map((recipient) =>
+        String(recipient || '')
+          .trim()
+          .toLowerCase(),
+      )
+      .filter((recipient) => recipient.length > 0);
+
+    if (normalizedRecipients.length === 0) {
+      return;
     }
 
-    void templateId;
-    void data;
-    this.logger.warn(
-      `Copilot email Kafka publication is disabled. Skipped ${recipients.length} recipient(s).`,
-    );
-    return Promise.resolve();
+    try {
+      await this.eventBusService.publishProjectEvent(
+        EXTERNAL_ACTION_EMAIL_TOPIC,
+        {
+          data,
+          sendgrid_template_id: templateId,
+          recipients: normalizedRecipients,
+          version: 'v3',
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish copilot email event for recipients=${normalizedRecipients.join(',')}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 
   private getWorkManagerUrl(): string {
@@ -316,5 +430,34 @@ export class CopilotNotificationService {
     }
 
     return undefined;
+  }
+
+  private mergeRecipients(
+    ...sources: Array<Array<EmailRecipient | RoleSubjectRecord>>
+  ): Array<{ email: string; handle?: string }> {
+    const recipients = new Map<string, { email: string; handle?: string }>();
+
+    sources.flat().forEach((recipient) => {
+      const email = String(recipient.email || '')
+        .trim()
+        .toLowerCase();
+      if (!email) {
+        return;
+      }
+
+      const handle = String(recipient.handle || '').trim();
+      const existing = recipients.get(email);
+
+      if (!existing) {
+        recipients.set(email, { email, ...(handle ? { handle } : {}) });
+        return;
+      }
+
+      if (!existing.handle && handle) {
+        recipients.set(email, { ...existing, handle });
+      }
+    });
+
+    return Array.from(recipients.values());
   }
 }
