@@ -18,6 +18,11 @@ import { ProjectTypeResponseDto } from './dto/project-type-response.dto';
 import { UpdateProjectTypeDto } from './dto/update-project-type.dto';
 
 @Injectable()
+/**
+ * Manages project type metadata records used to classify projects.
+ *
+ * Project types are keyed by unique string `key`.
+ */
 export class ProjectTypeService {
   constructor(
     private readonly prisma: PrismaService,
@@ -25,6 +30,9 @@ export class ProjectTypeService {
     private readonly eventBusService: EventBusService,
   ) {}
 
+  /**
+   * Lists all non-deleted project types.
+   */
   async findAll(): Promise<ProjectTypeResponseDto[]> {
     const records = await this.prisma.projectType.findMany({
       where: {
@@ -36,6 +44,9 @@ export class ProjectTypeService {
     return records.map((record) => this.toDto(record));
   }
 
+  /**
+   * Finds one project type by key.
+   */
   async findByKey(key: string): Promise<ProjectTypeResponseDto> {
     const record = await this.prisma.projectType.findFirst({
       where: {
@@ -51,11 +62,15 @@ export class ProjectTypeService {
     return this.toDto(record);
   }
 
+  /**
+   * Creates a project type.
+   */
   async create(
     dto: CreateProjectTypeDto,
     userId: number,
   ): Promise<ProjectTypeResponseDto> {
     try {
+      // TODO (BUG): create() uses findUnique({ where: { key } }) without deletedAt: null. A soft-deleted record with the same key will trigger a ConflictException, preventing re-creation. Use findFirst with deletedAt: null instead.
       const existing = await this.prisma.projectType.findUnique({
         where: {
           key: dto.key,
@@ -99,6 +114,9 @@ export class ProjectTypeService {
     }
   }
 
+  /**
+   * Updates a project type by key.
+   */
   async update(
     key: string,
     dto: UpdateProjectTypeDto,
@@ -158,6 +176,9 @@ export class ProjectTypeService {
     }
   }
 
+  /**
+   * Soft deletes a project type.
+   */
   async delete(key: string, userId: number): Promise<void> {
     try {
       const existing = await this.prisma.projectType.findFirst({
@@ -198,6 +219,9 @@ export class ProjectTypeService {
     }
   }
 
+  /**
+   * Maps Prisma entity to response DTO.
+   */
   private toDto(record: ProjectType): ProjectTypeResponseDto {
     return {
       key: record.key,
@@ -219,6 +243,9 @@ export class ProjectTypeService {
     };
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates unknown errors to Prisma.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

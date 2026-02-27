@@ -2,6 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
+/**
+ * Request payload for cloning a milestone template.
+ *
+ * @property sourceMilestoneTemplateId Source milestone template id.
+ * @property reference Optional destination reference override.
+ * @property referenceId Optional destination reference id override.
+ */
 export class CloneMilestoneTemplateDto {
   @ApiProperty({ description: 'Source milestone template id to clone.' })
   @Type(() => Number)

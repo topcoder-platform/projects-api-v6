@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, WorkStream } from '@prisma/client';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import { parseSortParam } from 'src/shared/utils/query.utils';
 import {
   CreateWorkStreamDto,
   UpdateWorkStreamDto,
@@ -26,9 +27,26 @@ type WorkStreamWithRelations = WorkStream & {
 const WORK_STREAM_SORT_FIELDS = ['name', 'status', 'createdAt', 'updatedAt'];
 
 @Injectable()
+/**
+ * Business logic for work streams. Manages CRUD and the `phase_work_streams`
+ * join table linking phases (works) to work streams. Exposes helper methods
+ * (`ensureWorkStreamExists`, `listLinkedPhaseIds`,
+ * `ensurePhaseLinkedToWorkStream`, `createLink`) used by alias work/work-item
+ * controllers.
+ */
 export class WorkStreamService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Creates a work stream and stores audit fields from the caller user id.
+   *
+   * @param projectId - Project id from the route.
+   * @param dto - Create payload.
+   * @param userId - Caller user id for audit columns.
+   * @returns Created work stream DTO.
+   * @throws {BadRequestException} When route id is invalid.
+   * @throws {NotFoundException} When project does not exist.
+   */
   async create(
     projectId: string,
     dto: CreateWorkStreamDto,
@@ -50,12 +68,22 @@ export class WorkStreamService {
     });
 
     const response = this.toDto(created);
+    // TODO [QUALITY]: Remove `void` suppressions; these variables are already consumed earlier in the method.
     void projectId;
     void userId;
 
     return response;
   }
 
+  /**
+   * Returns paginated work streams with optional status filtering and sort.
+   *
+   * @param projectId - Project id from the route.
+   * @param criteria - List criteria.
+   * @returns Work stream DTO list.
+   * @throws {BadRequestException} When route id or sort is invalid.
+   * @throws {NotFoundException} When project does not exist.
+   */
   async findAll(
     projectId: string,
     criteria: WorkStreamListCriteria,
@@ -80,6 +108,16 @@ export class WorkStreamService {
     return rows.map((row) => this.toDto(row));
   }
 
+  /**
+   * Fetches one work stream, optionally including linked works (phases).
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param includeWorks - Whether linked works should be included.
+   * @returns Work stream DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {NotFoundException} When project or work stream is missing.
+   */
   async findOne(
     projectId: string,
     workStreamId: string,
@@ -125,6 +163,17 @@ export class WorkStreamService {
     return this.toDto(row);
   }
 
+  /**
+   * Partially updates work stream fields (`name`, `type`, `status`).
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param dto - Update payload.
+   * @param userId - Caller user id for audit columns.
+   * @returns Updated work stream DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {NotFoundException} When project or work stream is missing.
+   */
   async update(
     projectId: string,
     workStreamId: string,
@@ -169,6 +218,7 @@ export class WorkStreamService {
     });
 
     const response = this.toDto(updated);
+    // TODO [QUALITY]: Remove `void` suppressions; these variables are already consumed earlier in the method.
     void projectId;
     void userId;
     void existing;
@@ -176,6 +226,16 @@ export class WorkStreamService {
     return response;
   }
 
+  /**
+   * Soft deletes a work stream.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param userId - Caller user id for audit columns.
+   * @returns Nothing.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {NotFoundException} When project or work stream is missing.
+   */
   async delete(
     projectId: string,
     workStreamId: string,
@@ -218,6 +278,14 @@ export class WorkStreamService {
     void deleted;
   }
 
+  /**
+   * Guard helper that ensures a work stream exists in a project.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @returns Nothing.
+   * @throws {NotFoundException} When work stream is missing.
+   */
   async ensureWorkStreamExists(
     projectId: string,
     workStreamId: string,
@@ -225,6 +293,15 @@ export class WorkStreamService {
     await this.findOne(projectId, workStreamId);
   }
 
+  /**
+   * Lists linked phase ids for a work stream in ascending phase id order.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @returns Ordered phase id array.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {NotFoundException} When project is missing.
+   */
   async listLinkedPhaseIds(
     projectId: string,
     workStreamId: string,
@@ -256,6 +333,16 @@ export class WorkStreamService {
     return links.map((link) => link.phaseId);
   }
 
+  /**
+   * Guard helper that ensures a phase is linked to a work stream.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param phaseId - Phase id from the route.
+   * @returns Nothing.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {NotFoundException} When no link exists.
+   */
   async ensurePhaseLinkedToWorkStream(
     projectId: string,
     workStreamId: string,
@@ -291,6 +378,14 @@ export class WorkStreamService {
     }
   }
 
+  /**
+   * Creates a phase/work-stream link row.
+   *
+   * @param workStreamId - Work stream id.
+   * @param phaseId - Phase id.
+   * @returns Nothing.
+   * @throws {BadRequestException} When ids are invalid.
+   */
   async createLink(workStreamId: string, phaseId: string): Promise<void> {
     const parsedWorkStreamId = this.parseId(workStreamId, 'Work stream');
     const parsedPhaseId = this.parseId(phaseId, 'Work');
@@ -303,6 +398,13 @@ export class WorkStreamService {
     });
   }
 
+  /**
+   * Ensures a project exists and is not soft deleted.
+   *
+   * @param projectId - Parsed project id.
+   * @returns Nothing.
+   * @throws {NotFoundException} When project does not exist.
+   */
   private async ensureProjectExists(projectId: bigint): Promise<void> {
     const project = await this.prisma.project.findFirst({
       where: {
@@ -321,37 +423,25 @@ export class WorkStreamService {
     }
   }
 
+  /**
+   * Validates and parses work stream list sort expression.
+   *
+   * @param sort - Sort expression (`field direction`).
+   * @returns Prisma orderBy object.
+   * @throws {BadRequestException} When field/direction is invalid.
+   */
   private parseSort(sort?: string): Prisma.WorkStreamOrderByWithRelationInput {
-    if (!sort || sort.trim().length === 0) {
-      return {
-        updatedAt: 'desc',
-      };
-    }
-
-    const normalized = sort.trim();
-    const withDirection = normalized.includes(' ')
-      ? normalized
-      : `${normalized} asc`;
-    const [field, direction] = withDirection.split(/\s+/);
-
-    if (!field || !direction) {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    if (!WORK_STREAM_SORT_FIELDS.includes(field)) {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    const normalizedDirection = direction.toLowerCase();
-    if (normalizedDirection !== 'asc' && normalizedDirection !== 'desc') {
-      throw new BadRequestException('Invalid sort criteria.');
-    }
-
-    return {
-      [field]: normalizedDirection,
-    };
+    return parseSortParam(sort, WORK_STREAM_SORT_FIELDS, {
+      updatedAt: 'desc',
+    }) as Prisma.WorkStreamOrderByWithRelationInput;
   }
 
+  /**
+   * Maps work stream entities (with optional linked phase relation) to DTO.
+   *
+   * @param row - Work stream row.
+   * @returns Response DTO.
+   */
   private toDto(row: WorkStreamWithRelations): WorkStreamResponseDto {
     const response: WorkStreamResponseDto = {
       id: row.id.toString(),
@@ -378,6 +468,14 @@ export class WorkStreamService {
     return response;
   }
 
+  /**
+   * Parses route ids as bigint values.
+   *
+   * @param value - Raw id value.
+   * @param entityName - Entity label for errors.
+   * @returns Parsed id.
+   * @throws {BadRequestException} When parsing fails.
+   */
   private parseId(value: string, entityName: string): bigint {
     try {
       return BigInt(value);
@@ -386,6 +484,12 @@ export class WorkStreamService {
     }
   }
 
+  /**
+   * Parses caller user id into bigint for audit columns.
+   *
+   * @param userId - Raw user id value.
+   * @returns Parsed audit user id, or `-1n` fallback.
+   */
   private getAuditUserId(userId: string | number | undefined): bigint {
     if (typeof userId === 'number') {
       return BigInt(Math.trunc(userId));
@@ -402,6 +506,13 @@ export class WorkStreamService {
     return BigInt(-1);
   }
 
+  /**
+   * Parses caller user id into number for numeric audit columns.
+   *
+   * @param userId - Raw user id value.
+   * @returns Parsed numeric user id, or `-1` fallback.
+   */
+  // TODO [QUALITY]: Consolidate into a single `getAuditUserId(userId): number` helper (consistent with other services) and cast to `BigInt` at the call site.
   private getAuditUserIdNumber(userId: string | number | undefined): number {
     if (typeof userId === 'number') {
       return Math.trunc(userId);

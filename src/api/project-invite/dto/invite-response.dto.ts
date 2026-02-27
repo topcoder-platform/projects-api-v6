@@ -1,6 +1,9 @@
 import { InviteStatus, ProjectMemberRole } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * Serialized project invite response DTO.
+ */
 export class InviteDto {
   @ApiProperty()
   id: string;
@@ -30,6 +33,9 @@ export class InviteDto {
   updatedAt: Date;
 }
 
+/**
+ * Represents a failed invite target in bulk invite operations.
+ */
 export class InviteFailureDto {
   @ApiPropertyOptional()
   handle?: string;
@@ -47,6 +53,12 @@ export class InviteFailureDto {
   role?: string;
 }
 
+/**
+ * Bulk invite response DTO with partial-failure support.
+ *
+ * `success` always contains created invites.
+ * `failed` is present when some targets were rejected.
+ */
 export class InviteBulkResponseDto {
   @ApiProperty({ type: () => [InviteDto] })
   success: InviteDto[];

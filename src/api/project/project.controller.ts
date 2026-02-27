@@ -47,9 +47,33 @@ import { ProjectService } from './project.service';
 @ApiTags('Projects')
 @ApiBearerAuth()
 @Controller('/projects')
+/**
+ * REST controller for the `/projects` resource.
+ *
+ * Handles CRUD operations, billing-account sub-resources, permissions lookup,
+ * and admin upgrade actions for projects. Access control relies on
+ * `PermissionGuard` together with `@Roles`, `@Scopes`, and
+ * `@RequirePermission` decorators applied on handlers.
+ *
+ * @todo `@Roles(...Object.values(UserRole))` is repeated on every handler and
+ * should be hoisted to class level.
+ */
 export class ProjectController {
   constructor(private readonly service: ProjectService) {}
 
+  /**
+   * Lists projects using paging, filters, and optional relation fields.
+   *
+   * @param req Express request used for pagination-link generation.
+   * @param res Express response where paging headers are set.
+   * @param criteria Project list query criteria.
+   * @param user Authenticated caller context.
+   * @returns Project list payload; pagination metadata is returned in headers.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller lacks required scope/permission.
+   * @security Pagination depends on DTO validation (`perPage` max 200); there
+   * is no additional DB-level hard cap in this handler/service path.
+   */
   @Get()
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -71,6 +95,7 @@ export class ProjectController {
   @ApiQuery({ name: 'fields', required: false, type: String })
   @ApiQuery({ name: 'id', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'billingAccountId', required: false, type: String })
   @ApiQuery({ name: 'memberOnly', required: false, type: Boolean })
   @ApiQuery({ name: 'keyword', required: false, type: String })
   @ApiQuery({ name: 'type', required: false, type: String })
@@ -137,15 +162,22 @@ export class ProjectController {
     return result.data;
   }
 
+  /**
+   * Gets a single project by id.
+   *
+   * @param projectId Project id path parameter.
+   * @param query Query object with optional `fields` CSV.
+   * @param user Authenticated caller context.
+   * @returns A project resource with optional relations.
+   * @throws BadRequestException When `projectId` is not numeric.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller cannot view the project.
+   * @throws NotFoundException When the project is missing.
+   */
   @Get(':projectId')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
-  @Scopes(
-    Scope.PROJECTS_READ,
-    Scope.PROJECTS_WRITE,
-    Scope.PROJECTS_ALL,
-    Scope.CONNECT_PROJECT_ADMIN,
-  )
+  @Scopes(Scope.PROJECTS_READ, Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL)
   @RequirePermission(Permission.VIEW_PROJECT)
   @ApiOperation({
     summary: 'Get project by id',
@@ -180,6 +212,18 @@ export class ProjectController {
     return this.service.getProject(projectId, query.fields, user);
   }
 
+  /**
+   * Lists billing accounts available for a project in caller context.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns Billing accounts available to the caller.
+   * @throws BadRequestException When `projectId` is not numeric.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller lacks required permissions.
+   * @security Requires `CONNECT_PROJECT_ADMIN` or
+   * `PROJECTS_READ_USER_BILLING_ACCOUNTS` scope.
+   */
   @Get(':projectId/billingAccounts')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -219,6 +263,19 @@ export class ProjectController {
     return this.service.listProjectBillingAccounts(projectId, user);
   }
 
+  /**
+   * Gets the default billing account associated with a project.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns Default project billing-account details.
+   * @throws BadRequestException When `projectId` is not numeric.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller lacks required permissions.
+   * @throws NotFoundException When project or billing account is missing.
+   * @security The service strips `markup` for non-machine callers before
+   * returning the response payload.
+   */
   @Get(':projectId/billingAccount')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -253,6 +310,17 @@ export class ProjectController {
     return this.service.getProjectBillingAccount(projectId, user);
   }
 
+  /**
+   * Returns policy decisions for the caller on a project.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns Policy-name to boolean map; returns `{}` when no template exists.
+   * @throws BadRequestException When `projectId` is not numeric.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When caller cannot access the project.
+   * @throws NotFoundException When the project is missing.
+   */
   @Get(':projectId/permissions')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -291,6 +359,18 @@ export class ProjectController {
     return this.service.getProjectPermissions(projectId, user);
   }
 
+  /**
+   * Creates a new project with optional nested records.
+   *
+   * @param dto Project creation payload.
+   * @param user Authenticated caller context.
+   * @returns Newly created project.
+   * @throws BadRequestException For invalid input values.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller lacks create permissions.
+   * @throws NotFoundException When dependent referenced data is missing.
+   * Publishes a `project.created` lifecycle event on success.
+   */
   @Post()
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -319,6 +399,18 @@ export class ProjectController {
     return this.service.createProject(dto, user);
   }
 
+  /**
+   * Upgrades a project to a supported target version.
+   *
+   * @param projectId Project id path parameter.
+   * @param dto Upgrade payload.
+   * @param user Authenticated caller context.
+   * @returns Success message; current implementation supports only `v3`.
+   * @throws BadRequestException For unsupported upgrade arguments.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller is not an admin.
+   * @throws NotFoundException When the project is missing.
+   */
   @Post(':projectId/upgrade')
   @AdminOnly()
   @ApiOperation({ summary: 'Upgrade project to new template version' })
@@ -353,6 +445,19 @@ export class ProjectController {
     return this.service.upgradeProject(projectId, dto, user);
   }
 
+  /**
+   * Partially updates a project.
+   *
+   * @param projectId Project id path parameter.
+   * @param dto Patch payload.
+   * @param user Authenticated caller context.
+   * @returns Updated project.
+   * @throws BadRequestException For invalid update fields.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller lacks edit permissions.
+   * @throws NotFoundException When the project is missing.
+   * Publishes a `project.updated` lifecycle event on success.
+   */
   @Patch(':projectId')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -386,6 +491,18 @@ export class ProjectController {
     return this.service.updateProject(projectId, dto, user);
   }
 
+  /**
+   * Soft-deletes a project.
+   *
+   * @param projectId Project id path parameter.
+   * @param user Authenticated caller context.
+   * @returns No content.
+   * @throws BadRequestException When `projectId` is not numeric.
+   * @throws UnauthorizedException When the caller is unauthenticated.
+   * @throws ForbiddenException When the caller lacks delete permissions.
+   * @throws NotFoundException When the project is missing.
+   * Publishes a `project.deleted` lifecycle event on success.
+   */
   @Delete(':projectId')
   @HttpCode(204)
   @UseGuards(PermissionGuard)

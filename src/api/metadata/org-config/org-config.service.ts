@@ -18,6 +18,12 @@ import { OrgConfigResponseDto } from './dto/org-config-response.dto';
 import { UpdateOrgConfigDto } from './dto/update-org-config.dto';
 
 @Injectable()
+/**
+ * Manages organization-specific config key/value records.
+ *
+ * Each active record is uniquely identified by `(orgId, configName)` and is
+ * used for org-level project behavior overrides.
+ */
 export class OrgConfigService {
   constructor(
     private readonly prisma: PrismaService,
@@ -25,6 +31,9 @@ export class OrgConfigService {
     private readonly eventBusService: EventBusService,
   ) {}
 
+  /**
+   * Lists all non-deleted org config records.
+   */
   async findAll(): Promise<OrgConfigResponseDto[]> {
     const records = await this.prisma.orgConfig.findMany({
       where: {
@@ -36,6 +45,9 @@ export class OrgConfigService {
     return records.map((record) => this.toDto(record));
   }
 
+  /**
+   * Finds one org config record by id.
+   */
   async findOne(id: bigint): Promise<OrgConfigResponseDto> {
     const record = await this.prisma.orgConfig.findFirst({
       where: {
@@ -53,6 +65,11 @@ export class OrgConfigService {
     return this.toDto(record);
   }
 
+  /**
+   * Creates an org config record.
+   *
+   * Throws ConflictException when `(orgId, configName)` already exists.
+   */
   async create(
     dto: CreateOrgConfigDto,
     userId: bigint,
@@ -97,6 +114,12 @@ export class OrgConfigService {
     }
   }
 
+  /**
+   * Updates an org config record.
+   *
+   * Throws ConflictException when the resulting `(orgId, configName)` conflicts
+   * with another active record.
+   */
   async update(
     id: bigint,
     dto: UpdateOrgConfigDto,
@@ -166,6 +189,9 @@ export class OrgConfigService {
     }
   }
 
+  /**
+   * Soft deletes an org config record.
+   */
   async delete(id: bigint, userId: bigint): Promise<void> {
     try {
       const existing = await this.prisma.orgConfig.findFirst({
@@ -208,10 +234,16 @@ export class OrgConfigService {
     }
   }
 
+  /**
+   * Parses an org config id route parameter.
+   */
   parseId(id: string): bigint {
     return parseBigIntParam(id, 'id');
   }
 
+  /**
+   * Maps Prisma entity to response DTO.
+   */
   private toDto(record: OrgConfig): OrgConfigResponseDto {
     return {
       id: record.id.toString(),
@@ -225,6 +257,9 @@ export class OrgConfigService {
     };
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates unknown errors to Prisma.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

@@ -12,4 +12,9 @@ import { WorkItemController } from './workitem.controller';
   providers: [PhaseProductService],
   exports: [PhaseProductService],
 })
+/**
+ * NestJS feature module for phase products (work items). Registers
+ * `PhaseProductController` and `WorkItemController`. Exports
+ * `PhaseProductService`.
+ */
 export class PhaseProductModule {}

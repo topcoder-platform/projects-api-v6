@@ -34,9 +34,27 @@ import { PhaseProductService } from './phase-product.service';
 @ApiTags('Phase Products')
 @ApiBearerAuth()
 @Controller('/projects/:projectId/phases/:phaseId/products')
+/**
+ * REST controller for phase products under
+ * `/projects/:projectId/phases/:phaseId/products`. All endpoints require
+ * `PermissionGuard`. Read endpoints require `VIEW_PROJECT`; write endpoints
+ * require `ADD/UPDATE/DELETE_PHASE_PRODUCT`. Used by platform-ui Work app (via
+ * `WorkItemController` alias) and the legacy Connect app.
+ */
 export class PhaseProductController {
   constructor(private readonly service: PhaseProductService) {}
 
+  /**
+   * Lists products belonging to a phase.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param user - Authenticated user.
+   * @returns Phase product DTO list.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks view permission.
+   * @throws {NotFoundException} When project or phase is not found.
+   */
   @Get()
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -59,6 +77,18 @@ export class PhaseProductController {
     return this.service.listPhaseProducts(projectId, phaseId, user);
   }
 
+  /**
+   * Fetches a single phase product.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param productId - Product id from the route.
+   * @param user - Authenticated user.
+   * @returns One phase product DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks view permission.
+   * @throws {NotFoundException} When project, phase, or product is not found.
+   */
   @Get(':productId')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -83,6 +113,18 @@ export class PhaseProductController {
     return this.service.getPhaseProduct(projectId, phaseId, productId, user);
   }
 
+  /**
+   * Creates a product under a phase.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param dto - Create payload.
+   * @param user - Authenticated user.
+   * @returns Created phase product DTO.
+   * @throws {BadRequestException} When route ids or payload values are invalid.
+   * @throws {ForbiddenException} When the caller lacks create permission.
+   * @throws {NotFoundException} When project or phase is not found.
+   */
   @Post()
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -102,6 +144,19 @@ export class PhaseProductController {
     return this.service.createPhaseProduct(projectId, phaseId, dto, user);
   }
 
+  /**
+   * Updates an existing phase product.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param productId - Product id from the route.
+   * @param dto - Update payload.
+   * @param user - Authenticated user.
+   * @returns Updated phase product DTO.
+   * @throws {BadRequestException} When ids or payload fields are invalid.
+   * @throws {ForbiddenException} When the caller lacks update permission.
+   * @throws {NotFoundException} When project, phase, or product is not found.
+   */
   @Patch(':productId')
   @UseGuards(PermissionGuard)
   @Roles(...Object.values(UserRole))
@@ -129,6 +184,18 @@ export class PhaseProductController {
     );
   }
 
+  /**
+   * Soft deletes a phase product.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param productId - Product id from the route.
+   * @param user - Authenticated user.
+   * @returns Nothing.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks delete permission.
+   * @throws {NotFoundException} When project, phase, or product is not found.
+   */
   @Delete(':productId')
   @HttpCode(204)
   @UseGuards(PermissionGuard)

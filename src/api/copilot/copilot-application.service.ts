@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -22,6 +21,7 @@ import {
   CreateCopilotApplicationDto,
 } from './dto/copilot-application.dto';
 import {
+  ensureNamedPermission,
   isAdminOrPm,
   normalizeEntity,
   parseNumericId,
@@ -35,6 +35,10 @@ type ApplicationWithRelations = CopilotApplication & {
 };
 
 @Injectable()
+/**
+ * Handles copilot applications: submit, list with role-based field filtering,
+ * and numeric user-id validation via parseUserId.
+ */
 export class CopilotApplicationService {
   constructor(
     private readonly prisma: PrismaService,
@@ -42,12 +46,28 @@ export class CopilotApplicationService {
     private readonly notificationService: CopilotNotificationService,
   ) {}
 
+  /**
+   * Applies the current user to an active opportunity.
+   * Idempotent behavior: returns existing application if already present for this user/opportunity.
+   *
+   * @param opportunityId Opportunity id path value.
+   * @param dto Application payload.
+   * @param user Authenticated JWT user.
+   * @returns Created or existing copilot application response.
+   * @throws ForbiddenException If user lacks APPLY_COPILOT_OPPORTUNITY permission.
+   * @throws NotFoundException If opportunity is not found.
+   * @throws BadRequestException If ids are invalid or opportunity is not active.
+   */
   async applyToOpportunity(
     opportunityId: string,
     dto: CreateCopilotApplicationDto,
     user: JwtUser,
   ): Promise<CopilotApplicationResponseDto> {
-    this.ensurePermission(NamedPermission.APPLY_COPILOT_OPPORTUNITY, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.APPLY_COPILOT_OPPORTUNITY,
+      user,
+    );
 
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
     const parsedUserId = this.parseUserId(user);
@@ -90,6 +110,7 @@ export class CopilotApplicationService {
         userId: parsedUserId,
         notes: dto.notes,
         status: CopilotApplicationStatus.pending,
+        // TODO [QUALITY]: createdBy/updatedBy bypass parseUserId and parse directly; use getAuditUserId(user) from copilot.utils.ts for consistency.
         createdBy: Number.parseInt(user.userId as string, 10),
         updatedBy: Number.parseInt(user.userId as string, 10),
       },
@@ -103,6 +124,19 @@ export class CopilotApplicationService {
     return this.formatApplication(created);
   }
 
+  /**
+   * Lists applications for one opportunity.
+   * Admin/PM users receive full CopilotApplicationResponseDto rows.
+   * Other users receive limited fields: userId, status, and createdAt.
+   * existingMembership is enriched from a separate projectMember query.
+   *
+   * @param opportunityId Opportunity id path value.
+   * @param query Pagination and sort parameters.
+   * @param user Authenticated JWT user.
+   * @returns Full or limited application list depending on caller role.
+   * @throws NotFoundException If opportunity is not found.
+   * @throws BadRequestException If opportunityId is non-numeric.
+   */
   async listApplications(
     opportunityId: string,
     query: CopilotApplicationListQueryDto,
@@ -113,6 +147,7 @@ export class CopilotApplicationService {
         Pick<CopilotApplicationResponseDto, 'userId' | 'status' | 'createdAt'>
       >
   > {
+    // TODO [QUALITY]: Controller return type is unknown and this service returns a union; consider discriminated union or single response shape with optional fields.
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
     const [sortField, sortDirection] = parseSortExpression(
       query.sort,
@@ -193,6 +228,13 @@ export class CopilotApplicationService {
     }));
   }
 
+  /**
+   * Formats an application entity into response DTO shape.
+   * Applies bigint-to-string normalization through normalizeEntity.
+   *
+   * @param input Copilot application entity.
+   * @returns Formatted copilot application response.
+   */
   private formatApplication(
     input: CopilotApplication,
   ): CopilotApplicationResponseDto {
@@ -209,6 +251,13 @@ export class CopilotApplicationService {
     };
   }
 
+  /**
+   * Parses and validates authenticated user id as bigint.
+   *
+   * @param user Authenticated JWT user.
+   * @returns Parsed numeric user id as bigint.
+   * @throws BadRequestException If user id is non-numeric.
+   */
   private parseUserId(user: JwtUser): bigint {
     const normalized = String(user.userId || '').trim();
 
@@ -217,11 +266,5 @@ export class CopilotApplicationService {
     }
 
     return BigInt(normalized);
-  }
-
-  private ensurePermission(permission: NamedPermission, user: JwtUser): void {
-    if (!this.permissionService.hasNamedPermission(permission, user)) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
   }
 }

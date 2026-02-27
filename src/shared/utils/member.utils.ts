@@ -1,16 +1,28 @@
+/**
+ * Member/invite enrichment and role-validation helpers.
+ *
+ * Used by project member and project invite services.
+ */
 import { InviteStatus, ProjectMemberRole } from '@prisma/client';
 import { DEFAULT_PROJECT_ROLE } from 'src/shared/constants/permissions.constants';
 import { UserRole } from 'src/shared/enums/userRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 
+/**
+ * Minimal user profile payload used for member/invite enrichment.
+ */
 export type MemberDetail = {
   userId?: string | number | bigint | null;
   handle?: string | null;
+  handleLower?: string | null;
   email?: string | null;
   firstName?: string | null;
   lastName?: string | null;
 };
 
+/**
+ * Project member shape accepted by enrichment helpers.
+ */
 export type ProjectMemberLike = {
   id?: string | number | bigint;
   userId?: string | number | bigint;
@@ -20,6 +32,9 @@ export type ProjectMemberLike = {
   updatedAt?: Date;
 };
 
+/**
+ * Project invite shape accepted by enrichment helpers.
+ */
 export type ProjectInviteLike = {
   id?: string | number | bigint;
   userId?: string | number | bigint | null;
@@ -30,6 +45,12 @@ export type ProjectInviteLike = {
   updatedAt?: Date;
 };
 
+/**
+ * Manager-tier Topcoder roles allowed to hold management project roles.
+ *
+ * @todo Duplicates `MANAGER_ROLES` from `userRole.enum.ts`. Import the shared
+ * constant instead of maintaining a local copy.
+ */
 const MANAGER_TOPCODER_ROLES: string[] = [
   UserRole.TOPCODER_ADMIN,
   UserRole.CONNECT_ADMIN,
@@ -44,6 +65,12 @@ const MANAGER_TOPCODER_ROLES: string[] = [
   UserRole.COPILOT_MANAGER,
 ];
 
+/**
+ * Mapping between project roles and allowed Topcoder roles.
+ *
+ * @todo Duplicates matrix data from `permissions.constants.ts`. Consolidate to
+ * a single source of truth.
+ */
 const PROJECT_TO_TOPCODER_ROLES_MATRIX: Record<string, string[] | null> = {
   [ProjectMemberRole.customer]: null,
   [ProjectMemberRole.observer]: null,
@@ -56,10 +83,20 @@ const PROJECT_TO_TOPCODER_ROLES_MATRIX: Record<string, string[] | null> = {
   [ProjectMemberRole.copilot]: [UserRole.COPILOT, UserRole.TC_COPILOT],
 };
 
+/**
+ * Normalizes role strings for case-insensitive comparisons.
+ *
+ * @todo Duplicated in `permission.service.ts`; extract shared utility.
+ */
 function normalizeRole(value: string): string {
   return String(value).trim().toLowerCase();
 }
 
+/**
+ * Normalizes user ids to trimmed strings.
+ *
+ * @todo Duplicated in `permission.service.ts`; extract shared utility.
+ */
 function normalizeUserId(
   value: string | number | bigint | null | undefined,
 ): string {
@@ -70,12 +107,18 @@ function normalizeUserId(
   return String(value).trim();
 }
 
+/**
+ * Normalizes emails for case-insensitive comparison.
+ */
 function normalizeEmail(value: string | null | undefined): string {
   return String(value || '')
     .trim()
     .toLowerCase();
 }
 
+/**
+ * Parses requested fields from CSV string or string array input.
+ */
 function parseFields(fields?: string[] | string): string[] {
   if (!fields) {
     return [];
@@ -93,6 +136,9 @@ function parseFields(fields?: string[] | string): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+/**
+ * Builds `Map<userId, detail>` for O(1) enrichment lookup.
+ */
 function buildDetailsMap(details: MemberDetail[]): Map<string, MemberDetail> {
   const map = new Map<string, MemberDetail>();
 
@@ -108,6 +154,14 @@ function buildDetailsMap(details: MemberDetail[]): Map<string, MemberDetail> {
   return map;
 }
 
+/**
+ * Derives the default project role for a user.
+ *
+ * Evaluates `DEFAULT_PROJECT_ROLE` in order; first matching Topcoder role wins.
+ *
+ * @todo Duplicated in `permission.service.ts`; consolidate shared role
+ * resolution logic.
+ */
 export function getDefaultProjectRole(
   user: JwtUser,
 ): ProjectMemberRole | undefined {
@@ -125,6 +179,11 @@ export function getDefaultProjectRole(
   return undefined;
 }
 
+/**
+ * Validates that user Topcoder roles permit the requested project role.
+ *
+ * `customer` and `observer` are unrestricted by design.
+ */
 export function validateUserHasProjectRole(
   role: ProjectMemberRole,
   topcoderRoles: string[] = [],
@@ -142,6 +201,14 @@ export function validateUserHasProjectRole(
   );
 }
 
+/**
+ * Enriches project members with user profile fields.
+ *
+ * Supported fields: `handle`, `email`, `firstName`, `lastName`.
+ *
+ * @todo Shares near-identical logic with `enrichInvitesWithUserDetails`.
+ * Extract `enrichWithUserDetails<T>(items, getKey, fields, userDetails)`.
+ */
 export function enrichMembersWithUserDetails<T extends ProjectMemberLike>(
   members: T[],
   fields?: string[] | string,
@@ -184,6 +251,15 @@ export function enrichMembersWithUserDetails<T extends ProjectMemberLike>(
   }) as Array<T & Partial<MemberDetail>>;
 }
 
+/**
+ * Enriches project invites with user profile fields.
+ *
+ * Supported fields: `handle`, `email`, `firstName`, `lastName`.
+ * For `email`, falls back to `invite.email` when user detail is absent.
+ *
+ * @todo Shares near-identical logic with `enrichMembersWithUserDetails`.
+ * Extract `enrichWithUserDetails<T>(items, getKey, fields, userDetails)`.
+ */
 export function enrichInvitesWithUserDetails<T extends ProjectInviteLike>(
   invites: T[],
   fields?: string[] | string,
@@ -225,6 +301,12 @@ export function enrichInvitesWithUserDetails<T extends ProjectInviteLike>(
   }) as Array<T & Partial<MemberDetail>>;
 }
 
+/**
+ * Compares two emails case-insensitively.
+ *
+ * When `UNIQUE_GMAIL_VALIDATION` is enabled, Gmail addresses are normalized for
+ * dot-insensitivity and `@googlemail.com` alias compatibility.
+ */
 export function compareEmail(
   email1: string | null | undefined,
   email2: string | null | undefined,

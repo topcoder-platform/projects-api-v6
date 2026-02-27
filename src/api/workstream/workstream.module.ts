@@ -10,4 +10,9 @@ import { WorkStreamService } from './workstream.service';
   providers: [WorkStreamService],
   exports: [WorkStreamService],
 })
+/**
+ * NestJS feature module for work streams. Exported so `ProjectPhaseModule` and
+ * `PhaseProductModule` can inject `WorkStreamService` into their alias
+ * controllers.
+ */
 export class WorkStreamModule {}

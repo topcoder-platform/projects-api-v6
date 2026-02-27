@@ -1,30 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsArray, IsInt, IsOptional, IsString } from 'class-validator';
+import { parseOptionalIntegerArray } from 'src/shared/utils/dto-transform.utils';
 
-function parseOptionalInteger(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-
-  return Math.trunc(parsed);
-}
-
-function parseAllowedUsers(value: unknown): number[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  return value
-    .map((entry) => parseOptionalInteger(entry))
-    .filter((entry): entry is number => typeof entry === 'number');
-}
-
+/**
+ * Update payload for `PATCH /projects/:projectId/attachments/:id`.
+ * `type` and `contentType` are immutable after creation and intentionally
+ * excluded from this DTO.
+ */
 export class UpdateAttachmentDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -39,7 +22,7 @@ export class UpdateAttachmentDto {
   @ApiPropertyOptional({ type: [Number] })
   @IsOptional()
   @IsArray()
-  @Transform(({ value }) => parseAllowedUsers(value))
+  @Transform(({ value }) => parseOptionalIntegerArray(value))
   @IsInt({ each: true })
   allowedUsers?: number[];
 

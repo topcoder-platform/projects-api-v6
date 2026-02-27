@@ -23,7 +23,7 @@ import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
 import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
+import { WORK_LAYER_ALLOWED_ROLES } from 'src/shared/constants/roles';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
@@ -36,25 +36,30 @@ import {
 } from './workstream.dto';
 import { WorkStreamService } from './workstream.service';
 
-const WORKSTREAM_ALLOWED_ROLES = [
-  UserRole.TOPCODER_ADMIN,
-  UserRole.CONNECT_ADMIN,
-  UserRole.TG_ADMIN,
-  UserRole.MANAGER,
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-  UserRole.COPILOT_MANAGER,
-];
-
 @ApiTags('WorkStream')
 @ApiBearerAuth()
 @Controller('/projects/:projectId/workstreams')
+/**
+ * REST controller for work streams under `/projects/:projectId/workstreams`.
+ * Work streams are containers for works (project phases) linked via the
+ * `phase_work_streams` join table. Access is restricted to
+ * admin/manager/copilot roles. Used by the platform-ui Work app.
+ */
 export class WorkStreamController {
   constructor(private readonly service: WorkStreamService) {}
 
+  /**
+   * Lists project work streams.
+   *
+   * @param projectId - Project id from the route.
+   * @param criteria - Pagination/filter/sort criteria.
+   * @returns Work stream DTO list.
+   * @throws {BadRequestException} When route id or criteria are invalid.
+   * @throws {NotFoundException} When project is not found.
+   */
   @Get()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -80,9 +85,19 @@ export class WorkStreamController {
     return this.service.findAll(projectId, criteria);
   }
 
+  /**
+   * Creates a work stream under a project.
+   *
+   * @param projectId - Project id from the route.
+   * @param dto - Create payload.
+   * @param user - Authenticated user.
+   * @returns Created work stream DTO.
+   * @throws {BadRequestException} When input is invalid.
+   * @throws {NotFoundException} When project is not found.
+   */
   @Post()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKSTREAM_CREATE)
   @ApiOperation({
@@ -106,9 +121,20 @@ export class WorkStreamController {
     return this.service.create(projectId, dto, user.userId);
   }
 
+  /**
+   * Fetches one work stream, optionally including linked works when
+   * `includeWorks=true`.
+   *
+   * @param projectId - Project id from the route.
+   * @param id - Work stream id from the route.
+   * @param query - Get criteria including `includeWorks`.
+   * @returns Work stream DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {NotFoundException} When project or work stream is not found.
+   */
   @Get(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -137,9 +163,20 @@ export class WorkStreamController {
     return this.service.findOne(projectId, id, query.includeWorks === true);
   }
 
+  /**
+   * Partially updates mutable work stream fields.
+   *
+   * @param projectId - Project id from the route.
+   * @param id - Work stream id from the route.
+   * @param dto - Update payload.
+   * @param user - Authenticated user.
+   * @returns Updated work stream DTO.
+   * @throws {BadRequestException} When route ids or payload are invalid.
+   * @throws {NotFoundException} When project or work stream is not found.
+   */
   @Patch(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKSTREAM_EDIT)
   @ApiOperation({
@@ -164,10 +201,20 @@ export class WorkStreamController {
     return this.service.update(projectId, id, dto, user.userId);
   }
 
+  /**
+   * Soft deletes a work stream.
+   *
+   * @param projectId - Project id from the route.
+   * @param id - Work stream id from the route.
+   * @param user - Authenticated user.
+   * @returns Nothing.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {NotFoundException} When project or work stream is not found.
+   */
   @Delete(':id')
   @HttpCode(204)
   @UseGuards(PermissionGuard)
-  @Roles(...WORKSTREAM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKSTREAM_DELETE)
   @ApiOperation({

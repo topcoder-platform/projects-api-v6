@@ -29,9 +29,15 @@ import { PriceConfigService } from './price-config.service';
 @ApiTags('Metadata - Price Configs')
 @ApiBearerAuth()
 @Controller('/projects/metadata/priceConfig/:key/versions')
+/**
+ * REST controller for price config version operations.
+ *
+ * Read endpoints are currently unguarded; write endpoints require `@AdminOnly`.
+ */
 export class PriceConfigVersionController {
   constructor(private readonly priceConfigService: PriceConfigService) {}
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get()
   @ApiOperation({
     summary: 'List priceConfig versions',
@@ -41,12 +47,16 @@ export class PriceConfigVersionController {
   @ApiParam({ name: 'key', description: 'PriceConfig key' })
   @ApiResponse({ status: 200, type: [PriceConfigResponseDto] })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Lists latest revision per version for a price config key.
+   */
   async listVersions(
     @Param('key') key: string,
   ): Promise<PriceConfigResponseDto[]> {
     return this.priceConfigService.findAllVersions(key);
   }
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get(':version')
   @ApiOperation({
     summary: 'Get latest revision by priceConfig version',
@@ -55,6 +65,9 @@ export class PriceConfigVersionController {
   @ApiParam({ name: 'version', description: 'PriceConfig version' })
   @ApiResponse({ status: 200, type: PriceConfigResponseDto })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Fetches latest revision for one price config version.
+   */
   async getVersion(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -73,6 +86,9 @@ export class PriceConfigVersionController {
   @ApiParam({ name: 'key', description: 'PriceConfig key' })
   @ApiResponse({ status: 201, type: PriceConfigResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  /**
+   * Creates a new price config version.
+   */
   async createVersion(
     @Param('key') key: string,
     @Body() dto: CreatePriceConfigVersionDto,
@@ -95,6 +111,9 @@ export class PriceConfigVersionController {
   @ApiResponse({ status: 200, type: PriceConfigResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Updates the latest revision of a price config version.
+   */
   async updateVersion(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -119,6 +138,9 @@ export class PriceConfigVersionController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Soft deletes all revisions of a price config version.
+   */
   async deleteVersion(
     @Param('key') key: string,
     @Param('version') version: string,

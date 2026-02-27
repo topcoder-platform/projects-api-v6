@@ -14,13 +14,26 @@ import { MilestoneTemplateResponseDto } from './dto/milestone-template-response.
 import { UpdateMilestoneTemplateDto } from './dto/update-milestone-template.dto';
 
 @Injectable()
+/**
+ * Manages milestone templates, which are reusable milestone definitions linked
+ * to a target `reference` and `referenceId`.
+ *
+ * Milestones can be cloned from an existing template to a new target.
+ *
+ * Note: this service's module is currently not imported by MetadataModule, so
+ * endpoints are unreachable until that is fixed.
+ */
 export class MilestoneTemplateService {
+  // TODO (BUG): This service's module (MilestoneTemplateModule) is not imported in MetadataModule. All endpoints are unreachable until it is added.
   constructor(
     private readonly prisma: PrismaService,
     private readonly prismaErrorService: PrismaErrorService,
     private readonly eventBusService: EventBusService,
   ) {}
 
+  /**
+   * Lists all non-deleted milestone templates.
+   */
   async findAll(): Promise<MilestoneTemplateResponseDto[]> {
     const records = await this.prisma.milestoneTemplate.findMany({
       where: {
@@ -32,6 +45,9 @@ export class MilestoneTemplateService {
     return records.map((record) => this.toDto(record));
   }
 
+  /**
+   * Finds one milestone template by id.
+   */
   async findOne(id: bigint): Promise<MilestoneTemplateResponseDto> {
     const record = await this.prisma.milestoneTemplate.findFirst({
       where: {
@@ -49,6 +65,9 @@ export class MilestoneTemplateService {
     return this.toDto(record);
   }
 
+  /**
+   * Creates a milestone template.
+   */
   async create(
     dto: CreateMilestoneTemplateDto,
     userId: bigint,
@@ -89,6 +108,11 @@ export class MilestoneTemplateService {
     }
   }
 
+  /**
+   * Clones an existing milestone template to a new reference target.
+   *
+   * Throws NotFoundException when `sourceMilestoneTemplateId` is invalid.
+   */
   async clone(
     dto: CloneMilestoneTemplateDto,
     userId: bigint,
@@ -145,6 +169,9 @@ export class MilestoneTemplateService {
     }
   }
 
+  /**
+   * Updates a milestone template by id.
+   */
   async update(
     id: bigint,
     dto: UpdateMilestoneTemplateDto,
@@ -219,6 +246,9 @@ export class MilestoneTemplateService {
     }
   }
 
+  /**
+   * Soft deletes a milestone template.
+   */
   async delete(id: bigint, userId: bigint): Promise<void> {
     try {
       const existing = await this.prisma.milestoneTemplate.findFirst({
@@ -261,10 +291,16 @@ export class MilestoneTemplateService {
     }
   }
 
+  /**
+   * Parses milestone template id parameter.
+   */
   parseId(value: string): bigint {
     return parseBigIntParam(value, 'milestoneTemplateId');
   }
 
+  /**
+   * Maps Prisma entity to response DTO.
+   */
   private toDto(record: MilestoneTemplate): MilestoneTemplateResponseDto {
     return {
       id: record.id.toString(),
@@ -291,6 +327,9 @@ export class MilestoneTemplateService {
     };
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates unknown errors to Prisma.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

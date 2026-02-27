@@ -1,0 +1,52 @@
+diff --git a/dist/eslintrc-universal.cjs b/dist/eslintrc-universal.cjs
+index 6000445f7ad1c90b22987842d8b68217c1d9b007..b754545f08a3091787afabd5134d07622e353db2 100644
+--- a/dist/eslintrc-universal.cjs
++++ b/dist/eslintrc-universal.cjs
+@@ -374,15 +374,17 @@ var ajvOrig = (additionalOptions = {}) => {
+         meta: false,
+         useDefaults: true,
+         validateSchema: false,
+-        missingRefs: "ignore",
+         verbose: true,
+-        schemaId: "auto",
+         ...additionalOptions
+     });
+ 
+     ajv.addMetaSchema(metaSchema);
+-    // eslint-disable-next-line no-underscore-dangle -- part of the API
+-    ajv._opts.defaultMeta = metaSchema.id;
++    if (ajv.opts) {
++        ajv.opts.defaultMeta = metaSchema.id;
++    } else if (ajv._opts) {
++        // eslint-disable-next-line no-underscore-dangle -- Ajv v6 path
++        ajv._opts.defaultMeta = metaSchema.id;
++    }
+ 
+     return ajv;
+ };
+diff --git a/dist/eslintrc.cjs b/dist/eslintrc.cjs
+index 1b76091f34e680456e5911651ea84f0c622436c8..106d2a5dcb7b791cd3c6e644dfd02e0e4e053d73 100644
+--- a/dist/eslintrc.cjs
++++ b/dist/eslintrc.cjs
+@@ -1607,15 +1607,17 @@ var ajvOrig = (additionalOptions = {}) => {
+         meta: false,
+         useDefaults: true,
+         validateSchema: false,
+-        missingRefs: "ignore",
+         verbose: true,
+-        schemaId: "auto",
+         ...additionalOptions
+     });
+ 
+     ajv.addMetaSchema(metaSchema);
+-    // eslint-disable-next-line no-underscore-dangle -- part of the API
+-    ajv._opts.defaultMeta = metaSchema.id;
++    if (ajv.opts) {
++        ajv.opts.defaultMeta = metaSchema.id;
++    } else if (ajv._opts) {
++        // eslint-disable-next-line no-underscore-dangle -- Ajv v6 path
++        ajv._opts.defaultMeta = metaSchema.id;
++    }
+ 
+     return ajv;
+ };

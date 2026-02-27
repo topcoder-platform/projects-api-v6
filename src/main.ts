@@ -1,3 +1,23 @@
+/**
+ * NestJS application bootstrap entry point for the Topcoder Project API v6.
+ *
+ * Responsibilities:
+ * - Configures CORS.
+ * - Registers global middleware (BigInt serialiser and HTTP request/response logger).
+ * - Applies a global ValidationPipe.
+ * - Builds and serves Swagger documentation.
+ * - Registers process-level error handlers.
+ *
+ * Environment variables consumed:
+ * - API_PREFIX
+ * - PORT
+ * - CORS_ALLOWED_ORIGIN
+ * - HEALTH_CHECK_TIMEOUT
+ *
+ * Lifecycle:
+ * - Called once by Node.js at startup.
+ * - Loads all other modules through AppModule.
+ */
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -14,9 +34,21 @@ import { AppModule } from './app.module';
 import { enrichSwaggerAuthDocumentation } from './shared/utils/swagger.utils';
 import { LoggerService } from './shared/modules/global/logger.service';
 
+// TODO (quality): Move serializeBigInt to src/shared/utils/serialization.utils.ts
+/**
+ * Recursively serializes BigInt values so JSON responses can be emitted safely.
+ *
+ * @param value - Any value that may contain BigInt scalars at any depth.
+ * @returns The same structure with every BigInt replaced by its decimal string representation.
+ * @remarks Recursively handles plain objects and arrays. Needed because JSON.stringify throws on BigInt.
+ */
 function serializeBigInt(value: unknown): unknown {
   if (typeof value === 'bigint') {
     return value.toString();
+  }
+
+  if (value instanceof Date) {
+    return value;
   }
 
   if (Array.isArray(value)) {
@@ -35,6 +67,12 @@ function serializeBigInt(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Bootstraps the Topcoder Project API v6 HTTP server.
+ *
+ * @returns Promise<void> - resolves when the HTTP server is listening.
+ * @throws Will log and surface any NestJS factory or listen errors via the unhandledRejection handler.
+ */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
@@ -47,6 +85,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix(apiPrefix);
 
+  // CORS origin logic: static allow-list plus Topcoder domain patterns.
   const topcoderOriginPatterns = [
     /^https?:\/\/([\w-]+\.)*topcoder\.com(?::\d+)?$/i,
     /^https?:\/\/([\w-]+\.)*topcoder-dev\.com(?::\d+)?$/i,
@@ -59,6 +98,7 @@ async function bootstrap() {
 
   if (process.env.CORS_ALLOWED_ORIGIN) {
     try {
+      // TODO (security): Compiling an untrusted env-var string directly into a RegExp is a ReDoS risk. Validate or escape the value before use, or restrict it to a plain string comparison.
       allowList.push(new RegExp(process.env.CORS_ALLOWED_ORIGIN));
     } catch (error) {
       const errorMessage =
@@ -93,6 +133,7 @@ async function bootstrap() {
       if (!requestOrigin) {
         // Keep a permissive fallback for non-browser requests so cached variants
         // do not drop CORS headers for subsequent browser calls.
+        // TODO (security): Returning '*' for requests with no Origin header allows any cross-origin server-side client to receive CORS headers. Consider returning false or omitting the header for server-to-server calls.
         callback(null, '*');
         return;
       }
@@ -108,6 +149,7 @@ async function bootstrap() {
 
   app.use(cors(corsConfig));
 
+  // BigInt serialiser middleware.
   app.use((_req: Request, res: Response, next: NextFunction) => {
     const originalJson = res.json.bind(res);
     res.json = ((body?: any): Response => {
@@ -117,7 +159,9 @@ async function bootstrap() {
     next();
   });
 
+  // HTTP request/response logger middleware.
   app.use((req: Request, res: Response, next: NextFunction) => {
+    // TODO (quality): A new LoggerService instance is created on every HTTP request. Hoist the logger to module scope or inject it once at bootstrap time.
     const requestLogger = LoggerService.forRoot('HttpRequest');
     const startedAt = Date.now();
 
@@ -157,9 +201,11 @@ async function bootstrap() {
     next();
   });
 
+  // Body-parser limits.
   app.useBodyParser('json', { limit: '15mb' });
   app.useBodyParser('urlencoded', { limit: '15mb', extended: true });
 
+  // Global ValidationPipe.
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -206,7 +252,9 @@ curl --request POST \\
     })
     .build();
 
+  // Swagger setup.
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig, {
+    // TODO (quality): WorkStreamModule is included in the Swagger document but is not imported in ApiModule. Either add WorkStreamModule to ApiModule's imports array, or remove it from the Swagger include list to avoid documentation drift.
     include: [ApiModule, WorkStreamModule],
     deepScanRoutes: true,
     extraModels: [...EVENT_SWAGGER_MODELS],
@@ -220,9 +268,13 @@ curl --request POST \\
 
   enrichSwaggerAuthDocumentation(swaggerDocument);
 
+  // TODO (security): Swagger UI is publicly accessible with no authentication. In production, restrict access by IP, add HTTP Basic auth, or disable entirely via an env flag.
   SwaggerModule.setup(`/${apiPrefix}/projects/api-docs`, app, swaggerDocument);
+  // TODO (security): Swagger UI is publicly accessible with no authentication. In production, restrict access by IP, add HTTP Basic auth, or disable entirely via an env flag.
+  // TODO (quality): Duplicate Swagger mount. Consolidate to a single canonical path (e.g. /${apiPrefix}/projects/api-docs) and remove the second mount.
   SwaggerModule.setup(`/${apiPrefix}/projects-api-docs`, app, swaggerDocument);
 
+  // Process error handlers.
   process.on('unhandledRejection', (reason, promise) => {
     logger.error(
       {

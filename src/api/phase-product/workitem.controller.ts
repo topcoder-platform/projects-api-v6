@@ -19,11 +19,11 @@ import {
 } from '@nestjs/swagger';
 import { WorkStreamService } from 'src/api/workstream/workstream.service';
 import { Permission } from 'src/shared/constants/permissions';
+import { WORK_LAYER_ALLOWED_ROLES } from 'src/shared/constants/roles';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
 import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
@@ -32,30 +32,37 @@ import { PhaseProductResponseDto } from './dto/phase-product-response.dto';
 import { UpdatePhaseProductDto } from './dto/update-phase-product.dto';
 import { PhaseProductService } from './phase-product.service';
 
-const WORKITEM_ALLOWED_ROLES = [
-  UserRole.TOPCODER_ADMIN,
-  UserRole.CONNECT_ADMIN,
-  UserRole.TG_ADMIN,
-  UserRole.MANAGER,
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-  UserRole.COPILOT_MANAGER,
-];
-
 @ApiTags('WorkItem')
 @ApiBearerAuth()
 @Controller(
   '/projects/:projectId/workstreams/:workStreamId/works/:workId/workitems',
 )
+/**
+ * Alias REST controller exposing phase products as "work items" under
+ * `/projects/:projectId/workstreams/:workStreamId/works/:workId/workitems`.
+ * Used by the platform-ui Work app. Validates work-stream linkage via
+ * `WorkStreamService` before delegating to `PhaseProductService`.
+ */
 export class WorkItemController {
   constructor(
     private readonly phaseProductService: PhaseProductService,
     private readonly workStreamService: WorkStreamService,
   ) {}
 
+  /**
+   * Validates work-stream/work linkage, then delegates list retrieval to
+   * `PhaseProductService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param workId - Work id (phase id).
+   * @param user - Authenticated user.
+   * @returns Work item DTO list.
+   * @throws {NotFoundException} When the work stream or linkage is missing.
+   */
   @Get()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -96,9 +103,21 @@ export class WorkItemController {
     return this.phaseProductService.listPhaseProducts(projectId, workId, user);
   }
 
+  /**
+   * Validates work-stream/work linkage, then delegates single item retrieval to
+   * `PhaseProductService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param workId - Work id (phase id).
+   * @param id - Work item id (phase product id).
+   * @param user - Authenticated user.
+   * @returns Work item DTO.
+   * @throws {NotFoundException} When the work stream or linkage is missing.
+   */
   @Get(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -146,9 +165,21 @@ export class WorkItemController {
     );
   }
 
+  /**
+   * Validates work-stream/work linkage, then delegates create to
+   * `PhaseProductService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param workId - Work id (phase id).
+   * @param dto - Work item create payload.
+   * @param user - Authenticated user.
+   * @returns Created work item DTO.
+   * @throws {NotFoundException} When the work stream or linkage is missing.
+   */
   @Post()
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKITEM_CREATE)
   @ApiOperation({
@@ -191,9 +222,22 @@ export class WorkItemController {
     );
   }
 
+  /**
+   * Validates work-stream/work linkage, then delegates update to
+   * `PhaseProductService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param workId - Work id (phase id).
+   * @param id - Work item id (phase product id).
+   * @param dto - Work item update payload.
+   * @param user - Authenticated user.
+   * @returns Updated work item DTO.
+   * @throws {NotFoundException} When the work stream or linkage is missing.
+   */
   @Patch(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKITEM_EDIT)
   @ApiOperation({
@@ -239,10 +283,22 @@ export class WorkItemController {
     );
   }
 
+  /**
+   * Validates work-stream/work linkage, then delegates soft delete to
+   * `PhaseProductService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param workId - Work id (phase id).
+   * @param id - Work item id (phase product id).
+   * @param user - Authenticated user.
+   * @returns Nothing.
+   * @throws {NotFoundException} When the work stream or linkage is missing.
+   */
   @Delete(':id')
   @HttpCode(204)
   @UseGuards(PermissionGuard)
-  @Roles(...WORKITEM_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORKITEM_DELETE)
   @ApiOperation({

@@ -1,5 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+/**
+ * Aggregated metadata list response payload.
+ *
+ * @property projectTemplates Active project templates.
+ * @property productTemplates Active product templates.
+ * @property projectTypes Active project types.
+ * @property productCategories Active product categories.
+ * @property milestoneTemplates Active milestone templates.
+ * @property forms Selected form records.
+ * @property planConfigs Selected plan config records.
+ * @property priceConfigs Selected price config records.
+ */
 export class MetadataListResponseDto {
   @ApiProperty({ type: [Object] })
   projectTemplates: Record<string, unknown>[];

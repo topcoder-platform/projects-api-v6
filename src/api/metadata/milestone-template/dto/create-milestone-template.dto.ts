@@ -10,6 +10,23 @@ import {
   Min,
 } from 'class-validator';
 
+/**
+ * Request payload for creating a milestone template.
+ *
+ * @property name Milestone name.
+ * @property description Optional milestone description.
+ * @property duration Estimated duration.
+ * @property type Milestone type.
+ * @property order Display order.
+ * @property plannedText Planned-state label text.
+ * @property activeText Active-state label text.
+ * @property completedText Completed-state label text.
+ * @property blockedText Blocked-state label text.
+ * @property reference Reference target type.
+ * @property referenceId Reference target id.
+ * @property metadata Optional metadata object.
+ * @property hidden Hidden flag.
+ */
 export class CreateMilestoneTemplateDto {
   @ApiProperty()
   @IsString()

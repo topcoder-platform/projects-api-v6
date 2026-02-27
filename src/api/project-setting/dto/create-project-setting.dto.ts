@@ -13,6 +13,12 @@ export const PROJECT_SETTING_VALUE_TYPES = Object.values(ValueType);
 
 export type ProjectSettingValueType = ValueType;
 
+/**
+ * DTO for creating project settings.
+ *
+ * `readPermission` and `writePermission` accept JSON objects that are evaluated
+ * through `PermissionService.hasPermission` at runtime.
+ */
 export class CreateProjectSettingDto {
   @ApiProperty({ maxLength: 255 })
   @IsString()

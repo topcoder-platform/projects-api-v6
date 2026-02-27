@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -25,12 +24,14 @@ import {
   UpdateCopilotRequestDto,
 } from './dto/copilot-request.dto';
 import {
+  ensureNamedPermission,
   getAuditUserId,
   getCopilotRequestData,
   isAdminOrManager,
   normalizeEntity,
   parseNumericId,
   parseSortExpression,
+  readString,
 } from './copilot.utils';
 
 const REQUEST_SORTS = [
@@ -48,10 +49,7 @@ const REQUEST_SORTS = [
 
 type CopilotRequestWithRelations = CopilotRequest & {
   opportunities: CopilotOpportunity[];
-  project?: {
-    id: bigint;
-    name: string;
-  } | null;
+  project?: ({ name?: string } & Record<string, unknown>) | null;
 };
 
 interface PaginatedRequestResponse {
@@ -62,6 +60,12 @@ interface PaginatedRequestResponse {
 }
 
 @Injectable()
+/**
+ * Manages the full lifecycle of copilot requests:
+ * create (with auto-approval), list, update, and manual approval.
+ * Request creation atomically creates the request and invokes
+ * approveRequestInternal within the same transaction.
+ */
 export class CopilotRequestService {
   constructor(
     private readonly prisma: PrismaService,
@@ -69,12 +73,27 @@ export class CopilotRequestService {
     private readonly notificationService: CopilotNotificationService,
   ) {}
 
+  /**
+   * Lists copilot requests with optional project scoping and pagination.
+   *
+   * @param projectId Optional project id path value used to scope requests.
+   * @param query Pagination and sort parameters.
+   * @param user Authenticated JWT user.
+   * @returns Paginated request response payload.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If projectId is non-numeric.
+   */
   async listRequests(
     projectId: string | undefined,
     query: CopilotRequestListQueryDto,
     user: JwtUser,
   ): Promise<PaginatedRequestResponse> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
+    const includeProjectInResponse = isAdminOrManager(user);
 
     const parsedProjectId = projectId
       ? parseNumericId(projectId, 'Project')
@@ -86,9 +105,9 @@ export class CopilotRequestService {
       'createdAt desc',
     );
 
-    const includeProject =
-      isAdminOrManager(user) || sortField.toLowerCase() === 'projectname';
+    const includeProjectForSort = sortField.toLowerCase() === 'projectname';
 
+    // TODO [PERF]: This fetches all rows and applies sort/pagination in memory; move to database-level orderBy/skip/take for large datasets.
     const requests = await this.prisma.copilotRequest.findMany({
       where: {
         deletedAt: null,
@@ -103,14 +122,16 @@ export class CopilotRequestService {
             id: 'asc',
           },
         },
-        project: includeProject
-          ? {
-              select: {
-                id: true,
-                name: true,
-              },
-            }
-          : false,
+        project: includeProjectInResponse
+          ? true
+          : includeProjectForSort
+            ? {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              }
+            : false,
       },
     });
 
@@ -125,18 +146,34 @@ export class CopilotRequestService {
     return {
       data: sorted
         .slice(start, end)
-        .map((request) => this.formatRequest(request, isAdminOrManager(user))),
+        .map((request) =>
+          this.formatRequest(request, includeProjectInResponse),
+        ),
       page,
       perPage,
       total,
     };
   }
 
+  /**
+   * Returns a single copilot request by id.
+   *
+   * @param copilotRequestId Copilot request id path value.
+   * @param user Authenticated JWT user.
+   * @returns One formatted copilot request response.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If id is non-numeric.
+   * @throws NotFoundException If the request does not exist.
+   */
   async getRequest(
     copilotRequestId: string,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
 
@@ -166,15 +203,33 @@ export class CopilotRequestService {
     return this.formatRequest(request, isAdminOrManager(user));
   }
 
+  /**
+   * Creates a new request and auto-approves it in one transaction.
+   * Transaction flow: create request -> approveRequestInternal -> re-fetch with opportunities.
+   *
+   * @param projectId Project id path value.
+   * @param dto Create request payload.
+   * @param user Authenticated JWT user.
+   * @returns Newly created and formatted request response.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If payload data.projectId mismatches path projectId.
+   * @throws ConflictException If an active request already exists for the same projectType.
+   * @throws NotFoundException If project is not found.
+   */
   async createRequest(
     projectId: string,
     dto: CreateCopilotRequestDto,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedProjectId = parseNumericId(projectId, 'Project');
     const auditUserId = getAuditUserId(user);
+    // TODO [QUALITY]: projectId is parsed twice (parseNumericId to bigint and Number.parseInt to number); consolidate to a single parse source.
     const payloadData = {
       ...dto.data,
       projectId: Number.parseInt(projectId, 10),
@@ -250,12 +305,30 @@ export class CopilotRequestService {
     return this.formatRequest(created.request, isAdminOrManager(user));
   }
 
+  /**
+   * Updates an existing request.
+   * Canceled and fulfilled requests are immutable.
+   * If projectType changes, linked opportunities are updated via updateMany.
+   *
+   * @param copilotRequestId Copilot request id path value.
+   * @param dto Patch payload.
+   * @param user Authenticated JWT user.
+   * @returns Updated formatted request response.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If id is non-numeric or request is in terminal status.
+   * @throws NotFoundException If request is not found.
+   * @throws ConflictException If updated projectType conflicts with an existing active request type.
+   */
   async updateRequest(
     copilotRequestId: string,
     dto: UpdateCopilotRequestDto,
     user: JwtUser,
   ): Promise<CopilotRequestResponseDto> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
     const auditUserId = getAuditUserId(user);
@@ -350,13 +423,30 @@ export class CopilotRequestService {
     return this.formatRequest(updated, isAdminOrManager(user));
   }
 
+  /**
+   * Public approval entry point that wraps approveRequestInternal in a transaction.
+   *
+   * @param projectId Project id path value.
+   * @param copilotRequestId Copilot request id path value.
+   * @param type Optional type override.
+   * @param user Authenticated JWT user.
+   * @returns Normalized CopilotOpportunity payload.
+   * @throws ForbiddenException If user lacks MANAGE_COPILOT_REQUEST permission.
+   * @throws BadRequestException If ids or type are invalid.
+   * @throws NotFoundException If project or request are not found.
+   * @throws ConflictException If an active opportunity of the same type already exists.
+   */
   async approveRequest(
     projectId: string,
     copilotRequestId: string,
     type: string | undefined,
     user: JwtUser,
   ): Promise<unknown> {
-    this.ensurePermission(NamedPermission.MANAGE_COPILOT_REQUEST, user);
+    ensureNamedPermission(
+      this.permissionService,
+      NamedPermission.MANAGE_COPILOT_REQUEST,
+      user,
+    );
 
     const parsedProjectId = parseNumericId(projectId, 'Project');
     const parsedRequestId = parseNumericId(copilotRequestId, 'Copilot request');
@@ -389,6 +479,21 @@ export class CopilotRequestService {
     return normalizeEntity(opportunity);
   }
 
+  /**
+   * Core request approval workflow.
+   * Validates project and request, validates type enum, checks for active opportunity conflicts,
+   * marks request approved, and creates an active opportunity.
+   *
+   * @param tx Prisma transaction client.
+   * @param projectId Parsed project id.
+   * @param copilotRequestId Parsed request id.
+   * @param type Optional type override.
+   * @param auditUserId Numeric audit user id.
+   * @returns Created CopilotOpportunity row.
+   * @throws NotFoundException If project or request are missing.
+   * @throws BadRequestException If type is invalid.
+   * @throws ConflictException If active opportunity of same type already exists.
+   */
   private async approveRequestInternal(
     tx: Prisma.TransactionClient,
     projectId: bigint,
@@ -413,8 +518,8 @@ export class CopilotRequestService {
 
     const requestData = getCopilotRequestData(request.data);
     const requestedType = (
-      this.readString(type) ||
-      this.readString(requestData.projectType) ||
+      readString(type) ||
+      readString(requestData.projectType) ||
       ''
     ).trim();
 
@@ -466,6 +571,14 @@ export class CopilotRequestService {
     });
   }
 
+  /**
+   * Ensures a project exists by id.
+   *
+   * @param projectId Project id.
+   * @param tx Optional Prisma transaction client; falls back to this.prisma when omitted.
+   * @returns Resolves when project exists.
+   * @throws NotFoundException If project does not exist.
+   */
   private async ensureProjectExists(
     projectId: bigint,
     tx?: Prisma.TransactionClient,
@@ -489,6 +602,15 @@ export class CopilotRequestService {
     }
   }
 
+  /**
+   * Ensures there is no active request with the same projectType for a project.
+   *
+   * @param projectId Project id.
+   * @param projectType Requested project type.
+   * @param excludeRequestId Optional request id to exclude (used by update flow).
+   * @returns Resolves when no duplicate exists.
+   * @throws ConflictException If duplicate request type exists.
+   */
   private async ensureNoDuplicateRequestType(
     projectId: bigint,
     projectType: string,
@@ -527,9 +649,17 @@ export class CopilotRequestService {
     }
   }
 
+  /**
+   * Formats a request row into API response shape.
+   * projectId and project are included only for admin/manager users.
+   *
+   * @param input Request row with relations.
+   * @param includeProjectInResponse Whether project fields should be included.
+   * @returns Formatted request response DTO.
+   */
   private formatRequest(
     input: CopilotRequestWithRelations,
-    includeProjectId: boolean,
+    includeProjectInResponse: boolean,
   ): CopilotRequestResponseDto {
     const normalized = normalizeEntity(input) as Record<string, any>;
 
@@ -554,18 +684,31 @@ export class CopilotRequestService {
       copilotOpportunity: opportunities,
     };
 
-    if (includeProjectId && normalized.projectId) {
+    if (includeProjectInResponse && normalized.projectId) {
       response.projectId = String(normalized.projectId);
+    }
+
+    if (includeProjectInResponse && normalized.project) {
+      response.project = normalized.project as Record<string, unknown>;
     }
 
     return response;
   }
 
+  /**
+   * Sorts request rows in memory by requested field/direction.
+   *
+   * @param rows Request rows.
+   * @param field Sort field.
+   * @param direction Sort direction.
+   * @returns Sorted request rows.
+   */
   private sortRequests(
     rows: CopilotRequestWithRelations[],
     field: string,
     direction: 'asc' | 'desc',
   ): CopilotRequestWithRelations[] {
+    // TODO [PERF]: In-memory sort should be replaced with DB orderBy when listRequests moves to DB pagination.
     const factor = direction === 'asc' ? 1 : -1;
 
     return [...rows].sort((left, right) => {
@@ -574,7 +717,10 @@ export class CopilotRequestService {
 
       if (field === 'projectName') {
         return (
-          this.compareValues(left.project?.name, right.project?.name) * factor
+          this.compareValues(
+            left.project?.name as unknown,
+            right.project?.name as unknown,
+          ) * factor
         );
       }
 
@@ -602,13 +748,21 @@ export class CopilotRequestService {
     });
   }
 
+  /**
+   * Compares two values for sorting.
+   * Uses a Date fast-path, then falls back to case-insensitive string comparison.
+   *
+   * @param left Left value.
+   * @param right Right value.
+   * @returns Comparison result (-1, 0, 1).
+   */
   private compareValues(left: unknown, right: unknown): number {
     if (left instanceof Date && right instanceof Date) {
       return left.getTime() - right.getTime();
     }
 
-    const leftValue = this.readString(left)?.toLowerCase() || '';
-    const rightValue = this.readString(right)?.toLowerCase() || '';
+    const leftValue = readString(left)?.toLowerCase() || '';
+    const rightValue = readString(right)?.toLowerCase() || '';
 
     if (leftValue < rightValue) {
       return -1;
@@ -619,23 +773,5 @@ export class CopilotRequestService {
     }
 
     return 0;
-  }
-
-  private ensurePermission(permission: NamedPermission, user: JwtUser): void {
-    if (!this.permissionService.hasNamedPermission(permission, user)) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
-  }
-
-  private readString(value: unknown): string | undefined {
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    if (typeof value === 'number') {
-      return `${value}`;
-    }
-
-    return undefined;
   }
 }

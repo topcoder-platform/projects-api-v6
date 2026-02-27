@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AttachmentType } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
 import { FileService } from 'src/shared/services/file.service';
+import { MemberService } from 'src/shared/services/member.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { ProjectAttachmentService } from './project-attachment.service';
 
@@ -28,6 +29,10 @@ describe('ProjectAttachmentService', () => {
     deleteFile: jest.fn(),
   };
 
+  const memberServiceMock = {
+    getMemberDetailsByUserIds: jest.fn(),
+  };
+
   let service: ProjectAttachmentService;
 
   beforeEach(() => {
@@ -37,6 +42,7 @@ describe('ProjectAttachmentService', () => {
       prismaMock as any,
       permissionServiceMock as unknown as PermissionService,
       fileServiceMock as unknown as FileService,
+      memberServiceMock as unknown as MemberService,
     );
 
     fileServiceMock.getPresignedDownloadUrl.mockResolvedValue(
@@ -44,6 +50,12 @@ describe('ProjectAttachmentService', () => {
     );
     fileServiceMock.transferFile.mockResolvedValue(undefined);
     fileServiceMock.deleteFile.mockResolvedValue(undefined);
+    memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([
+      {
+        userId: '123',
+        handle: 'member123',
+      },
+    ]);
 
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
@@ -102,7 +114,15 @@ describe('ProjectAttachmentService', () => {
     );
 
     expect(response.id).toBe('77');
+    expect(response.createdBy).toBe('member123');
     expect(prismaMock.projectAttachment.create).toHaveBeenCalled();
+    expect(prismaMock.projectAttachment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          createdAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 
   it('creates file attachment with presigned URL and async transfer', async () => {
@@ -157,6 +177,7 @@ describe('ProjectAttachmentService', () => {
     );
 
     expect(response.downloadUrl).toBe('https://download.example.com');
+    expect(response.createdBy).toBe('member123');
     expect(fileServiceMock.getPresignedDownloadUrl).toHaveBeenCalled();
     expect(fileServiceMock.transferFile).toHaveBeenCalledWith(
       'incoming-bucket',
@@ -164,6 +185,55 @@ describe('ProjectAttachmentService', () => {
       expect.any(String),
       expect.any(String),
     );
+    expect(prismaMock.projectAttachment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          createdAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('lists attachments with createdBy resolved to handle', async () => {
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean => {
+        if (permission === Permission.VIEW_PROJECT_ATTACHMENT) {
+          return true;
+        }
+
+        return false;
+      },
+    );
+
+    prismaMock.projectAttachment.findMany.mockResolvedValue([
+      {
+        id: BigInt(41),
+        projectId: BigInt(1001),
+        title: 'List Item',
+        type: AttachmentType.link,
+        path: 'https://example.com',
+        size: null,
+        category: null,
+        description: null,
+        contentType: null,
+        tags: [],
+        allowedUsers: [],
+        deletedAt: null,
+        deletedBy: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 123,
+        updatedBy: 123,
+      },
+    ]);
+
+    const response = await service.listAttachments('1001', {
+      userId: '456',
+      isMachine: false,
+    });
+
+    expect(response).toHaveLength(1);
+    expect(response[0].createdBy).toBe('member123');
   });
 
   it('returns not found when attachment is restricted for current user', async () => {
@@ -207,6 +277,50 @@ describe('ProjectAttachmentService', () => {
         isMachine: false,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('returns empty createdBy when handle is unavailable for non-owner', async () => {
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean => {
+        if (permission === Permission.VIEW_PROJECT_ATTACHMENT) {
+          return true;
+        }
+
+        if (permission === Permission.READ_PROJECT_ANY) {
+          return false;
+        }
+
+        return false;
+      },
+    );
+    memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
+
+    prismaMock.projectAttachment.findFirst.mockResolvedValue({
+      id: BigInt(29),
+      projectId: BigInt(1001),
+      title: 'Unknown Creator',
+      type: AttachmentType.link,
+      path: 'https://example.com',
+      size: null,
+      category: null,
+      description: null,
+      contentType: null,
+      tags: [],
+      allowedUsers: [],
+      deletedAt: null,
+      deletedBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: 999,
+      updatedBy: 999,
+    });
+
+    const response = await service.getAttachment('1001', '29', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(response.createdBy).toBe('');
   });
 
   it('updates attachment fields without requiring title on patch payload', async () => {

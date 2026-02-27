@@ -40,11 +40,35 @@ import { ProjectMemberService } from './project-member.service';
 @ApiTags('Project Members')
 @ApiBearerAuth()
 @Controller('/projects/:projectId/members')
+/**
+ * REST controller for `/projects/:projectId/members`.
+ *
+ * Every route enforces `PermissionGuard` and delegates business logic to
+ * `ProjectMemberService`.
+ *
+ * Write routes use the scopes `PROJECT_MEMBERS_WRITE`,
+ * `PROJECT_MEMBERS_ALL`, and `CONNECT_PROJECT_ADMIN`.
+ */
 export class ProjectMemberController {
   constructor(private readonly service: ProjectMemberService) {}
 
+  /**
+   * Adds a member to the target project.
+   *
+   * @param projectId Project identifier from the route.
+   * @param dto Member creation payload.
+   * @param fields Optional CSV list of extra member profile fields to include.
+   * @param user Authenticated caller.
+   * @returns The created member response payload.
+   * @throws {NotFoundException} If the project does not exist.
+   * @throws {ForbiddenException} If the caller lacks add-member permissions.
+   * @throws {BadRequestException} If ids/role are invalid.
+   * @throws {ConflictException} If the target user is already a project member.
+   */
   @Post()
   @UseGuards(PermissionGuard)
+  // TODO: QUALITY: `@Roles(...Object.values(UserRole))` repeats on every route;
+  // extract to a controller-level decorator or shared constant.
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECT_MEMBERS_WRITE,
@@ -69,8 +93,24 @@ export class ProjectMemberController {
     return this.service.addMember(projectId, dto, user, fields);
   }
 
+  /**
+   * Updates an existing project member.
+   *
+   * @param projectId Project identifier from the route.
+   * @param id Project member identifier from the route.
+   * @param dto Member update payload.
+   * @param fields Optional CSV list of extra member profile fields to include.
+   * @param user Authenticated caller.
+   * @returns The updated member response payload.
+   * @throws {NotFoundException} If the project or member does not exist.
+   * @throws {ForbiddenException} If the caller lacks update permissions.
+   * @throws {BadRequestException} If ids are invalid.
+   * @throws {ConflictException} If an update conflicts with existing state.
+   */
   @Patch(':id')
   @UseGuards(PermissionGuard)
+  // TODO: QUALITY: `@Roles(...Object.values(UserRole))` repeats on every route;
+  // extract to a controller-level decorator or shared constant.
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECT_MEMBERS_WRITE,
@@ -97,9 +137,23 @@ export class ProjectMemberController {
     return this.service.updateMember(projectId, id, dto, user, fields);
   }
 
+  /**
+   * Soft-deletes a project member.
+   *
+   * @param projectId Project identifier from the route.
+   * @param id Project member identifier from the route.
+   * @param user Authenticated caller.
+   * @returns Resolves when deletion completes.
+   * @throws {NotFoundException} If the project or member does not exist.
+   * @throws {ForbiddenException} If the caller lacks delete permissions.
+   * @throws {BadRequestException} If ids are invalid.
+   * @throws {ConflictException} If deletion conflicts with current state.
+   */
   @Delete(':id')
   @HttpCode(204)
   @UseGuards(PermissionGuard)
+  // TODO: QUALITY: `@Roles(...Object.values(UserRole))` repeats on every route;
+  // extract to a controller-level decorator or shared constant.
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECT_MEMBERS_WRITE,
@@ -123,8 +177,22 @@ export class ProjectMemberController {
     await this.service.deleteMember(projectId, id, user);
   }
 
+  /**
+   * Lists members for a project.
+   *
+   * @param projectId Project identifier from the route.
+   * @param query Optional list filters and response field selection.
+   * @param user Authenticated caller.
+   * @returns A list of serialized member response payloads.
+   * @throws {NotFoundException} If the project does not exist.
+   * @throws {ForbiddenException} If the caller lacks read permissions.
+   * @throws {BadRequestException} If ids are invalid.
+   * @throws {ConflictException} If query execution conflicts with current state.
+   */
   @Get()
   @UseGuards(PermissionGuard)
+  // TODO: QUALITY: `@Roles(...Object.values(UserRole))` repeats on every route;
+  // extract to a controller-level decorator or shared constant.
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECT_MEMBERS_READ,
@@ -143,8 +211,23 @@ export class ProjectMemberController {
     return this.service.listMembers(projectId, query, user);
   }
 
+  /**
+   * Gets a single member by id.
+   *
+   * @param projectId Project identifier from the route.
+   * @param id Project member identifier from the route.
+   * @param query Optional response field selection.
+   * @param user Authenticated caller.
+   * @returns The serialized member response payload.
+   * @throws {NotFoundException} If the project or member does not exist.
+   * @throws {ForbiddenException} If the caller lacks read permissions.
+   * @throws {BadRequestException} If ids are invalid.
+   * @throws {ConflictException} If retrieval conflicts with current state.
+   */
   @Get(':id')
   @UseGuards(PermissionGuard)
+  // TODO: QUALITY: `@Roles(...Object.values(UserRole))` repeats on every route;
+  // extract to a controller-level decorator or shared constant.
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECT_MEMBERS_READ,

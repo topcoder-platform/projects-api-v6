@@ -22,4 +22,18 @@ import { CopilotRequestService } from './copilot-request.service';
     CopilotNotificationService,
   ],
 })
+/**
+ * NestJS feature module for the copilot subsystem.
+ * Controllers:
+ * - CopilotRequestController
+ * - CopilotOpportunityController
+ * - CopilotApplicationController
+ * Providers:
+ * - CopilotRequestService
+ * - CopilotOpportunityService
+ * - CopilotApplicationService
+ * - CopilotNotificationService
+ * Depends on GlobalProvidersModule for shared PrismaService,
+ * PermissionService, and MemberService wiring.
+ */
 export class CopilotModule {}

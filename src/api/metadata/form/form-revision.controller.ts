@@ -7,6 +7,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
+import { Public } from 'src/shared/decorators/public.decorator';
 import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import {
@@ -20,9 +21,16 @@ import { FormService } from './form.service';
 @ApiTags('Metadata - Forms')
 @ApiBearerAuth()
 @Controller('/projects/metadata/form/:key/versions/:version/revisions')
+/**
+ * REST controller for form revision operations.
+ *
+ * Read endpoints are public (`@Public()`); write endpoints require
+ * `@AdminOnly`.
+ */
 export class FormRevisionController {
   constructor(private readonly formService: FormService) {}
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'List form revisions by version',
@@ -31,6 +39,11 @@ export class FormRevisionController {
   @ApiParam({ name: 'version', description: 'Form version' })
   @ApiResponse({ status: 200, type: [FormResponseDto] })
   @ApiResponse({ status: 404, description: 'Form not found' })
+  /**
+   * Lists all revisions for a form version.
+   *
+   * HTTP 200 on success.
+   */
   async listRevisions(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -41,6 +54,7 @@ export class FormRevisionController {
     );
   }
 
+  @Public()
   @Get(':revision')
   @ApiOperation({
     summary: 'Get specific form revision',
@@ -50,6 +64,11 @@ export class FormRevisionController {
   @ApiParam({ name: 'revision', description: 'Form revision' })
   @ApiResponse({ status: 200, type: FormResponseDto })
   @ApiResponse({ status: 404, description: 'Form not found' })
+  /**
+   * Fetches one exact form revision.
+   *
+   * HTTP 200 on success.
+   */
   async getRevision(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -72,6 +91,11 @@ export class FormRevisionController {
   @ApiResponse({ status: 201, type: FormResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Form not found' })
+  /**
+   * Creates a new revision under a form version.
+   *
+   * HTTP 201 on success.
+   */
   async createRevision(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -97,6 +121,11 @@ export class FormRevisionController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Form not found' })
+  /**
+   * Soft deletes one form revision.
+   *
+   * HTTP 204 on success.
+   */
   async deleteRevision(
     @Param('key') key: string,
     @Param('version') version: string,

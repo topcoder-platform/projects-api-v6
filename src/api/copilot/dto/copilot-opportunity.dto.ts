@@ -5,45 +5,20 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  parseOptionalBoolean,
+  parseOptionalLooseInteger,
+} from 'src/shared/utils/dto-transform.utils';
 import { CopilotSkillDto } from './copilot-request.dto';
 
-function parseOptionalInteger(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
+/**
+ * DTOs for listing and responding with copilot opportunities.
+ */
 
-  if (typeof value === 'number') {
-    return Number.isNaN(value) ? undefined : Math.trunc(value);
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-
-  return undefined;
-}
-
-function parseOptionalBoolean(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-
-    if (normalized === 'true') {
-      return true;
-    }
-
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-
-  return undefined;
-}
-
+/**
+ * Flattened response merging opportunity fields with request data.
+ * canApplyAsCopilot indicates whether the current user is eligible to apply.
+ */
 export class CopilotOpportunityResponseDto {
   @ApiProperty()
   id: string;
@@ -121,17 +96,22 @@ export class CopilotOpportunityResponseDto {
   members?: string[];
 }
 
+/**
+ * Pagination, sort, and noGrouping query parameters for opportunities.
+ * noGrouping=false (default) groups results by status priority:
+ * active -> canceled -> completed.
+ */
 export class ListOpportunitiesQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseOptionalInteger(value))
+  @Transform(({ value }) => parseOptionalLooseInteger(value))
   @IsInt()
   @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseOptionalInteger(value))
+  @Transform(({ value }) => parseOptionalLooseInteger(value))
   @IsInt()
   @Min(1)
   pageSize?: number;

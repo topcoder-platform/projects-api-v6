@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
+import { Public } from 'src/shared/decorators/public.decorator';
 import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import {
@@ -33,11 +34,18 @@ import { ProductTemplateService } from './product-template.service';
 @ApiTags('Metadata - Product Templates')
 @ApiBearerAuth()
 @Controller('/projects/metadata/productTemplates')
+/**
+ * REST controller for product template metadata.
+ *
+ * Read endpoints are public (`@Public()`); write endpoints require
+ * `@AdminOnly`.
+ */
 export class ProductTemplateController {
   constructor(
     private readonly productTemplateService: ProductTemplateService,
   ) {}
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'List product templates',
@@ -48,6 +56,9 @@ export class ProductTemplateController {
     type: Boolean,
   })
   @ApiResponse({ status: 200, type: [ProductTemplateResponseDto] })
+  /**
+   * Lists product templates.
+   */
   async list(
     @Query('includeDisabled') includeDisabled?: string,
   ): Promise<ProductTemplateResponseDto[]> {
@@ -56,11 +67,15 @@ export class ProductTemplateController {
     );
   }
 
+  @Public()
   @Get(':templateId')
   @ApiOperation({ summary: 'Get product template by id' })
   @ApiParam({ name: 'templateId', description: 'Product template id' })
   @ApiResponse({ status: 200, type: ProductTemplateResponseDto })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Gets one product template by id.
+   */
   async getOne(
     @Param('templateId') templateId: string,
   ): Promise<ProductTemplateResponseDto> {
@@ -74,6 +89,9 @@ export class ProductTemplateController {
   @ApiOperation({ summary: 'Create product template' })
   @ApiResponse({ status: 201, type: ProductTemplateResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  /**
+   * Creates a product template.
+   */
   async create(
     @Body() dto: CreateProductTemplateDto,
     @CurrentUser() user: JwtUser,
@@ -88,6 +106,9 @@ export class ProductTemplateController {
   @ApiResponse({ status: 200, type: ProductTemplateResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Updates a product template by id.
+   */
   async update(
     @Param('templateId') templateId: string,
     @Body() dto: UpdateProductTemplateDto,
@@ -108,6 +129,9 @@ export class ProductTemplateController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Soft deletes a product template.
+   */
   async delete(
     @Param('templateId') templateId: string,
     @CurrentUser() user: JwtUser,
@@ -125,6 +149,9 @@ export class ProductTemplateController {
   @ApiResponse({ status: 201, type: ProductTemplateResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Upgrades legacy product template configuration to versioned references.
+   */
   async upgrade(
     @Param('templateId') templateId: string,
     @Body() dto: UpgradeProductTemplateDto,

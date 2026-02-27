@@ -20,9 +20,15 @@ import { PriceConfigService } from './price-config.service';
 @ApiTags('Metadata - Price Configs')
 @ApiBearerAuth()
 @Controller('/projects/metadata/priceConfig/:key/versions/:version/revisions')
+/**
+ * REST controller for price config revision operations.
+ *
+ * Read endpoints are currently unguarded; write endpoints require `@AdminOnly`.
+ */
 export class PriceConfigRevisionController {
   constructor(private readonly priceConfigService: PriceConfigService) {}
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get()
   @ApiOperation({
     summary: 'List priceConfig revisions by version',
@@ -31,6 +37,9 @@ export class PriceConfigRevisionController {
   @ApiParam({ name: 'version', description: 'PriceConfig version' })
   @ApiResponse({ status: 200, type: [PriceConfigResponseDto] })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Lists all revisions for a price config version.
+   */
   async listRevisions(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -41,6 +50,7 @@ export class PriceConfigRevisionController {
     );
   }
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get(':revision')
   @ApiOperation({
     summary: 'Get specific priceConfig revision',
@@ -50,6 +60,9 @@ export class PriceConfigRevisionController {
   @ApiParam({ name: 'revision', description: 'PriceConfig revision' })
   @ApiResponse({ status: 200, type: PriceConfigResponseDto })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Fetches one specific price config revision.
+   */
   async getRevision(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -72,6 +85,9 @@ export class PriceConfigRevisionController {
   @ApiResponse({ status: 201, type: PriceConfigResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Creates a new revision under a price config version.
+   */
   async createRevision(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -97,6 +113,9 @@ export class PriceConfigRevisionController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PriceConfig not found' })
+  /**
+   * Soft deletes one price config revision.
+   */
   async deleteRevision(
     @Param('key') key: string,
     @Param('version') version: string,

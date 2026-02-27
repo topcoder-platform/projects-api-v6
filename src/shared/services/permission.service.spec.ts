@@ -204,6 +204,66 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows viewing project for machine token with project read scope', () => {
+    const allowed = service.hasNamedPermission(Permission.VIEW_PROJECT, {
+      scopes: [Scope.PROJECTS_READ],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows viewing project for pending email invite that matches user email', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.VIEW_PROJECT,
+      {
+        userId: '88770025',
+        email: 'jmgasper+devtest140@gmail.com',
+        isMachine: false,
+      },
+      [],
+      [
+        {
+          email: 'JMGasper+devtest140@gmail.com',
+          status: 'pending',
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows viewing project for pending email invite using namespaced email claim', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.VIEW_PROJECT,
+      {
+        userId: '88770025',
+        isMachine: false,
+        tokenPayload: {
+          'https://topcoder-dev.com/email': 'jmgasper+devtest140@gmail.com',
+        },
+      },
+      [],
+      [
+        {
+          email: 'jmgasper+devtest140@gmail.com',
+          status: 'pending',
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows editing project for machine token with project write scope', () => {
+    const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
+      scopes: [Scope.PROJECTS_WRITE],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
   it('marks billing account permissions as requiring project member context', () => {
     expect(
       service.isNamedPermissionRequireProjectMembers(

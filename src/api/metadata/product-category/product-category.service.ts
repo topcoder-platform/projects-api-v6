@@ -18,6 +18,11 @@ import { ProductCategoryResponseDto } from './dto/product-category-response.dto'
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 
 @Injectable()
+/**
+ * Manages product category metadata records used to classify product templates.
+ *
+ * Categories are keyed by unique string `key`.
+ */
 export class ProductCategoryService {
   constructor(
     private readonly prisma: PrismaService,
@@ -25,6 +30,9 @@ export class ProductCategoryService {
     private readonly eventBusService: EventBusService,
   ) {}
 
+  /**
+   * Lists all non-deleted product categories.
+   */
   async findAll(): Promise<ProductCategoryResponseDto[]> {
     const records = await this.prisma.productCategory.findMany({
       where: {
@@ -36,6 +44,9 @@ export class ProductCategoryService {
     return records.map((record) => this.toDto(record));
   }
 
+  /**
+   * Finds one product category by key.
+   */
   async findByKey(key: string): Promise<ProductCategoryResponseDto> {
     const record = await this.prisma.productCategory.findFirst({
       where: {
@@ -51,11 +62,15 @@ export class ProductCategoryService {
     return this.toDto(record);
   }
 
+  /**
+   * Creates a product category.
+   */
   async create(
     dto: CreateProductCategoryDto,
     userId: number,
   ): Promise<ProductCategoryResponseDto> {
     try {
+      // TODO (BUG): create() uses findUnique({ where: { key } }) without deletedAt: null. A soft-deleted record with the same key will trigger a ConflictException, preventing re-creation. Use findFirst with deletedAt: null instead.
       const existing = await this.prisma.productCategory.findUnique({
         where: {
           key: dto.key,
@@ -98,6 +113,9 @@ export class ProductCategoryService {
     }
   }
 
+  /**
+   * Updates a product category by key.
+   */
   async update(
     key: string,
     dto: UpdateProductCategoryDto,
@@ -156,6 +174,9 @@ export class ProductCategoryService {
     }
   }
 
+  /**
+   * Soft deletes a product category.
+   */
   async delete(key: string, userId: number): Promise<void> {
     try {
       const existing = await this.prisma.productCategory.findFirst({
@@ -198,6 +219,9 @@ export class ProductCategoryService {
     }
   }
 
+  /**
+   * Maps Prisma entity to response DTO.
+   */
   private toDto(record: ProductCategory): ProductCategoryResponseDto {
     return {
       key: record.key,
@@ -215,6 +239,9 @@ export class ProductCategoryService {
     };
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates unknown errors to Prisma.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

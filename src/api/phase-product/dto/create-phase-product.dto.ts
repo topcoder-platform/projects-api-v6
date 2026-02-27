@@ -8,70 +8,62 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import {
+  parseOptionalInteger,
+  parseOptionalNumber,
+} from 'src/shared/utils/dto-transform.utils';
 
-function parseOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-}
-
-function parseOptionalInteger(value: unknown): number | undefined {
-  const parsed = parseOptionalNumber(value);
-
-  if (typeof parsed === 'undefined') {
-    return undefined;
-  }
-
-  return Math.trunc(parsed);
-}
-
+/**
+ * Create payload for phase product/work-item endpoints:
+ * `POST /projects/:projectId/phases/:phaseId/products` and
+ * `POST /projects/:projectId/workstreams/:workStreamId/works/:workId/workitems`.
+ */
 export class CreatePhaseProductDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Product/work-item name.' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Product/work-item type key.' })
   @IsString()
   @IsNotEmpty()
   type: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Optional product template id.' })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsNumber()
   @Min(1)
   templateId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Optional direct project id. Defaults to parent project directProjectId when omitted.',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsNumber()
   @Min(1)
   directProjectId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Optional billing account id. Defaults to parent project billingAccountId when omitted.',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsNumber()
   @Min(1)
   billingAccountId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Estimated product price.' })
   @IsOptional()
   @Transform(({ value }) => parseOptionalNumber(value))
   @IsNumber()
   @Min(1)
   estimatedPrice?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Actual product price.' })
   @IsOptional()
   @Transform(({ value }) => parseOptionalNumber(value))
   @IsNumber()

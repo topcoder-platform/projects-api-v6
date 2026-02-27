@@ -35,9 +35,22 @@ import {
 @ApiTags('Copilot Applications')
 @ApiBearerAuth()
 @Controller('/projects')
+/**
+ * Exposes copilot application submission and listing endpoints.
+ * Submission is copilot-only; listing is role-filtered by response fields.
+ */
 export class CopilotApplicationController {
   constructor(private readonly service: CopilotApplicationService) {}
 
+  /**
+   * POST /projects/copilots/opportunity/:id/apply
+   * Copilot-only idempotent application endpoint.
+   *
+   * @param id Opportunity id path value.
+   * @param dto Application payload.
+   * @param user Authenticated JWT user.
+   * @returns Created or existing application response.
+   */
   @Post('copilots/opportunity/:id/apply')
   @UseGuards(PermissionGuard)
   @Roles(UserRole.TC_COPILOT)
@@ -63,6 +76,15 @@ export class CopilotApplicationController {
     return this.service.applyToOpportunity(id, dto, user);
   }
 
+  /**
+   * GET /projects/copilots/opportunity/:id/applications
+   * Returns application list with role-dependent response shape.
+   *
+   * @param id Opportunity id path value.
+   * @param query Pagination/sort query.
+   * @param user Authenticated JWT user.
+   * @returns Full or limited application list depending on caller role.
+   */
   @Get('copilots/opportunity/:id/applications')
   @Roles(...Object.values(UserRole))
   @Scopes(
@@ -84,6 +106,7 @@ export class CopilotApplicationController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  // TODO [QUALITY]: Controller return type is unknown; prefer explicit discriminated union or a single response DTO shape with optional fields.
   async listApplications(
     @Param('id') id: string,
     @Query() query: CopilotApplicationListQueryDto,

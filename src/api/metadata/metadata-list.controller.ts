@@ -10,6 +10,13 @@ import {
 
 @ApiTags('Metadata')
 @Controller('/projects/metadata')
+/**
+ * Exposes `GET /projects/metadata` as a single public endpoint that returns
+ * all active metadata in one payload for UI bootstrapping.
+ *
+ * This endpoint is consumed by `platform-ui` on initial load to hydrate
+ * project/product template and category selectors.
+ */
 export class MetadataListController {
   constructor(private readonly metadataListService: MetadataListService) {}
 
@@ -28,6 +35,15 @@ export class MetadataListController {
       'When true, includes all versions referred by templates plus latest versions.',
   })
   @ApiResponse({ status: 200, type: MetadataListResponseDto })
+  /**
+   * Returns all active metadata grouped by resource type.
+   *
+   * @param includeAllReferred When `true`, includes template-referenced
+   * versions in addition to the latest version per key for form/plan/price
+   * configs.
+   * @returns Aggregated metadata payload. If no rows exist, resource arrays are
+   * returned empty.
+   */
   async getAllMetadata(
     @Query('includeAllReferred') includeAllReferred?: string,
   ): Promise<MetadataListResponse> {

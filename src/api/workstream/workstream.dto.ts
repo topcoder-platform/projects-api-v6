@@ -12,57 +12,21 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import {
+  parseOptionalBoolean,
+  parseOptionalInteger,
+} from 'src/shared/utils/dto-transform.utils';
 
-function parseOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-
-  return parsed;
-}
-
-function parseOptionalInteger(value: unknown): number | undefined {
-  const parsed = parseOptionalNumber(value);
-
-  if (typeof parsed === 'undefined') {
-    return undefined;
-  }
-
-  return Math.trunc(parsed);
-}
-
-function parseOptionalBoolean(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-
-    if (normalized === 'true') {
-      return true;
-    }
-
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-
-  return undefined;
-}
-
+/**
+ * Create payload for `POST /projects/:projectId/workstreams`.
+ */
 export class CreateWorkStreamDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Work stream name.' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Work stream type key.' })
   @IsString()
   @IsNotEmpty()
   type: string;
@@ -75,8 +39,14 @@ export class CreateWorkStreamDto {
   status: WorkStreamStatus;
 }
 
+/**
+ * Partial update payload for `PATCH /projects/:projectId/workstreams/:id`.
+ */
 export class UpdateWorkStreamDto extends PartialType(CreateWorkStreamDto) {}
 
+/**
+ * Summary model for linked works embedded in work stream responses.
+ */
 export class WorkSummaryDto {
   @ApiProperty()
   id: string;
@@ -88,6 +58,9 @@ export class WorkSummaryDto {
   status?: string | null;
 }
 
+/**
+ * Response payload for work stream endpoints.
+ */
 export class WorkStreamResponseDto {
   @ApiProperty()
   id: string;
@@ -119,10 +92,18 @@ export class WorkStreamResponseDto {
   @ApiProperty()
   updatedBy: string;
 
-  @ApiPropertyOptional({ type: () => [WorkSummaryDto] })
+  @ApiPropertyOptional({
+    type: () => [WorkSummaryDto],
+    description:
+      'Linked works (project phases), included when `includeWorks=true`.',
+  })
   works?: WorkSummaryDto[];
 }
 
+/**
+ * List query payload for `GET /projects/:projectId/workstreams`.
+ * Pagination defaults: `page=1`, `perPage=20`.
+ */
 export class WorkStreamListCriteria {
   @ApiPropertyOptional({
     enum: WorkStreamStatus,
@@ -141,14 +122,23 @@ export class WorkStreamListCriteria {
   @IsString()
   sort?: string;
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({
+    minimum: 1,
+    default: 1,
+    description: 'Page number (default: 1).',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsInt()
   @Min(1)
   page?: number;
 
-  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 100,
+    default: 20,
+    description: 'Page size (default: 20).',
+  })
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))
   @IsInt()
@@ -157,6 +147,9 @@ export class WorkStreamListCriteria {
   perPage?: number;
 }
 
+/**
+ * Query payload for `GET /projects/:projectId/workstreams/:id`.
+ */
 export class WorkStreamGetCriteria {
   @ApiPropertyOptional({
     description:

@@ -1,10 +1,26 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CopilotOpportunityType, Prisma } from '@prisma/client';
+import { Permission as NamedPermission } from 'src/shared/constants/permissions';
 import { UserRole } from 'src/shared/enums/userRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { PermissionService } from 'src/shared/services/permission.service';
+import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
 
+/**
+ * Shared pure-function toolkit for the copilot feature.
+ * Handles id parsing, request-data extraction, entity normalization,
+ * role checks, sort parsing, and audit user id parsing.
+ */
 export type CopilotRequestDataRecord = Record<string, unknown>;
 
+/**
+ * Parses a numeric entity id from a raw string.
+ *
+ * @param value Raw id string value.
+ * @param label Entity label used in the error message.
+ * @returns Parsed bigint id.
+ * @throws BadRequestException If the value is not numeric.
+ */
 export function parseNumericId(value: string, label: string): bigint {
   const normalized = String(value || '').trim();
 
@@ -15,6 +31,12 @@ export function parseNumericId(value: string, label: string): bigint {
   return BigInt(normalized);
 }
 
+/**
+ * Reads and safely clones the copilot request data object from Prisma JSON.
+ *
+ * @param value Prisma JsonValue payload.
+ * @returns Safe plain-object copy of request data, or an empty object.
+ */
 export function getCopilotRequestData(
   value: Prisma.JsonValue | null | undefined,
 ): CopilotRequestDataRecord {
@@ -25,39 +47,19 @@ export function getCopilotRequestData(
   return {};
 }
 
+/**
+ * Recursively normalizes entity values for API responses.
+ */
 export function normalizeEntity<T>(payload: T): T {
-  const walk = (input: unknown): unknown => {
-    if (typeof input === 'bigint') {
-      return input.toString();
-    }
-
-    if (input instanceof Prisma.Decimal) {
-      return Number(input.toString());
-    }
-
-    if (Array.isArray(input)) {
-      return input.map((entry) => walk(entry));
-    }
-
-    if (input && typeof input === 'object') {
-      if (input instanceof Date) {
-        return input;
-      }
-
-      const output: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(input)) {
-        output[key] = walk(value);
-      }
-
-      return output;
-    }
-
-    return input;
-  };
-
-  return walk(payload) as T;
+  return normalizePrismaEntity(payload);
 }
 
+/**
+ * Converts an opportunity type enum to a human-readable label.
+ *
+ * @param type Copilot opportunity type.
+ * @returns Human-readable type label.
+ */
 export function getCopilotTypeLabel(type: CopilotOpportunityType): string {
   switch (type) {
     case CopilotOpportunityType.dev:
@@ -75,6 +77,12 @@ export function getCopilotTypeLabel(type: CopilotOpportunityType): string {
   }
 }
 
+/**
+ * Returns true if user is admin, project manager, or manager.
+ *
+ * @param user Authenticated JWT user.
+ * @returns Whether the user is admin-or-manager scoped.
+ */
 export function isAdminOrManager(user: JwtUser): boolean {
   const userRoles = user.roles || [];
 
@@ -86,6 +94,12 @@ export function isAdminOrManager(user: JwtUser): boolean {
   ].some((role) => userRoles.includes(role));
 }
 
+/**
+ * Returns true if user is admin or project manager.
+ *
+ * @param user Authenticated JWT user.
+ * @returns Whether the user is admin-or-pm scoped.
+ */
 export function isAdminOrPm(user: JwtUser): boolean {
   const userRoles = user.roles || [];
 
@@ -96,6 +110,15 @@ export function isAdminOrPm(user: JwtUser): boolean {
   ].some((role) => userRoles.includes(role));
 }
 
+/**
+ * Parses a query sort expression and validates it against an allow-list.
+ *
+ * @param sort Raw sort query value.
+ * @param allowedSorts List of allowed sort expressions.
+ * @param defaultValue Default sort expression when none is provided.
+ * @returns Tuple of [field, direction].
+ * @throws BadRequestException If the sort expression is invalid.
+ */
 export function parseSortExpression(
   sort: string | undefined,
   allowedSorts: string[],
@@ -116,6 +139,13 @@ export function parseSortExpression(
   return [field, direction.toLowerCase() === 'asc' ? 'asc' : 'desc'];
 }
 
+/**
+ * Parses the numeric audit user id from an authenticated JWT user.
+ *
+ * @param user Authenticated JWT user.
+ * @returns Numeric user id for audit fields.
+ * @throws BadRequestException If user.userId is not numeric.
+ */
 export function getAuditUserId(user: JwtUser): number {
   const value = Number.parseInt(String(user.userId || '').trim(), 10);
 
@@ -124,4 +154,34 @@ export function getAuditUserId(user: JwtUser): number {
   }
 
   return value;
+}
+
+/**
+ * Enforces a named permission for the current user.
+ *
+ * @throws ForbiddenException If permission is missing.
+ */
+export function ensureNamedPermission(
+  permissionService: PermissionService,
+  permission: NamedPermission,
+  user: JwtUser,
+): void {
+  if (!permissionService.hasNamedPermission(permission, user)) {
+    throw new ForbiddenException('Insufficient permissions');
+  }
+}
+
+/**
+ * Reads a string-like primitive value.
+ */
+export function readString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return `${value}`;
+  }
+
+  return undefined;
 }

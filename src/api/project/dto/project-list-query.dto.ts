@@ -3,6 +3,14 @@ import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from './pagination.dto';
 
+/**
+ * Parses boolean-like query values.
+ *
+ * @param value Raw query value.
+ * @returns Parsed boolean or `undefined`.
+ * @todo Duplicated helper pattern exists across DTOs; extract shared parsing
+ * helpers into `src/shared/utils/dto.utils.ts`.
+ */
 function parseBoolean(value: unknown): boolean | undefined {
   if (typeof value === 'boolean') {
     return value;
@@ -23,6 +31,14 @@ function parseBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+/**
+ * Normalizes filter input values from scalar/array/object forms.
+ *
+ * @param value Raw query value.
+ * @returns Normalized filter payload or `undefined`.
+ * @todo Duplicated helper pattern exists across DTOs; extract shared parsing
+ * helpers into `src/shared/utils/dto.utils.ts`.
+ */
 function parseFilterInput(
   value: unknown,
 ): string | string[] | Record<string, unknown> | undefined {
@@ -49,6 +65,14 @@ function parseFilterInput(
   return undefined;
 }
 
+/**
+ * Query DTO for `GET /projects`.
+ *
+ * Extends pagination fields and supports optional filters for id/status/
+ * billingAccountId/type using scalar or `$in`-style representations.
+ * The `code` filter is intentionally mapped to a case-insensitive name
+ * contains query in the project query builder.
+ */
 export class ProjectListQueryDto extends PaginationDto {
   @ApiPropertyOptional({
     description: 'Sort expression. Example: "lastActivityAt desc"',
@@ -77,6 +101,13 @@ export class ProjectListQueryDto extends PaginationDto {
   @IsOptional()
   @Transform(({ value }) => parseFilterInput(value))
   status?: string | string[] | Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    description: 'Filter by billing account id (exact or $in pattern)',
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseFilterInput(value))
+  billingAccountId?: string | string[] | Record<string, unknown>;
 
   @ApiPropertyOptional({
     description:
@@ -133,6 +164,9 @@ export class ProjectListQueryDto extends PaginationDto {
   directProjectId?: string;
 }
 
+/**
+ * Query DTO for `GET /projects/:projectId`.
+ */
 export class GetProjectQueryDto {
   @ApiPropertyOptional({
     description: 'CSV fields list. Supported: members, invites, attachments',

@@ -1,3 +1,9 @@
+/**
+ * Request-scoped project-context cache primer.
+ *
+ * This interceptor preloads project members into `request.projectContext`
+ * before route handlers execute to reduce repeated database lookups.
+ */
 import {
   CallHandler,
   ExecutionContext,
@@ -9,12 +15,36 @@ import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { LoggerService } from '../modules/global/logger.service';
 import { PrismaService } from '../modules/global/prisma.service';
 
+/**
+ * Interceptor that preloads and caches project membership context per request.
+ */
 @Injectable()
 export class ProjectContextInterceptor implements NestInterceptor {
+  /**
+   * Static logger instance used for non-blocking preload failures.
+   */
   private readonly logger = LoggerService.forRoot('ProjectContextInterceptor');
 
+  /**
+   * @param prisma Prisma client used for project member lookups.
+   */
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Initializes `request.projectContext` and preloads project members when a
+   * `projectId` route param is available.
+   *
+   * Behavior:
+   * - Initializes `request.projectContext` if absent.
+   * - Short-circuits when no project id is present.
+   * - Short-circuits on cache hits where project id already matches.
+   * - Queries active project members and maps `role` to plain strings.
+   * - On query error, logs a warning and stores `projectMembers = []`.
+   * - Never throws; request processing continues with `next.handle()`.
+   *
+   * @todo Member query + mapping logic is duplicated in multiple guards.
+   * Introduce a shared `ProjectContextService` to centralize loading behavior.
+   */
   async intercept(
     context: ExecutionContext,
     next: CallHandler,
@@ -72,6 +102,11 @@ export class ProjectContextInterceptor implements NestInterceptor {
     return next.handle();
   }
 
+  /**
+   * Extracts a normalized `projectId` route param.
+   *
+   * @returns Trimmed id or `undefined` when missing/blank/non-string.
+   */
   private extractProjectId(request: AuthenticatedRequest): string | undefined {
     const rawProjectId = request.params?.projectId;
 

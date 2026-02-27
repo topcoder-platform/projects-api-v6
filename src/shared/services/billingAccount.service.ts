@@ -15,6 +15,17 @@ export interface BillingAccount {
   [key: string]: unknown;
 }
 
+/**
+ * Salesforce billing-account integration service.
+ *
+ * Uses JWT Bearer OAuth against Salesforce and runs SOQL queries to retrieve
+ * billing-account data used by Projects API.
+ *
+ * Injected into the billing-account controller for account listing/detail
+ * endpoints. Requires `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_AUDIENCE`
+ * (or `SALESFORCE_AUDIENCE`), `SALESFORCE_SUBJECT`, and
+ * `SALESFORCE_CLIENT_KEY`.
+ */
 @Injectable()
 export class BillingAccountService {
   private readonly logger = LoggerService.forRoot('BillingAccountService');
@@ -22,6 +33,7 @@ export class BillingAccountService {
     process.env.SALESFORCE_CLIENT_AUDIENCE ||
     process.env.SALESFORCE_AUDIENCE ||
     '';
+  // TODO: document why salesforceAudience is a valid fallback for the login URL, or remove this fallback.
   private readonly salesforceLoginBaseUrl =
     process.env.SALESFORCE_LOGIN_BASE_URL ||
     this.salesforceAudience ||
@@ -37,6 +49,15 @@ export class BillingAccountService {
 
   constructor(private readonly httpService: HttpService) {}
 
+  /**
+   * Returns billing accounts available to the current project user.
+   *
+   * Queries `Topcoder_Billing_Account_Resource__c` by `UserID__c`.
+   *
+   * @param projectId project id used for logging context
+   * @param userId Topcoder user id
+   * @returns billing-account list for the user
+   */
   async getBillingAccountsForProject(
     projectId: string,
     userId: string,
@@ -47,10 +68,19 @@ export class BillingAccountService {
     }
 
     try {
+      const normalizedUserId = this.parseIntStrictly(userId);
+      if (!normalizedUserId) {
+        this.logger.warn(
+          `Invalid userId while listing billing accounts for projectId=${projectId}.`,
+        );
+        return [];
+      }
+
+      // TODO (security + performance): cache the Salesforce access token until its expiry to reduce token surface area and latency.
       const { accessToken, instanceUrl } = await this.authenticate();
-      const escapedUserId = this.escapeSoqlLiteral(userId);
       // Keep tc-project-service behavior: list by current user assignment and active BA.
-      const sql = `SELECT Topcoder_Billing_Account__r.Id, Topcoder_Billing_Account__r.TopCoder_Billing_Account_Id__c, Topcoder_Billing_Account__r.Billing_Account_Name__c, Topcoder_Billing_Account__r.Start_Date__c, Topcoder_Billing_Account__r.End_Date__c from Topcoder_Billing_Account_Resource__c tbar where Topcoder_Billing_Account__r.Active__c=true AND UserID__c='${escapedUserId}'`;
+      // SECURITY: SOQL injection mitigated by parseIntStrictly integer validation. If this validation is ever relaxed, parameterized queries must be used.
+      const sql = `SELECT Topcoder_Billing_Account__r.Id, Topcoder_Billing_Account__r.TopCoder_Billing_Account_Id__c, Topcoder_Billing_Account__r.Billing_Account_Name__c, Topcoder_Billing_Account__r.Start_Date__c, Topcoder_Billing_Account__r.End_Date__c from Topcoder_Billing_Account_Resource__c tbar where Topcoder_Billing_Account__r.Active__c=true AND UserID__c='${normalizedUserId}'`;
       this.logger.debug(sql);
 
       const records = await this.queryBillingAccountRecords(
@@ -90,6 +120,15 @@ export class BillingAccountService {
     }
   }
 
+  /**
+   * Returns the default billing-account record by Topcoder billing-account id.
+   *
+   * Queries `Topcoder_Billing_Account__c` by
+   * `TopCoder_Billing_Account_Id__c`.
+   *
+   * @param billingAccountId Topcoder billing-account id
+   * @returns billing-account details, or `null` when not found/invalid
+   */
   async getDefaultBillingAccount(
     billingAccountId: string,
   ): Promise<BillingAccount | null> {
@@ -99,9 +138,18 @@ export class BillingAccountService {
     }
 
     try {
+      const normalizedBillingAccountId =
+        this.parseIntStrictly(billingAccountId);
+      if (!normalizedBillingAccountId) {
+        this.logger.warn(
+          `Invalid billingAccountId received while fetching default billing account: ${billingAccountId}`,
+        );
+        return null;
+      }
+
       const { accessToken, instanceUrl } = await this.authenticate();
-      const escapedBillingAccountId = this.escapeSoqlLiteral(billingAccountId);
-      const sql = `SELECT TopCoder_Billing_Account_Id__c, Mark_Up__c, Active__c, Start_Date__c, End_Date__c from Topcoder_Billing_Account__c tba where TopCoder_Billing_Account_Id__c='${escapedBillingAccountId}'`;
+      // SECURITY: SOQL injection mitigated by parseIntStrictly integer validation. If this validation is ever relaxed, parameterized queries must be used.
+      const sql = `SELECT TopCoder_Billing_Account_Id__c, Mark_Up__c, Active__c, Start_Date__c, End_Date__c from Topcoder_Billing_Account__c tba where TopCoder_Billing_Account_Id__c='${normalizedBillingAccountId}'`;
       this.logger.debug(sql);
 
       const records = await this.queryBillingAccountRecords(
@@ -138,6 +186,87 @@ export class BillingAccountService {
     }
   }
 
+  /**
+   * Returns a map of billing-account details keyed by Topcoder account id.
+   *
+   * Executes a single SOQL query with an `IN` clause over normalized ids.
+   *
+   * @param billingAccountIds billing-account ids to fetch
+   * @returns record keyed by normalized billing-account id
+   */
+  async getBillingAccountsByIds(
+    billingAccountIds: string[],
+  ): Promise<Record<string, BillingAccount>> {
+    const normalizedBillingAccountIds = Array.from(
+      new Set(
+        billingAccountIds
+          .map((billingAccountId) => this.parseIntStrictly(billingAccountId))
+          .filter((billingAccountId): billingAccountId is string =>
+            Boolean(billingAccountId),
+          ),
+      ),
+    );
+
+    if (normalizedBillingAccountIds.length === 0) {
+      return {};
+    }
+
+    if (!this.isSalesforceConfigured()) {
+      this.logger.warn('Salesforce integration is not configured.');
+      return {};
+    }
+
+    try {
+      const { accessToken, instanceUrl } = await this.authenticate();
+      const inClause = normalizedBillingAccountIds
+        .map((billingAccountId) => `'${billingAccountId}'`)
+        .join(',');
+      // SECURITY: SOQL injection mitigated by parseIntStrictly integer validation. If this validation is ever relaxed, parameterized queries must be used.
+      const sql = `SELECT TopCoder_Billing_Account_Id__c, ${this.sfdcBillingAccountNameField}, Start_Date__c, End_Date__c, ${this.sfdcBillingAccountActiveField} from Topcoder_Billing_Account__c tba where TopCoder_Billing_Account_Id__c IN (${inClause})`;
+      this.logger.debug(sql);
+
+      const records = await this.queryBillingAccountRecords(
+        sql,
+        accessToken,
+        instanceUrl,
+      );
+
+      return records.reduce<Record<string, BillingAccount>>((acc, record) => {
+        const normalizedBillingAccountId = this.parseIntStrictly(
+          this.readAsString(record?.TopCoder_Billing_Account_Id__c),
+        );
+
+        if (!normalizedBillingAccountId) {
+          return acc;
+        }
+
+        acc[normalizedBillingAccountId] = {
+          tcBillingAccountId: normalizedBillingAccountId,
+          name: this.readAsString(record?.[this.sfdcBillingAccountNameField]),
+          startDate: this.readAsString(record?.Start_Date__c),
+          endDate: this.readAsString(record?.End_Date__c),
+          active: this.readAsBoolean(
+            record?.[this.sfdcBillingAccountActiveField],
+          ),
+        };
+
+        return acc;
+      }, {});
+    } catch (error) {
+      this.logger.warn(
+        `Unable to fetch billing accounts by ids: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return {};
+    }
+  }
+
+  /**
+   * Checks whether required Salesforce auth configuration exists.
+   *
+   * @returns `true` when required env vars are present
+   */
   private isSalesforceConfigured(): boolean {
     return Boolean(
       process.env.SALESFORCE_CLIENT_ID &&
@@ -147,6 +276,15 @@ export class BillingAccountService {
     );
   }
 
+  /**
+   * Authenticates to Salesforce using JWT Bearer OAuth.
+   *
+   * Signs an RS256 JWT assertion and exchanges it for an access token +
+   * instance URL.
+   *
+   * @returns Salesforce auth session
+   * @throws Error when Salesforce returns an invalid auth response
+   */
   private async authenticate(): Promise<{
     accessToken: string;
     instanceUrl: string;
@@ -157,6 +295,7 @@ export class BillingAccountService {
     const privateKey = this.normalizePrivateKey(
       process.env.SALESFORCE_CLIENT_KEY || '',
     );
+    // TODO: parse and cache the private KeyObject at construction time.
     const privateKeyObject = this.toPrivateKeyObject(privateKey);
 
     const assertion = jwt.sign({}, privateKeyObject, {
@@ -195,6 +334,14 @@ export class BillingAccountService {
     };
   }
 
+  /**
+   * Executes a SOQL query and returns Salesforce `records`.
+   *
+   * @param sql SOQL query string
+   * @param accessToken Salesforce OAuth access token
+   * @param instanceUrl Salesforce instance base URL
+   * @returns Salesforce records array (empty when payload shape is unexpected)
+   */
   private async queryBillingAccountRecords(
     sql: string,
     accessToken: string,
@@ -222,7 +369,14 @@ export class BillingAccountService {
     return records as Record<string, any>[];
   }
 
+  /**
+   * Validates that a value is a strict integer string and normalizes it.
+   *
+   * @param rawValue candidate value
+   * @returns normalized integer string or `undefined` when invalid
+   */
   private parseIntStrictly(rawValue: string | undefined): string | undefined {
+    // TODO: rename to toIntegerString or validateIntegerString for clarity.
     if (!rawValue) {
       return undefined;
     }
@@ -239,7 +393,14 @@ export class BillingAccountService {
     return String(parsed);
   }
 
+  /**
+   * Coerces a Salesforce field value to a non-empty trimmed string.
+   *
+   * @param value raw field value
+   * @returns trimmed string or `undefined`
+   */
   private readAsString(value: unknown): string | undefined {
+    // TODO: extract to a shared SalesforceUtils module if other Salesforce integrations are added.
     if (typeof value !== 'string') {
       return undefined;
     }
@@ -248,7 +409,14 @@ export class BillingAccountService {
     return trimmed.length > 0 ? trimmed : undefined;
   }
 
+  /**
+   * Coerces a Salesforce field value to a finite number.
+   *
+   * @param value raw field value
+   * @returns parsed number or `undefined`
+   */
   private readAsNumber(value: unknown): number | undefined {
+    // TODO: extract to a shared SalesforceUtils module if other Salesforce integrations are added.
     if (typeof value === 'number' && Number.isFinite(value)) {
       return value;
     }
@@ -261,7 +429,14 @@ export class BillingAccountService {
     return undefined;
   }
 
+  /**
+   * Coerces a Salesforce field value to boolean.
+   *
+   * @param value raw field value
+   * @returns boolean value or `undefined`
+   */
   private readAsBoolean(value: unknown): boolean | undefined {
+    // TODO: extract to a shared SalesforceUtils module if other Salesforce integrations are added.
     if (typeof value === 'boolean') {
       return value;
     }
@@ -280,10 +455,15 @@ export class BillingAccountService {
     return undefined;
   }
 
-  private escapeSoqlLiteral(value: string): string {
-    return String(value).replace(/'/g, "\\'");
-  }
-
+  /**
+   * Normalizes private-key input from multiple secret-storage formats.
+   *
+   * Supports quoted PEM strings, escaped newlines, one-line space-separated
+   * PEM bodies, and base64-encoded PEM text.
+   *
+   * @param rawKey raw private-key value
+   * @returns normalized PEM string
+   */
   private normalizePrivateKey(rawKey: string): string {
     let normalized = String(rawKey || '').trim();
 
@@ -335,6 +515,13 @@ export class BillingAccountService {
     return normalized.trim();
   }
 
+  /**
+   * Converts PEM text into a Node.js `KeyObject`.
+   *
+   * @param privateKey PEM private key
+   * @returns parsed key object
+   * @throws Error with descriptive message when key format is invalid
+   */
   private toPrivateKeyObject(privateKey: string): KeyObject {
     try {
       return createPrivateKey({

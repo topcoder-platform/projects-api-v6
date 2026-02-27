@@ -1,6 +1,9 @@
 import { AttachmentType } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * Response payload for project attachment endpoints.
+ */
 export class AttachmentResponseDto {
   @ApiProperty()
   id: string;
@@ -45,18 +48,19 @@ export class AttachmentResponseDto {
   updatedAt: Date;
 
   @ApiProperty()
-  createdBy: number;
+  createdBy: string;
 
   @ApiProperty()
   updatedBy: number;
 
   @ApiPropertyOptional({
-    description: 'Presigned URL for file download on single fetch endpoint.',
+    description:
+      'Presigned URL for file download on single fetch endpoint (single-fetch use).',
   })
   url?: string;
 
   @ApiPropertyOptional({
-    description: 'Presigned URL returned when creating file attachments.',
+    description: 'Presigned URL returned on file attachment create responses.',
   })
   downloadUrl?: string;
 }

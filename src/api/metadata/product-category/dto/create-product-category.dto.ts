@@ -7,6 +7,18 @@ import {
   IsString,
 } from 'class-validator';
 
+/**
+ * Request payload for creating a product category.
+ *
+ * @property key Category key.
+ * @property displayName Category display name.
+ * @property icon Icon identifier.
+ * @property question Prompt text.
+ * @property info Informational text.
+ * @property aliases Alias list.
+ * @property disabled Disabled flag.
+ * @property hidden Hidden flag.
+ */
 export class CreateProductCategoryDto {
   @ApiProperty()
   @IsString()

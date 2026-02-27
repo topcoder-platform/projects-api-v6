@@ -20,9 +20,15 @@ import { PlanConfigService } from './plan-config.service';
 @ApiTags('Metadata - Plan Configs')
 @ApiBearerAuth()
 @Controller('/projects/metadata/planConfig/:key/versions/:version/revisions')
+/**
+ * REST controller for plan config revision operations.
+ *
+ * Read endpoints are currently unguarded; write endpoints require `@AdminOnly`.
+ */
 export class PlanConfigRevisionController {
   constructor(private readonly planConfigService: PlanConfigService) {}
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get()
   @ApiOperation({
     summary: 'List planConfig revisions by version',
@@ -31,6 +37,9 @@ export class PlanConfigRevisionController {
   @ApiParam({ name: 'version', description: 'PlanConfig version' })
   @ApiResponse({ status: 200, type: [PlanConfigResponseDto] })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Lists all revisions for a plan config version.
+   */
   async listRevisions(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -41,6 +50,7 @@ export class PlanConfigRevisionController {
     );
   }
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get(':revision')
   @ApiOperation({
     summary: 'Get specific planConfig revision',
@@ -50,6 +60,9 @@ export class PlanConfigRevisionController {
   @ApiParam({ name: 'revision', description: 'PlanConfig revision' })
   @ApiResponse({ status: 200, type: PlanConfigResponseDto })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Fetches one specific plan config revision.
+   */
   async getRevision(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -72,6 +85,9 @@ export class PlanConfigRevisionController {
   @ApiResponse({ status: 201, type: PlanConfigResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Creates a new revision under a plan config version.
+   */
   async createRevision(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -97,6 +113,9 @@ export class PlanConfigRevisionController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Soft deletes one plan config revision.
+   */
   async deleteRevision(
     @Param('key') key: string,
     @Param('version') version: string,
