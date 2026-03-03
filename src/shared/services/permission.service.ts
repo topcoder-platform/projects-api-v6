@@ -180,6 +180,14 @@ export class PermissionService {
       user.scopes || [],
       [Scope.CONNECT_PROJECT_ADMIN, Scope.PROJECTS_ALL, Scope.PROJECTS_WRITE],
     );
+    const hasProjectMemberReadScope = this.m2mService.hasRequiredScopes(
+      user.scopes || [],
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_MEMBERS_ALL,
+        Scope.PROJECT_MEMBERS_READ,
+      ],
+    );
 
     const member = this.getProjectMember(user.userId, projectMembers);
     const hasProjectMembership = Boolean(member);
@@ -248,7 +256,7 @@ export class PermissionService {
 
       // Project member management permissions.
       case NamedPermission.READ_PROJECT_MEMBER:
-        return isAdmin || hasProjectMembership;
+        return isAdmin || hasProjectMembership || hasProjectMemberReadScope;
 
       case NamedPermission.CREATE_PROJECT_MEMBER_OWN:
         return isAuthenticated;

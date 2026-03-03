@@ -213,6 +213,15 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows reading project members for machine token with project-member read scope', () => {
+    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
+      scopes: [Scope.PROJECT_MEMBERS_READ],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
   it('allows viewing project for pending email invite that matches user email', () => {
     const allowed = service.hasNamedPermission(
       Permission.VIEW_PROJECT,
