@@ -232,6 +232,7 @@ export class PermissionService {
           isAdmin ||
           isManagementMember ||
           this.isCopilot(member?.role) ||
+          this.hasProjectUpdateTopcoderRole(user) ||
           hasProjectWriteScope
         );
 
@@ -715,6 +716,19 @@ export class PermissionService {
       UserRole.PROJECT_MANAGER,
       UserRole.TASK_MANAGER,
       UserRole.TOPCODER_TASK_MANAGER,
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
+    ]);
+  }
+
+  /**
+   * Checks Topcoder roles allowed to edit projects.
+   *
+   * @param user authenticated JWT user context
+   * @returns `true` when user has one of project-edit roles
+   */
+  private hasProjectUpdateTopcoderRole(user: JwtUser): boolean {
+    return this.hasIntersection(user.roles || [], [
       UserRole.TALENT_MANAGER,
       UserRole.TOPCODER_TALENT_MANAGER,
     ]);

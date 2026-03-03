@@ -264,6 +264,19 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'allows editing project for %s Topcoder role without project membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
+        userId: '555',
+        roles: [role],
+        isMachine: false,
+      });
+
+      expect(allowed).toBe(true);
+    },
+  );
+
   it('marks billing account permissions as requiring project member context', () => {
     expect(
       service.isNamedPermissionRequireProjectMembers(
