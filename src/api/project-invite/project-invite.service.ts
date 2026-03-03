@@ -15,6 +15,7 @@ import {
   ProjectMemberRole,
   ProjectMemberInvite,
 } from '@prisma/client';
+import { CopilotNotificationService } from 'src/api/copilot/copilot-notification.service';
 import { CreateInviteDto } from 'src/api/project-invite/dto/create-invite.dto';
 import {
   GetInviteQueryDto,
@@ -93,6 +94,7 @@ export class ProjectInviteService {
     private readonly memberService: MemberService,
     private readonly identityService: IdentityService,
     private readonly emailService: EmailService,
+    private readonly copilotNotificationService: CopilotNotificationService,
   ) {}
 
   /**
@@ -512,6 +514,10 @@ export class ProjectInviteService {
         KAFKA_TOPIC.PROJECT_MEMBER_ADDED,
         this.normalizeEntity(projectMember),
       );
+    }
+
+    if (this.shouldNotifyCopilotInviteAccepted(updatedInvite, source)) {
+      await this.notifyCopilotInviteAccepted(updatedInvite.applicationId);
     }
 
     return this.hydrateInviteResponse(updatedInvite, fields);
@@ -1121,6 +1127,58 @@ export class ProjectInviteService {
         },
       });
     }
+  }
+
+  private shouldNotifyCopilotInviteAccepted(
+    invite: ProjectMemberInvite,
+    source: string,
+  ): invite is ProjectMemberInvite & { applicationId: bigint } {
+    return (
+      source === 'copilot_portal' &&
+      Boolean(invite.applicationId) &&
+      (invite.status === InviteStatus.accepted ||
+        invite.status === InviteStatus.request_approved)
+    );
+  }
+
+  private async notifyCopilotInviteAccepted(
+    applicationId: bigint,
+  ): Promise<void> {
+    const application = await this.prisma.copilotApplication.findFirst({
+      where: {
+        id: applicationId,
+        deletedAt: null,
+      },
+    });
+
+    if (!application) {
+      this.logger.warn(
+        `Skipping copilot invite accepted notification: application=${applicationId.toString()} not found.`,
+      );
+      return;
+    }
+
+    const opportunity = await this.prisma.copilotOpportunity.findFirst({
+      where: {
+        id: application.opportunityId,
+        deletedAt: null,
+      },
+      include: {
+        copilotRequest: true,
+      },
+    });
+
+    if (!opportunity) {
+      this.logger.warn(
+        `Skipping copilot invite accepted notification: opportunity=${application.opportunityId.toString()} not found.`,
+      );
+      return;
+    }
+
+    await this.copilotNotificationService.sendCopilotInviteAcceptedNotification(
+      opportunity,
+      application,
+    );
   }
 
   /**

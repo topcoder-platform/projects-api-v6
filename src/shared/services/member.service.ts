@@ -250,47 +250,70 @@ export class MemberService {
         ? (rolesResponse.data as MemberRoleRecord[])
         : [];
 
-      const roleId = String(
-        roles.find(
+      const roleIds = roles
+        .filter(
           (role) =>
             String(role.roleName || '').toLowerCase() ===
             normalizedRoleName.toLowerCase(),
-        )?.id || '',
-      ).trim();
+        )
+        .map((role) => String(role.id || '').trim())
+        .filter((roleId) => roleId.length > 0);
 
-      if (!roleId) {
+      if (roleIds.length === 0) {
         return [];
       }
 
-      const roleDetailResponse = await firstValueFrom(
-        this.httpService.get(`${identityApiBaseUrl}/roles/${roleId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          params: {
-            fields: 'subjects',
-          },
+      const subjectLists = await Promise.all(
+        roleIds.map(async (roleId) => {
+          const roleResponse = await firstValueFrom(
+            this.httpService.get(`${identityApiBaseUrl}/roles/${roleId}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              params: {
+                fields: 'subjects',
+              },
+            }),
+          );
+
+          const payload = roleResponse.data as RoleDetailResponse;
+          return Array.isArray(payload?.subjects) ? payload.subjects : [];
         }),
       );
 
-      const subjects = Array.isArray(
-        (roleDetailResponse.data as RoleDetailResponse)?.subjects,
-      )
-        ? ((roleDetailResponse.data as RoleDetailResponse)
-            .subjects as RoleSubjectRecord[])
-        : [];
+      const uniqueSubjects = new Map<string, MemberDetail>();
 
-      return subjects.map((subject) => ({
-        userId: subject.subjectID || subject.userId || null,
-        handle: subject.handle || null,
-        email: subject.email ? String(subject.email).toLowerCase() : null,
-      }));
+      subjectLists.flat().forEach((subject) => {
+        const email = String(subject.email || '')
+          .trim()
+          .toLowerCase();
+        const subjectId = String(
+          subject.subjectID || subject.userId || '',
+        ).trim();
+
+        const key = email || subjectId;
+        if (!key || uniqueSubjects.has(key)) {
+          return;
+        }
+
+        uniqueSubjects.set(key, {
+          userId: subject.subjectID || subject.userId || null,
+          handle: subject.handle || null,
+          email,
+        });
+      });
+
+      return Array.from(uniqueSubjects.values());
     } catch (error) {
       this.logger.warn(
         `Failed to fetch role subjects for roleName=${normalizedRoleName}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
+  }
+
+  async getRoleSubjectsByRoleName(roleName: string): Promise<MemberDetail[]> {
+    return this.getRoleSubjects(roleName);
   }
 }

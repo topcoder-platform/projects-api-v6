@@ -18,6 +18,8 @@ import {
 // TODO [CONFIG]: TEMPLATE_IDS are hardcoded SendGrid template ids; move these values to environment-based configuration.
 const TEMPLATE_IDS = {
   APPLY_COPILOT: 'd-d7c1f48628654798a05c8e09e52db14f',
+  CREATE_REQUEST: 'd-3efdc91da580479d810c7acd50a4c17f',
+  INFORM_PM_COPILOT_APPLICATION_ACCEPTED: 'd-b35d073e302b4279a1bd208fcfe96f58',
   COPILOT_APPLICATION_ACCEPTED: 'd-eef5e7568c644940b250e76d026ced5b',
   COPILOT_ALREADY_PART_OF_PROJECT: 'd-003d41cdc9de4bbc9e14538e8f2e0585',
   COPILOT_OPPORTUNITY_COMPLETED: 'd-dc448919d11b4e7d8b4ba351c4b67b8b',
@@ -51,6 +53,63 @@ export class CopilotNotificationService {
     private readonly memberService: MemberService,
     private readonly eventBusService: EventBusService,
   ) {}
+
+  async sendOpportunityPostedNotification(
+    opportunity: CopilotOpportunity,
+    copilotRequest?: CopilotRequest | null,
+  ): Promise<void> {
+    const roleSubjects = await this.memberService.getRoleSubjects(
+      UserRole.TC_COPILOT,
+    );
+
+    const recipients = this.deduplicateRecipientsByEmail(roleSubjects);
+    const requestData = getCopilotRequestData(copilotRequest?.data);
+    const opportunityType = this.resolveOpportunityType(
+      opportunity,
+      requestData,
+    );
+    const templateId =
+      process.env.SENDGRID_TEMPLATE_COPILOT_REQUEST_CREATED ||
+      TEMPLATE_IDS.CREATE_REQUEST;
+
+    if (recipients.length > 0) {
+      await Promise.all(
+        recipients.map((recipient) =>
+          this.publishEmail(templateId, [recipient.email], {
+            user_name: recipient.handle || 'Copilot',
+            opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}`,
+            work_manager_url: this.getWorkManagerUrl(),
+            opportunity_type: getCopilotTypeLabel(opportunityType),
+            opportunity_title:
+              readString(requestData.opportunityTitle) ||
+              `Opportunity ${opportunity.id.toString()}`,
+            start_date: this.formatDate(requestData.startDate),
+          }),
+        ),
+      );
+    }
+
+    const slackRecipient = String(process.env.COPILOTS_SLACK_EMAIL || '')
+      .trim()
+      .toLowerCase();
+
+    if (slackRecipient) {
+      await this.publishEmail(templateId, [slackRecipient], {
+        user_name: 'Copilots',
+        opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}`,
+        work_manager_url: this.getWorkManagerUrl(),
+        opportunity_type: getCopilotTypeLabel(opportunityType),
+        opportunity_title:
+          readString(requestData.opportunityTitle) ||
+          `Opportunity ${opportunity.id.toString()}`,
+        start_date: this.formatDate(requestData.startDate),
+      });
+    }
+
+    this.logger.log(
+      `Sent new copilot opportunity notifications for opportunity=${opportunity.id.toString()}`,
+    );
+  }
 
   /**
    * Sends application notifications to all Project Manager role users and the
@@ -157,6 +216,56 @@ export class CopilotNotificationService {
 
     this.logger.log(
       `Sent copilot assignment notification for opportunity=${opportunity.id.toString()} application=${application.id.toString()}`,
+    );
+  }
+
+  async sendCopilotInviteAcceptedNotification(
+    opportunity: OpportunityWithRequest,
+    application: CopilotApplication,
+  ): Promise<void> {
+    const [projectManagerUsers, opportunityCreatorUsers, inviteeUsers] =
+      await Promise.all([
+        this.memberService.getRoleSubjects(UserRole.PROJECT_MANAGER),
+        this.memberService.getMemberDetailsByUserIds([opportunity.createdBy]),
+        this.memberService.getMemberDetailsByUserIds([application.userId]),
+      ]);
+
+    const recipients = this.deduplicateRecipientsByEmail([
+      ...projectManagerUsers,
+      ...opportunityCreatorUsers,
+    ]);
+
+    if (recipients.length === 0) {
+      return;
+    }
+
+    const [invitee] = inviteeUsers;
+    const requestData = getCopilotRequestData(opportunity.copilotRequest?.data);
+    const opportunityType = this.resolveOpportunityType(
+      opportunity,
+      requestData,
+    );
+    const templateId =
+      process.env.SENDGRID_TEMPLATE_INFORM_PM_COPILOT_APPLICATION_ACCEPTED ||
+      TEMPLATE_IDS.INFORM_PM_COPILOT_APPLICATION_ACCEPTED;
+
+    await Promise.all(
+      recipients.map((recipient) =>
+        this.publishEmail(templateId, [recipient.email], {
+          user_name: recipient.handle || 'Project Manager',
+          opportunity_details_url: `${this.getCopilotPortalUrl()}/opportunity/${opportunity.id.toString()}#applications`,
+          work_manager_url: this.getWorkManagerUrl(),
+          opportunity_type: getCopilotTypeLabel(opportunityType),
+          opportunity_title:
+            readString(requestData.opportunityTitle) ||
+            `Opportunity ${opportunity.id.toString()}`,
+          copilot_handle: invitee?.handle || '',
+        }),
+      ),
+    );
+
+    this.logger.log(
+      `Sent copilot invite accepted notifications for opportunity=${opportunity.id.toString()} application=${application.id.toString()}`,
     );
   }
 
@@ -268,7 +377,15 @@ export class CopilotNotificationService {
     recipients: string[],
     data: Record<string, unknown>,
   ): Promise<void> {
-    if (recipients.length === 0) {
+    const normalizedRecipients = recipients
+      .map((recipient) =>
+        String(recipient || '')
+          .trim()
+          .toLowerCase(),
+      )
+      .filter((recipient) => recipient.length > 0);
+
+    if (normalizedRecipients.length === 0) {
       return;
     }
 
@@ -278,13 +395,13 @@ export class CopilotNotificationService {
         {
           data,
           sendgrid_template_id: templateId,
-          recipients,
+          recipients: normalizedRecipients,
           version: 'v3',
         },
       );
     } catch (error) {
       this.logger.error(
-        `Failed to publish copilot email event to ${EXTERNAL_ACTION_EMAIL_TOPIC}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to publish copilot email event to ${EXTERNAL_ACTION_EMAIL_TOPIC} for recipients=${normalizedRecipients.join(',')}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     }

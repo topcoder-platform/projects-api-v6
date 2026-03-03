@@ -6,6 +6,7 @@ import { EmailService } from 'src/shared/services/email.service';
 import { IdentityService } from 'src/shared/services/identity.service';
 import { MemberService } from 'src/shared/services/member.service';
 import { PermissionService } from 'src/shared/services/permission.service';
+import { CopilotNotificationService } from '../copilot/copilot-notification.service';
 import { ProjectInviteService } from './project-invite.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({
@@ -44,6 +45,10 @@ describe('ProjectInviteService', () => {
     sendInviteEmail: jest.fn(),
   };
 
+  const copilotNotificationServiceMock = {
+    sendCopilotInviteAcceptedNotification: jest.fn(),
+  };
+
   let service: ProjectInviteService;
 
   beforeEach(() => {
@@ -55,6 +60,7 @@ describe('ProjectInviteService', () => {
       memberServiceMock as unknown as MemberService,
       identityServiceMock as unknown as IdentityService,
       emailServiceMock as unknown as EmailService,
+      copilotNotificationServiceMock as unknown as CopilotNotificationService,
     );
   });
 

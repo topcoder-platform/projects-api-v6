@@ -239,7 +239,6 @@ describe('ProjectService', () => {
       'JMGasper+devtest140@gmail.com',
     );
   });
-
   it('does not load relation payloads by default in project listing', async () => {
     permissionServiceMock.hasNamedPermission.mockImplementation(
       (permission: Permission): boolean =>
