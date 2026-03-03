@@ -213,8 +213,11 @@ export class MemberService {
    * Looks up role members from Identity API by role name.
    *
    * Resolves `/roles?filter=roleName=<roleName>` and then
-   * `/roles/:id?fields=subjects`, returning the `subjects` list normalized to
-   * `MemberDetail` shape.
+   * `/roles/:id?fields=subjects`, returning the merged `subjects` list
+   * normalized to `MemberDetail` shape.
+   *
+   * Role-detail lookups are tolerant to partial failures; one failing role id
+   * does not prevent subjects from other matching roles from being returned.
    *
    * @param roleName identity role name (for example `Project Manager`)
    * @returns role subject list with optional `userId`, `handle`, and `email`
@@ -263,7 +266,7 @@ export class MemberService {
         return [];
       }
 
-      const subjectLists = await Promise.all(
+      const settledRoleDetails = await Promise.allSettled(
         roleIds.map(async (roleId) => {
           const roleResponse = await firstValueFrom(
             this.httpService.get(`${identityApiBaseUrl}/roles/${roleId}`, {
@@ -281,6 +284,22 @@ export class MemberService {
           return Array.isArray(payload?.subjects) ? payload.subjects : [];
         }),
       );
+
+      const subjectLists = settledRoleDetails
+        .filter(
+          (result): result is PromiseFulfilledResult<RoleSubjectRecord[]> =>
+            result.status === 'fulfilled',
+        )
+        .map((result) => result.value);
+
+      settledRoleDetails.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const roleId = roleIds[index];
+          this.logger.warn(
+            `Failed to fetch subjects for roleId=${roleId}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+          );
+        }
+      });
 
       const uniqueSubjects = new Map<string, MemberDetail>();
 
