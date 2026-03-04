@@ -65,7 +65,7 @@ describe('ProjectInviteService', () => {
     );
   });
 
-  it('creates invite', async () => {
+  it('creates invite by handle and sends known-user email', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       name: 'Demo',
@@ -135,7 +135,20 @@ describe('ProjectInviteService', () => {
     );
 
     expect(response.success).toHaveLength(1);
-    expect(emailServiceMock.sendInviteEmail).not.toHaveBeenCalled();
+    expect(emailServiceMock.sendInviteEmail).toHaveBeenCalledTimes(1);
+    expect(emailServiceMock.sendInviteEmail).toHaveBeenCalledWith(
+      '1001',
+      expect.objectContaining({
+        email: 'member@topcoder.com',
+      }),
+      expect.objectContaining({
+        userId: '99',
+      }),
+      'Demo',
+      {
+        isSSO: true,
+      },
+    );
     expect(eventUtils.publishInviteEventSafely).toHaveBeenCalledWith(
       KAFKA_TOPIC.PROJECT_MEMBER_INVITE_CREATED,
       expect.objectContaining({

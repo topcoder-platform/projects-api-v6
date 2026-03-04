@@ -77,6 +77,15 @@ describe('MemberService', () => {
       },
     ]);
     expect(m2mServiceMock.getM2MToken).toHaveBeenCalledTimes(1);
+    expect(httpServiceMock.get).toHaveBeenCalledWith(
+      'https://identity.test/roles/101',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          selector: 'subjects',
+          perPage: 200,
+        }),
+      }),
+    );
   });
 
   it('returns empty list when role list lookup fails', async () => {

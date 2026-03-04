@@ -113,6 +113,7 @@ export class ProjectInviteService {
    * @throws {ForbiddenException} If role-specific invite permission is missing.
    * @throws {BadRequestException} If handles/emails are both missing.
    * @emits `project.member.invite.created` for each created invite.
+   * @emits `external.action.email` for pending invites with recipient emails.
    */
   async createInvites(
     projectId: string,
@@ -219,11 +220,8 @@ export class ProjectInviteService {
     );
 
     const emailOnlyTargets = emailTargets.emailOnlyTargets;
-    const userIdsResolvedFromEmails = new Set(
-      emailTargets.userTargets.map((target) => String(target.userId)),
-    );
     const knownInviteeNamesByUserId = await this.getMemberNameMapByUserIds(
-      emailTargets.userTargets.map((target) => target.userId),
+      validatedUserTargets.map((target) => target.userId),
     );
 
     const status =
@@ -273,9 +271,7 @@ export class ProjectInviteService {
     for (const invite of success) {
       const normalizedInvite = this.normalizeEntity(invite);
       const recipient = invite.email?.trim().toLowerCase();
-      const isKnownEmailUserInvite =
-        invite.userId !== null &&
-        userIdsResolvedFromEmails.has(String(invite.userId));
+      const isKnownUserInvite = invite.userId !== null;
       const inviteCreatedPayload = {
         ...normalizedInvite,
         source: 'work_manager',
@@ -286,11 +282,7 @@ export class ProjectInviteService {
         inviteCreatedPayload,
       );
 
-      if (
-        invite.email &&
-        invite.status === InviteStatus.pending &&
-        (!invite.userId || isKnownEmailUserInvite)
-      ) {
+      if (invite.email && invite.status === InviteStatus.pending) {
         if (!inviteInitiatorPromise) {
           inviteInitiatorPromise = this.resolveInviteEmailInitiator(user);
         }
@@ -306,7 +298,7 @@ export class ProjectInviteService {
         };
 
         this.logger.log(
-          `Dispatching invite email publish for inviteId=${String(invite.id)} projectId=${projectId} recipient=${recipient} isSSO=${String(Boolean(isKnownEmailUserInvite))}`,
+          `Dispatching invite email publish for inviteId=${String(invite.id)} projectId=${projectId} recipient=${recipient} isSSO=${String(isKnownUserInvite)}`,
         );
         void this.emailService.sendInviteEmail(
           projectId,
@@ -314,7 +306,7 @@ export class ProjectInviteService {
           await inviteInitiatorPromise,
           project.name,
           {
-            isSSO: Boolean(isKnownEmailUserInvite),
+            isSSO: isKnownUserInvite,
           },
         );
         continue;
@@ -1425,10 +1417,6 @@ export class ProjectInviteService {
   private getInviteEmailSkipReason(invite: ProjectMemberInvite): string {
     if (!invite.email) {
       return 'missing-email';
-    }
-
-    if (invite.userId) {
-      return 'invite-linked-to-user';
     }
 
     if (invite.status !== InviteStatus.pending) {

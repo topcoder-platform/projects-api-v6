@@ -213,7 +213,8 @@ export class MemberService {
    * Looks up role members from Identity API by role name.
    *
    * Resolves `/roles?filter=roleName=<roleName>` and then
-   * `/roles/:id?fields=subjects`, returning the merged `subjects` list
+   * `/roles/:id?selector=subjects&perPage=200`, returning the merged
+   * `subjects` list
    * normalized to `MemberDetail` shape.
    *
    * Role-detail lookups are tolerant to partial failures; one failing role id
@@ -275,7 +276,8 @@ export class MemberService {
                 'Content-Type': 'application/json',
               },
               params: {
-                fields: 'subjects',
+                selector: 'subjects',
+                perPage: 200,
               },
             }),
           );
