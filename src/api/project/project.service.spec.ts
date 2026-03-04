@@ -6,6 +6,7 @@ import { ProjectService } from './project.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({
   publishProjectEvent: jest.fn(() => Promise.resolve()),
+  publishRawEvent: jest.fn(() => Promise.resolve()),
 }));
 
 const eventUtils = jest.requireMock('src/shared/utils/event.utils');
@@ -1217,6 +1218,10 @@ describe('ProjectService', () => {
           project: {
             update: jest.fn().mockResolvedValue({
               id: BigInt(1001),
+              name: 'Demo',
+              status: 'active',
+              billingAccountId: BigInt(22),
+              directProjectId: null,
             }),
           },
           projectHistory: {
@@ -1242,5 +1247,118 @@ describe('ProjectService', () => {
       KAFKA_TOPIC.PROJECT_UPDATED,
       expect.any(Object),
     );
+    expect(eventUtils.publishRawEvent).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_BILLING_ACCOUNT_UPDATED,
+      {
+        projectId: '1001',
+        projectName: 'Demo',
+        directProjectId: null,
+        status: 'active',
+        oldBillingAccountId: '11',
+        newBillingAccountId: '22',
+      },
+    );
+  });
+
+  it('does not publish billing-account update event when billingAccountId is unchanged', async () => {
+    prismaMock.project.findFirst
+      .mockResolvedValueOnce({
+        id: BigInt(1001),
+        name: 'Demo',
+        description: null,
+        type: 'app',
+        status: 'in_review',
+        billingAccountId: BigInt(11),
+        directProjectId: null,
+        details: {},
+        bookmarks: null,
+        members: [
+          {
+            userId: BigInt(100),
+            role: 'manager',
+            deletedAt: null,
+          },
+        ],
+        invites: [],
+      })
+      .mockResolvedValueOnce({
+        id: BigInt(1001),
+        name: 'Demo Updated',
+        description: null,
+        type: 'app',
+        status: 'active',
+        billingAccountId: BigInt(11),
+        directProjectId: null,
+        estimatedPrice: null,
+        actualPrice: null,
+        terms: [],
+        groups: [],
+        external: null,
+        bookmarks: null,
+        details: {},
+        challengeEligibility: null,
+        templateId: null,
+        version: 'v3',
+        lastActivityAt: new Date(),
+        lastActivityUserId: '100',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 100,
+        updatedBy: 100,
+        members: [
+          {
+            id: BigInt(1),
+            projectId: BigInt(1001),
+            userId: BigInt(100),
+            role: 'manager',
+            isPrimary: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            deletedAt: null,
+            deletedBy: null,
+            createdBy: 100,
+            updatedBy: 100,
+          },
+        ],
+        invites: [],
+        attachments: [],
+        phases: [],
+      });
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          project: {
+            update: jest.fn().mockResolvedValue({
+              id: BigInt(1001),
+              name: 'Demo Updated',
+              status: 'active',
+              billingAccountId: BigInt(11),
+              directProjectId: null,
+            }),
+          },
+          projectHistory: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        }),
+    );
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+
+    await service.updateProject(
+      '1001',
+      {
+        status: 'active' as any,
+        name: 'Demo Updated',
+      },
+      {
+        userId: '100',
+        isMachine: false,
+      },
+    );
+
+    expect(eventUtils.publishProjectEvent).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_UPDATED,
+      expect.any(Object),
+    );
+    expect(eventUtils.publishRawEvent).not.toHaveBeenCalled();
   });
 });

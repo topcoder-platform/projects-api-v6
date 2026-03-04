@@ -27,7 +27,10 @@ import {
   BillingAccountService,
 } from 'src/shared/services/billingAccount.service';
 import { PermissionService } from 'src/shared/services/permission.service';
-import { publishProjectEvent } from 'src/shared/utils/event.utils';
+import {
+  publishProjectEvent,
+  publishRawEvent as publishRawBusEvent,
+} from 'src/shared/utils/event.utils';
 import {
   ParsedProjectFields,
   buildProjectIncludeClause,
@@ -540,6 +543,10 @@ export class ProjectService {
    * `cancelReason`, appends project history when status changes, and
    * publishes `project.updated`.
    *
+   * When `billingAccountId` changes, also emits
+   * `project.action.billingAccount.update` with the legacy
+   * tc-project-service payload contract.
+   *
    * @param projectId Project id path parameter.
    * @param dto Patch payload.
    * @param user Authenticated caller context.
@@ -719,6 +726,10 @@ export class ProjectService {
 
       return updated;
     });
+    const updatedBillingAccountId =
+      this.toOptionalBigintString(updatedProject.billingAccountId) ?? null;
+    const billingAccountChanged =
+      existingBillingAccountId !== updatedBillingAccountId;
 
     const project = await this.prisma.project.findFirst({
       where: {
@@ -751,6 +762,17 @@ export class ProjectService {
     );
 
     this.publishEvent(KAFKA_TOPIC.PROJECT_UPDATED, response);
+    if (billingAccountChanged) {
+      this.publishRawEvent(KAFKA_TOPIC.PROJECT_BILLING_ACCOUNT_UPDATED, {
+        projectId: response.id,
+        projectName: response.name,
+        directProjectId:
+          this.toOptionalBigintString(updatedProject.directProjectId) ?? null,
+        status: updatedProject.status,
+        oldBillingAccountId: existingBillingAccountId,
+        newBillingAccountId: updatedBillingAccountId,
+      });
+    }
 
     return response;
   }
@@ -1607,6 +1629,23 @@ export class ProjectService {
     void publishProjectEvent(topic, payload).catch((error) => {
       this.logger.error(
         `Failed to publish event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    });
+  }
+
+  /**
+   * Fire-and-forget raw event publication wrapper (no resource envelope).
+   *
+   * Logs publication failures and intentionally does not rethrow.
+   *
+   * @param topic Kafka topic name.
+   * @param payload Raw event payload.
+   */
+  private publishRawEvent(topic: string, payload: unknown): void {
+    void publishRawBusEvent(topic, payload).catch((error) => {
+      this.logger.error(
+        `Failed to publish raw event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     });

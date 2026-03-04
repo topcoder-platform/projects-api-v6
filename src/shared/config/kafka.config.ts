@@ -15,6 +15,14 @@ export const KAFKA_TOPIC = {
    */
   PROJECT_UPDATED: process.env.KAFKA_PROJECT_UPDATED_TOPIC || 'project.updated',
   /**
+   * Project billing-account update topic.
+   * Env: `KAFKA_PROJECT_BILLING_ACCOUNT_UPDATED_TOPIC`,
+   * default: `project.action.billingAccount.update`.
+   */
+  PROJECT_BILLING_ACCOUNT_UPDATED:
+    process.env.KAFKA_PROJECT_BILLING_ACCOUNT_UPDATED_TOPIC ||
+    'project.action.billingAccount.update',
+  /**
    * Project deleted topic.
    * Env: `KAFKA_PROJECT_DELETED_TOPIC`, default: `project.deleted`.
    */

@@ -271,12 +271,14 @@ For full event envelope and payload schemas, see `docs/event-schemas.md`.
 | --- | --- |
 | `project.created` | `POST /v6/projects` |
 | `project.updated` | `PATCH /v6/projects/:projectId` (status change or field update) |
+| `project.action.billingAccount.update` | `PATCH /v6/projects/:projectId` (only when `billingAccountId` changes) |
 | `project.deleted` | `DELETE /v6/projects/:projectId` |
 | `project.member.added` | `POST /v6/projects/:projectId/members` |
 | `project.member.removed` | `DELETE /v6/projects/:projectId/members/:id` |
 
 - Originator: `project-service-v6`.
 - Status-change events are emitted only when status actually changes.
+- Billing-account update event payload matches legacy `tc-project-service` contract and is sent as raw payload (no `resource/data` wrapper).
 - Metadata event publishing is currently disabled.
 
 ## Environment Variables
@@ -300,6 +302,7 @@ Reference source: `.env.example`.
 | `BUSAPI_URL` | ✅ | - | Topcoder Bus API base URL |
 | `KAFKA_PROJECT_CREATED_TOPIC` | ✅ | `project.created` | Kafka topic |
 | `KAFKA_PROJECT_UPDATED_TOPIC` | ✅ | `project.updated` | Kafka topic |
+| `KAFKA_PROJECT_BILLING_ACCOUNT_UPDATED_TOPIC` | ✅ | `project.action.billingAccount.update` | Kafka topic |
 | `KAFKA_PROJECT_DELETED_TOPIC` | ✅ | `project.deleted` | Kafka topic |
 | `KAFKA_PROJECT_MEMBER_ADDED_TOPIC` | ✅ | `project.member.added` | Kafka topic |
 | `KAFKA_PROJECT_MEMBER_REMOVED_TOPIC` | ✅ | `project.member.removed` | Kafka topic |
