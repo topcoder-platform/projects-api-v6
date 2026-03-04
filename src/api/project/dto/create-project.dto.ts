@@ -336,6 +336,15 @@ export class CreateProjectDto {
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
 
+  @ApiPropertyOptional({
+    description: 'Cancellation reason for cancelled projects.',
+    maxLength: 255,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  cancelReason?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) => parseOptionalInteger(value))

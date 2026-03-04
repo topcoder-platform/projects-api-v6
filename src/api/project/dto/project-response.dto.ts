@@ -132,6 +132,9 @@ export class ProjectResponseDto {
   status: ProjectStatus;
 
   @ApiPropertyOptional()
+  cancelReason?: string | null;
+
+  @ApiPropertyOptional()
   billingAccountId?: string | null;
 
   @ApiPropertyOptional()

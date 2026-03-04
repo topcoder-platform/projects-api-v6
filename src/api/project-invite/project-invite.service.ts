@@ -43,7 +43,10 @@ import {
   enrichInvitesWithUserDetails,
   validateUserHasProjectRole,
 } from 'src/shared/utils/member.utils';
-import { publishMemberEventSafely } from 'src/shared/utils/event.utils';
+import {
+  publishInviteEventSafely,
+  publishMemberEventSafely,
+} from 'src/shared/utils/event.utils';
 import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
 import {
   ensureRoleScopedPermission,
@@ -74,6 +77,7 @@ interface InviteMemberName {
  *
  * The service supports bulk invite creation from handles/emails, invite state
  * transitions, and copilot workflow side effects.
+ * Invite lifecycle events are published for create/update/delete operations.
  *
  * Accepting or request-approving an invite auto-creates a `ProjectMember`
  * record when needed and updates linked copilot application state.
@@ -108,6 +112,7 @@ export class ProjectInviteService {
    * @throws {NotFoundException} If the project is not found.
    * @throws {ForbiddenException} If role-specific invite permission is missing.
    * @throws {BadRequestException} If handles/emails are both missing.
+   * @emits `project.member.invite.created` for each created invite.
    */
   async createInvites(
     projectId: string,
@@ -271,6 +276,15 @@ export class ProjectInviteService {
       const isKnownEmailUserInvite =
         invite.userId !== null &&
         userIdsResolvedFromEmails.has(String(invite.userId));
+      const inviteCreatedPayload = {
+        ...normalizedInvite,
+        source: 'work_manager',
+      };
+
+      this.publishInvite(
+        KAFKA_TOPIC.PROJECT_MEMBER_INVITE_CREATED,
+        inviteCreatedPayload,
+      );
 
       if (
         invite.email &&
@@ -337,6 +351,7 @@ export class ProjectInviteService {
    * @throws {ForbiddenException} If update permission is missing.
    * @throws {BadRequestException} If status/id/user resolution is invalid.
    * @throws {ConflictException} If linked opportunity is not active.
+   * @emits `project.member.invite.updated`.
    */
   async updateInvite(
     projectId: string,
@@ -509,6 +524,11 @@ export class ProjectInviteService {
       },
     );
 
+    this.publishInvite(
+      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_UPDATED,
+      this.normalizeEntity(updatedInvite),
+    );
+
     if (projectMember) {
       this.publishMember(
         KAFKA_TOPIC.PROJECT_MEMBER_ADDED,
@@ -533,6 +553,7 @@ export class ProjectInviteService {
    * @throws {NotFoundException} If the project or invite is not found.
    * @throws {ForbiddenException} If delete permission is missing.
    * @throws {BadRequestException} If ids are invalid.
+   * @emits `project.member.invite.deleted`.
    */
   async deleteInvite(
     projectId: string,
@@ -599,7 +620,7 @@ export class ProjectInviteService {
       this.ensureDeleteInvitePermission(invite.role, user, project.members);
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const canceledInvite = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.projectMemberInvite.update({
         where: {
           id: parsedInviteId,
@@ -619,6 +640,11 @@ export class ProjectInviteService {
 
       return updated;
     });
+
+    this.publishInvite(
+      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_REMOVED,
+      this.normalizeEntity(canceledInvite),
+    );
   }
 
   /**
@@ -1697,5 +1723,17 @@ export class ProjectInviteService {
    */
   private publishMember(topic: string, payload: unknown): void {
     publishMemberEventSafely(topic, payload, this.logger);
+  }
+
+  /**
+   * Publishes invite event payloads and logs failures.
+   *
+   * @param topic Kafka topic.
+   * @param payload Event payload.
+   * @returns Nothing.
+   * @throws {Error} Publisher errors are caught and logged.
+   */
+  private publishInvite(topic: string, payload: unknown): void {
+    publishInviteEventSafely(topic, payload, this.logger);
   }
 }

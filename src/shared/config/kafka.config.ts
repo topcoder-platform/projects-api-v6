@@ -31,6 +31,30 @@ export const KAFKA_TOPIC = {
    */
   PROJECT_MEMBER_REMOVED:
     process.env.KAFKA_PROJECT_MEMBER_REMOVED_TOPIC || 'project.member.removed',
+  /**
+   * Project member invite created topic.
+   * Env: `KAFKA_PROJECT_MEMBER_INVITE_CREATED_TOPIC`,
+   * default: `project.member.invite.created`.
+   */
+  PROJECT_MEMBER_INVITE_CREATED:
+    process.env.KAFKA_PROJECT_MEMBER_INVITE_CREATED_TOPIC ||
+    'project.member.invite.created',
+  /**
+   * Project member invite updated topic.
+   * Env: `KAFKA_PROJECT_MEMBER_INVITE_UPDATED_TOPIC`,
+   * default: `project.member.invite.updated`.
+   */
+  PROJECT_MEMBER_INVITE_UPDATED:
+    process.env.KAFKA_PROJECT_MEMBER_INVITE_UPDATED_TOPIC ||
+    'project.member.invite.updated',
+  /**
+   * Project member invite removed topic.
+   * Env: `KAFKA_PROJECT_MEMBER_INVITE_REMOVED_TOPIC`,
+   * default: `project.member.invite.deleted`.
+   */
+  PROJECT_MEMBER_INVITE_REMOVED:
+    process.env.KAFKA_PROJECT_MEMBER_INVITE_REMOVED_TOPIC ||
+    'project.member.invite.deleted',
 } as const;
 
 /**

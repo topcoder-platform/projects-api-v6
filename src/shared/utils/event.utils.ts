@@ -511,6 +511,22 @@ export function publishMemberEventSafely(
 }
 
 /**
+ * Fire-and-forget wrapper for invite events with caller-provided logger.
+ */
+export function publishInviteEventSafely(
+  topic: string,
+  payload: unknown,
+  errorLogger: ErrorLogger,
+): void {
+  void publishInviteEvent(topic, payload).catch((error) => {
+    errorLogger.error(
+      `Failed to publish invite event topic=${topic}: ${toErrorMessage(error)}`,
+      toErrorStack(error),
+    );
+  });
+}
+
+/**
  * Publishes a project-member-invite event envelope.
  */
 export async function publishInviteEvent(

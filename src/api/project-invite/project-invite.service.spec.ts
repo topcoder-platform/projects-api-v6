@@ -11,6 +11,7 @@ import { ProjectInviteService } from './project-invite.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({
   publishMemberEventSafely: jest.fn(),
+  publishInviteEventSafely: jest.fn(),
 }));
 
 const eventUtils = jest.requireMock('src/shared/utils/event.utils');
@@ -135,6 +136,16 @@ describe('ProjectInviteService', () => {
 
     expect(response.success).toHaveLength(1);
     expect(emailServiceMock.sendInviteEmail).not.toHaveBeenCalled();
+    expect(eventUtils.publishInviteEventSafely).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_CREATED,
+      expect.objectContaining({
+        id: '1',
+        projectId: '1001',
+        userId: '123',
+        source: 'work_manager',
+      }),
+      expect.anything(),
+    );
   });
 
   it('sends invite email with isSSO=true for known user invited by email', async () => {
@@ -379,6 +390,15 @@ describe('ProjectInviteService', () => {
       }),
       expect.anything(),
     );
+    expect(eventUtils.publishInviteEventSafely).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_UPDATED,
+      expect.objectContaining({
+        id: '10',
+        projectId: '1001',
+        status: InviteStatus.accepted,
+      }),
+      expect.anything(),
+    );
   });
 
   it('accepts email-only invite and creates project member for authenticated user', async () => {
@@ -519,5 +539,69 @@ describe('ProjectInviteService', () => {
         isMachine: false,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('publishes invite.deleted when invite is canceled', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      members: [],
+    });
+
+    prismaMock.projectMemberInvite.findFirst.mockResolvedValue({
+      id: BigInt(12),
+      projectId: BigInt(1001),
+      userId: BigInt(500),
+      email: null,
+      role: ProjectMemberRole.copilot,
+      status: InviteStatus.pending,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: 1,
+      updatedBy: 1,
+      deletedAt: null,
+      deletedBy: null,
+      applicationId: null,
+    });
+
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+
+    const txMock = {
+      projectMemberInvite: {
+        update: jest.fn().mockResolvedValue({
+          id: BigInt(12),
+          projectId: BigInt(1001),
+          userId: BigInt(500),
+          email: null,
+          role: ProjectMemberRole.copilot,
+          status: InviteStatus.canceled,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 1,
+          updatedBy: 99,
+          deletedAt: null,
+          deletedBy: null,
+          applicationId: null,
+        }),
+      },
+    };
+
+    prismaMock.$transaction.mockImplementation(
+      (callback: (tx: unknown) => Promise<unknown>) => callback(txMock),
+    );
+
+    await service.deleteInvite('1001', '12', {
+      userId: '999',
+      isMachine: false,
+    });
+
+    expect(eventUtils.publishInviteEventSafely).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_MEMBER_INVITE_REMOVED,
+      expect.objectContaining({
+        id: '12',
+        projectId: '1001',
+        status: InviteStatus.canceled,
+      }),
+      expect.anything(),
+    );
   });
 });

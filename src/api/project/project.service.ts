@@ -325,6 +325,8 @@ export class ProjectService {
           description: dto.description || null,
           type: dto.type,
           status: dto.status || ProjectStatus.in_review,
+          cancelReason:
+            typeof dto.cancelReason === 'string' ? dto.cancelReason : null,
           billingAccountId:
             typeof dto.billingAccountId === 'number'
               ? BigInt(dto.billingAccountId)
@@ -534,8 +536,9 @@ export class ProjectService {
    * Partially updates a project with permission-aware field guards.
    *
    * Performs additional checks for `billingAccountId` and `directProjectId`,
-   * appends project history when status changes, and publishes
-   * `project.updated`.
+   * supports explicit billing-account clearing, persists optional
+   * `cancelReason`, appends project history when status changes, and
+   * publishes `project.updated`.
    *
    * @param projectId Project id path parameter.
    * @param dto Patch payload.
@@ -592,10 +595,18 @@ export class ProjectService {
       throw new ForbiddenException('Insufficient permissions');
     }
 
+    const requestedBillingAccountId =
+      dto.clearBillingAccountId === true
+        ? null
+        : typeof dto.billingAccountId === 'number'
+          ? String(dto.billingAccountId)
+          : undefined;
+    const existingBillingAccountId =
+      this.toOptionalBigintString(existingProject.billingAccountId) ?? null;
+
     if (
-      typeof dto.billingAccountId !== 'undefined' &&
-      String(existingProject.billingAccountId || '') !==
-        String(dto.billingAccountId)
+      typeof requestedBillingAccountId !== 'undefined' &&
+      existingBillingAccountId !== requestedBillingAccountId
     ) {
       const hasPermission = this.permissionService.hasNamedPermission(
         Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
@@ -641,10 +652,14 @@ export class ProjectService {
           description: dto.description,
           type: dto.type,
           status: dto.status,
+          cancelReason:
+            typeof dto.cancelReason === 'string' ? dto.cancelReason : undefined,
           billingAccountId:
-            typeof dto.billingAccountId === 'number'
-              ? BigInt(dto.billingAccountId)
-              : undefined,
+            dto.clearBillingAccountId === true
+              ? null
+              : typeof dto.billingAccountId === 'number'
+                ? BigInt(dto.billingAccountId)
+                : undefined,
           directProjectId:
             typeof dto.directProjectId === 'number'
               ? BigInt(dto.directProjectId)
@@ -695,6 +710,8 @@ export class ProjectService {
           data: {
             projectId: updated.id,
             status: dto.status,
+            cancelReason:
+              typeof dto.cancelReason === 'string' ? dto.cancelReason : null,
             updatedBy: auditUserId,
           },
         });
