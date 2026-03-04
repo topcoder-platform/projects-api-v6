@@ -739,6 +739,7 @@ export class PermissionService {
     return this.hasIntersection(user.roles || [], [
       UserRole.TALENT_MANAGER,
       UserRole.TOPCODER_TALENT_MANAGER,
+      UserRole.PROJECT_MANAGER,
     ]);
   }
 }
