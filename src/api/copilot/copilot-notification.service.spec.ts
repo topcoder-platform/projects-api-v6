@@ -11,6 +11,7 @@ import { MemberService } from 'src/shared/services/member.service';
 import { CopilotNotificationService } from './copilot-notification.service';
 
 describe('CopilotNotificationService', () => {
+  const originalSlackEmail = process.env.COPILOTS_SLACK_EMAIL;
   const memberServiceMock = {
     getRoleSubjects: jest.fn(),
     getMemberDetailsByUserIds: jest.fn(),
@@ -66,6 +67,7 @@ describe('CopilotNotificationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.COPILOTS_SLACK_EMAIL = '';
     memberServiceMock.getRoleSubjects.mockResolvedValue([]);
     memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
     eventBusServiceMock.publishProjectEvent.mockResolvedValue(undefined);
@@ -74,6 +76,10 @@ describe('CopilotNotificationService', () => {
       memberServiceMock as unknown as MemberService,
       eventBusServiceMock as unknown as EventBusService,
     );
+  });
+
+  afterAll(() => {
+    process.env.COPILOTS_SLACK_EMAIL = originalSlackEmail;
   });
 
   it('publishes apply notifications to all PM users and opportunity creator', async () => {
@@ -134,5 +140,74 @@ describe('CopilotNotificationService', () => {
         createApplication(),
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it('resolves copilot recipient emails from userIds for new-opportunity notification', async () => {
+    memberServiceMock.getRoleSubjects.mockResolvedValue([
+      { userId: 4001, handle: 'copilot1' },
+      { userId: 4002, handle: 'copilot2' },
+    ]);
+    memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([
+      { userId: 4001, handle: 'copilot1', email: 'copilot1@topcoder.com' },
+      { userId: 4002, handle: 'copilot2', email: 'copilot2@topcoder.com' },
+    ]);
+
+    const opportunity = createOpportunity();
+    await service.sendOpportunityPostedNotification(
+      opportunity,
+      opportunity.copilotRequest,
+    );
+
+    expect(memberServiceMock.getRoleSubjects).toHaveBeenCalledWith(
+      UserRole.TC_COPILOT,
+    );
+    expect(memberServiceMock.getMemberDetailsByUserIds).toHaveBeenCalledWith([
+      '4001',
+      '4002',
+    ]);
+    expect(eventBusServiceMock.publishProjectEvent).toHaveBeenCalledTimes(2);
+
+    const recipients = eventBusServiceMock.publishProjectEvent.mock.calls
+      .map(([, payload]) => (payload as { recipients?: string[] }).recipients)
+      .map((recipientList) => recipientList?.[0])
+      .sort();
+
+    expect(recipients).toEqual([
+      'copilot1@topcoder.com',
+      'copilot2@topcoder.com',
+    ]);
+  });
+
+  it('resolves PM recipient emails from userIds for application notification', async () => {
+    memberServiceMock.getRoleSubjects.mockResolvedValue([
+      { userId: 5001, handle: 'pm1' },
+    ]);
+    memberServiceMock.getMemberDetailsByUserIds.mockImplementation(
+      (userIds: Array<number | string>) => {
+        if (userIds.length === 1 && String(userIds[0]) === '777') {
+          return Promise.resolve([
+            { userId: 777, handle: 'creator', email: 'creator@topcoder.com' },
+          ]);
+        }
+
+        return Promise.resolve([
+          { userId: 5001, handle: 'pm1', email: 'pm1@topcoder.com' },
+        ]);
+      },
+    );
+
+    await service.sendCopilotApplicationNotification(
+      createOpportunity(),
+      createApplication(),
+    );
+
+    expect(eventBusServiceMock.publishProjectEvent).toHaveBeenCalledTimes(2);
+
+    const recipients = eventBusServiceMock.publishProjectEvent.mock.calls
+      .map(([, payload]) => (payload as { recipients?: string[] }).recipients)
+      .map((recipientList) => recipientList?.[0])
+      .sort();
+
+    expect(recipients).toEqual(['creator@topcoder.com', 'pm1@topcoder.com']);
   });
 });

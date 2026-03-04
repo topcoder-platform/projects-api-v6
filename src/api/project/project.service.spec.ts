@@ -501,6 +501,26 @@ describe('ProjectService', () => {
     });
   });
 
+  it('falls back to project billingAccountId when Salesforce billing lookup is empty', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: BigInt(12),
+    });
+    billingAccountServiceMock.getDefaultBillingAccount.mockResolvedValue(null);
+
+    const result = await service.getProjectBillingAccount('1001', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '12',
+    });
+    expect(
+      billingAccountServiceMock.getDefaultBillingAccount,
+    ).toHaveBeenCalledWith('12');
+  });
+
   it('throws when billing account is not attached to the project', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),

@@ -38,6 +38,7 @@ type ApplicationWithMembership = CopilotApplication & {
 };
 
 type NotificationRecipient = {
+  userId?: string | number | bigint | null;
   email?: string | null;
   handle?: string | null;
 };
@@ -62,7 +63,7 @@ export class CopilotNotificationService {
       UserRole.TC_COPILOT,
     );
 
-    const recipients = this.deduplicateRecipientsByEmail(roleSubjects);
+    const recipients = await this.deduplicateRecipientsByEmail(roleSubjects);
     const requestData = getCopilotRequestData(copilotRequest?.data);
     const opportunityType = this.resolveOpportunityType(
       opportunity,
@@ -89,6 +90,12 @@ export class CopilotNotificationService {
       );
     }
 
+    if (recipients.length === 0) {
+      this.logger.warn(
+        `No copilot email recipients resolved for opportunity=${opportunity.id.toString()}. Only slack recipient (if configured) will be notified.`,
+      );
+    }
+
     const slackRecipient = String(process.env.COPILOTS_SLACK_EMAIL || '')
       .trim()
       .toLowerCase();
@@ -107,7 +114,7 @@ export class CopilotNotificationService {
     }
 
     this.logger.log(
-      `Sent new copilot opportunity notifications for opportunity=${opportunity.id.toString()}`,
+      `Sent new copilot opportunity notifications for opportunity=${opportunity.id.toString()} recipients=${recipients.length} slackRecipient=${slackRecipient ? 'yes' : 'no'}`,
     );
   }
 
@@ -130,12 +137,15 @@ export class CopilotNotificationService {
       this.memberService.getMemberDetailsByUserIds([opportunity.createdBy]),
     ]);
 
-    const recipients = this.deduplicateRecipientsByEmail([
+    const recipients = await this.deduplicateRecipientsByEmail([
       ...projectManagerUsers,
       ...opportunityCreatorUsers,
     ]);
 
     if (recipients.length === 0) {
+      this.logger.warn(
+        `No Project Manager recipients resolved for opportunity=${opportunity.id.toString()} application=${application.id.toString()}.`,
+      );
       return;
     }
 
@@ -160,7 +170,7 @@ export class CopilotNotificationService {
     );
 
     this.logger.log(
-      `Sent copilot application notifications for opportunity=${opportunity.id.toString()} application=${application.id.toString()}`,
+      `Sent copilot application notifications for opportunity=${opportunity.id.toString()} application=${application.id.toString()} recipients=${recipients.length}`,
     );
   }
 
@@ -230,12 +240,15 @@ export class CopilotNotificationService {
         this.memberService.getMemberDetailsByUserIds([application.userId]),
       ]);
 
-    const recipients = this.deduplicateRecipientsByEmail([
+    const recipients = await this.deduplicateRecipientsByEmail([
       ...projectManagerUsers,
       ...opportunityCreatorUsers,
     ]);
 
     if (recipients.length === 0) {
+      this.logger.warn(
+        `No Project Manager recipients resolved for invite-accepted notification opportunity=${opportunity.id.toString()} application=${application.id.toString()}.`,
+      );
       return;
     }
 
@@ -265,7 +278,7 @@ export class CopilotNotificationService {
     );
 
     this.logger.log(
-      `Sent copilot invite accepted notifications for opportunity=${opportunity.id.toString()} application=${application.id.toString()}`,
+      `Sent copilot invite accepted notifications for opportunity=${opportunity.id.toString()} application=${application.id.toString()} recipients=${recipients.length}`,
     );
   }
 
@@ -413,20 +426,29 @@ export class CopilotNotificationService {
    * @param recipients Potential recipients from role and creator lookups.
    * @returns Deduplicated recipients preserving first-seen handle values.
    */
-  private deduplicateRecipientsByEmail(
+  private async deduplicateRecipientsByEmail(
     recipients: NotificationRecipient[],
-  ): Array<{ email: string; handle: string }> {
+  ): Promise<Array<{ email: string; handle: string }>> {
     const recipientByEmail = new Map<
       string,
       { email: string; handle: string }
     >();
+    const unresolvedUserIds = new Set<string>();
 
     recipients.forEach((recipient) => {
       const normalizedEmail = String(recipient.email || '')
         .trim()
         .toLowerCase();
 
-      if (!normalizedEmail || recipientByEmail.has(normalizedEmail)) {
+      if (!normalizedEmail) {
+        const normalizedUserId = this.normalizeNumericUserId(recipient.userId);
+        if (normalizedUserId) {
+          unresolvedUserIds.add(normalizedUserId);
+        }
+        return;
+      }
+
+      if (recipientByEmail.has(normalizedEmail)) {
         return;
       }
 
@@ -436,7 +458,46 @@ export class CopilotNotificationService {
       });
     });
 
+    if (unresolvedUserIds.size > 0) {
+      const fallbackUsers = await this.memberService.getMemberDetailsByUserIds(
+        Array.from(unresolvedUserIds),
+      );
+
+      fallbackUsers.forEach((user) => {
+        const normalizedEmail = String(user.email || '')
+          .trim()
+          .toLowerCase();
+
+        if (!normalizedEmail || recipientByEmail.has(normalizedEmail)) {
+          return;
+        }
+
+        recipientByEmail.set(normalizedEmail, {
+          email: normalizedEmail,
+          handle: String(user.handle || '').trim() || normalizedEmail,
+        });
+      });
+    }
+
     return Array.from(recipientByEmail.values());
+  }
+
+  /**
+   * Normalizes numeric user-id values.
+   *
+   * @param userId Candidate user id.
+   * @returns Numeric user id string or undefined when invalid.
+   */
+  private normalizeNumericUserId(
+    userId: string | number | bigint | null | undefined,
+  ): string | undefined {
+    const normalizedUserId = String(userId ?? '').trim();
+
+    if (!/^\d+$/.test(normalizedUserId)) {
+      return undefined;
+    }
+
+    return normalizedUserId;
   }
 
   /**

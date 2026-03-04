@@ -913,6 +913,10 @@ export class ProjectService {
   /**
    * Returns the default billing account configured on a project.
    *
+   * When Salesforce lookup is unavailable or returns an empty payload, this
+   * method still returns the project-level billing-account id so downstream
+   * services can continue linking billing context.
+   *
    * @param projectId Project id path parameter.
    * @param user Authenticated caller context.
    * @returns Default billing account details.
@@ -947,10 +951,20 @@ export class ProjectService {
       throw new NotFoundException('Billing Account not found');
     }
 
-    const billingAccount =
-      (await this.billingAccountService.getDefaultBillingAccount(
-        project.billingAccountId.toString(),
-      )) || {};
+    const projectBillingAccountId = project.billingAccountId.toString();
+    const billingAccountFromSalesforce =
+      await this.billingAccountService.getDefaultBillingAccount(
+        projectBillingAccountId,
+      );
+
+    const hasResolvedBillingAccountId =
+      typeof billingAccountFromSalesforce?.tcBillingAccountId === 'string' &&
+      billingAccountFromSalesforce.tcBillingAccountId.trim().length > 0;
+    const billingAccount: BillingAccount = hasResolvedBillingAccountId
+      ? billingAccountFromSalesforce
+      : {
+          tcBillingAccountId: projectBillingAccountId,
+        };
 
     if (user.isMachine) {
       return billingAccount;
