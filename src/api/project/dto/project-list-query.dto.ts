@@ -111,7 +111,7 @@ export class ProjectListQueryDto extends PaginationDto {
 
   @ApiPropertyOptional({
     description:
-      'When true, return projects where current user is member/invitee',
+      'When true, return projects where current user is member/invitee. Accepts boolean true/false and string "true"/"false".',
   })
   @IsOptional()
   @Transform(({ value }) => parseBoolean(value))

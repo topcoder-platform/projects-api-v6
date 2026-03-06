@@ -26,6 +26,7 @@ import {
   BillingAccount,
   BillingAccountService,
 } from 'src/shared/services/billingAccount.service';
+import { MemberService } from 'src/shared/services/member.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import {
   publishProjectEvent,
@@ -84,6 +85,7 @@ export class ProjectService {
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
     private readonly billingAccountService: BillingAccountService,
+    private readonly memberService: MemberService,
   ) {}
 
   /**
@@ -1182,6 +1184,11 @@ export class ProjectService {
   /**
    * Loads member handles keyed by user id from the members schema.
    *
+   * Falls back to Member API lookup when the cross-schema query fails or
+   * does not fully resolve all requested user ids. If all lookups fail, this
+   * returns an empty map;
+   * callers should inspect logs for cross-schema or downstream API errors.
+   *
    * @param userIds User ids to resolve.
    * @returns Map keyed by normalized user id string.
    * @security Uses `Prisma.join` parameterization for safe binding and avoids
@@ -1208,7 +1215,7 @@ export class ProjectService {
         WHERE m."userId" IN (${Prisma.join(userIds)})
       `);
 
-      return rows.reduce<Map<string, string>>((acc, row) => {
+      const handlesByUserId = rows.reduce<Map<string, string>>((acc, row) => {
         const parsedUserId = this.parseUserIdValue(row.userId);
         const handle = this.toOptionalHandle(row.handle);
 
@@ -1218,9 +1225,78 @@ export class ProjectService {
 
         return acc;
       }, new Map());
+
+      this.logger.debug(
+        `Resolved ${handlesByUserId.size} member handle pairs from members.member for ${userIds.length} user ids.`,
+      );
+
+      const unresolvedUserIds = userIds.filter(
+        (userId) => !handlesByUserId.has(userId.toString()),
+      );
+
+      if (unresolvedUserIds.length) {
+        if (handlesByUserId.size === 0) {
+          this.logger.warn(
+            `Cross-schema handle lookup returned no usable rows for ${userIds.length} user ids; falling back to Member API.`,
+          );
+        } else {
+          this.logger.warn(
+            `Cross-schema handle lookup partially resolved member handles (${handlesByUserId.size}/${userIds.length}); falling back to Member API for ${unresolvedUserIds.length} unresolved user ids.`,
+          );
+        }
+
+        const fallbackHandlesByUserId =
+          await this.fetchMemberHandlesViaMemberApi(unresolvedUserIds);
+        fallbackHandlesByUserId.forEach((handle, resolvedUserId) => {
+          handlesByUserId.set(resolvedUserId, handle);
+        });
+      }
+
+      return handlesByUserId;
     } catch (error) {
-      this.logger.warn(
+      this.logger.error(
         `Failed to fetch member handles from members.member: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return this.fetchMemberHandlesViaMemberApi(userIds);
+    }
+  }
+
+  /**
+   * Loads member handles through Member API as a fallback for DB handle lookups.
+   *
+   * @param userIds User ids to resolve.
+   * @returns Map keyed by normalized user id string.
+   */
+  private async fetchMemberHandlesViaMemberApi(
+    userIds: bigint[],
+  ): Promise<Map<string, string>> {
+    try {
+      const memberDetails =
+        await this.memberService.getMemberDetailsByUserIds(userIds);
+      const handlesByUserId = memberDetails.reduce<Map<string, string>>(
+        (acc, memberDetail) => {
+          const parsedUserId = this.parseUserIdValue(memberDetail.userId);
+          const handle = this.toOptionalHandle(memberDetail.handle);
+
+          if (parsedUserId && handle) {
+            acc.set(parsedUserId.toString(), handle);
+          }
+
+          return acc;
+        },
+        new Map(),
+      );
+
+      this.logger.debug(
+        `Resolved ${handlesByUserId.size} member handle pairs from Member API fallback for ${userIds.length} user ids.`,
+      );
+
+      return handlesByUserId;
+    } catch (error) {
+      this.logger.error(
+        `Failed Member API fallback for member handles: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       return new Map();
     }

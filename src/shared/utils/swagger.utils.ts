@@ -20,6 +20,7 @@ import {
   SWAGGER_ANY_AUTHENTICATED_KEY,
   SWAGGER_REQUIRED_ROLES_KEY,
 } from '../guards/tokenRoles.guard';
+import { UserRole } from '../enums/userRole.enum';
 
 type SwaggerOperation = {
   description?: string;
@@ -37,6 +38,10 @@ const HTTP_METHODS = [
   'patch',
   'trace',
 ] as const;
+
+const ALL_KNOWN_USER_ROLES = new Set(
+  Object.values(UserRole).map((role) => role.trim().toLowerCase()),
+);
 
 /**
  * Safely coerces unknown values to a trimmed `string[]`.
@@ -123,6 +128,34 @@ function ensureErrorResponses(operation: SwaggerOperation): void {
 }
 
 /**
+ * Detects whether Swagger role metadata effectively means "any known user role".
+ *
+ * Many endpoints use this broad role gate as a coarse auth pass-through and
+ * rely on policy permissions for actual access decisions.
+ */
+function isAllKnownUserRoles(roles: string[]): boolean {
+  if (roles.length === 0) {
+    return false;
+  }
+
+  const normalizedRoles = new Set(
+    roles.map((role) => role.trim().toLowerCase()).filter(Boolean),
+  );
+
+  if (normalizedRoles.size !== ALL_KNOWN_USER_ROLES.size) {
+    return false;
+  }
+
+  for (const knownRole of ALL_KNOWN_USER_ROLES) {
+    if (!normalizedRoles.has(knownRole)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Builds human-readable authorization lines from custom Swagger extensions.
  */
 function getAuthorizationLines(operation: SwaggerOperation): string[] {
@@ -141,12 +174,13 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
   );
 
   const authorizationLines: string[] = [];
+  const hasAllKnownUserRoles = isAllKnownUserRoles(roles);
 
   if (isAnyAuthenticated) {
     authorizationLines.push('Any authenticated token is allowed.');
   }
 
-  if (roles.length > 0) {
+  if (roles.length > 0 && !(hasAllKnownUserRoles && permissions.length > 0)) {
     authorizationLines.push(`Allowed user roles (any): ${roles.join(', ')}`);
   }
 

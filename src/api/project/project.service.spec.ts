@@ -42,15 +42,21 @@ describe('ProjectService', () => {
     getDefaultBillingAccount: jest.fn(),
   };
 
+  const memberServiceMock = {
+    getMemberDetailsByUserIds: jest.fn(),
+  };
+
   let service: ProjectService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     prismaMock.$queryRaw.mockResolvedValue([]);
+    memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
     service = new ProjectService(
       prismaMock as any,
       permissionServiceMock as unknown as PermissionService,
       billingAccountServiceMock as any,
+      memberServiceMock as any,
     );
   });
 

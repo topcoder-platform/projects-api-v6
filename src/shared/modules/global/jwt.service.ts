@@ -29,7 +29,11 @@ type JwtPayloadRecord = Record<string, unknown>;
  */
 export interface JwtUser {
   /**
-   * Primary user identifier when present (for example `userId` or `sub`).
+   * Primary user identifier when present.
+   *
+   * Expected to be a numeric string parseable by `BigInt` (for example from
+   * `userId`/`sub` claims). Extraction prefers numeric identifiers and falls
+   * back to other identifier claims when necessary.
    */
   userId?: string;
   /**
@@ -373,6 +377,14 @@ export class JwtService implements OnModuleInit {
       }
     }
 
+    if (
+      (!user.userId || !this.isNumericIdentifier(user.userId)) &&
+      user.handle &&
+      this.isNumericIdentifier(user.handle)
+    ) {
+      user.userId = user.handle;
+    }
+
     return user;
   }
 
@@ -390,15 +402,24 @@ export class JwtService implements OnModuleInit {
    * Extracts a user identifier from common claims.
    *
    * @param {JwtPayloadRecord} payload Token payload.
-   * @returns {string | undefined} User identifier from `userId` or `sub`.
+   * @returns {string | undefined} User identifier from `userId`/`sub`/`handle`.
+   * Numeric values are preferred so downstream `BigInt` parsing can succeed.
    */
   private extractUserId(payload: JwtPayloadRecord): string | undefined {
-    const userId = this.extractIdentifier(payload.userId);
-    if (userId) {
-      return userId;
+    const candidates = [
+      this.extractIdentifier(payload.userId),
+      this.extractIdentifier(payload.sub),
+      this.extractIdentifier(payload.handle),
+    ].filter((value): value is string => typeof value === 'string');
+
+    const numericCandidate = candidates.find((value) =>
+      this.isNumericIdentifier(value),
+    );
+    if (numericCandidate) {
+      return numericCandidate;
     }
 
-    return this.extractIdentifier(payload.sub);
+    return candidates[0];
   }
 
   /**

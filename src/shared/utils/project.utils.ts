@@ -255,6 +255,8 @@ export function parseFieldsParameter(fields?: string): ParsedProjectFields {
  * - `code`: case-insensitive contains on name.
  * - `customer` / `manager`: member-subquery constraints.
  * - non-admin or `memberOnly=true`: restrict to membership/invite ownership.
+ *   When the caller has no resolvable membership identity (no parseable userId
+ *   and no email), applies an impossible `id = -1` guard to return zero rows.
  */
 export function buildProjectWhereClause(
   criteria: ProjectListQueryDto,
@@ -450,6 +452,10 @@ export function buildProjectWhereClause(
     if (visibilityFilters.length > 0) {
       appendAndCondition(where, {
         OR: visibilityFilters,
+      });
+    } else {
+      appendAndCondition(where, {
+        id: -1n,
       });
     }
   }
