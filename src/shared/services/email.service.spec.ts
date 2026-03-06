@@ -12,6 +12,7 @@ describe('EmailService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
+    process.env.WORK_MANAGER_URL = 'https://work.topcoder-dev.com';
     eventBusServiceMock.publishProjectEvent.mockResolvedValue(undefined);
     service = new EmailService(
       eventBusServiceMock as unknown as EventBusService,
@@ -66,9 +67,9 @@ describe('EmailService', () => {
       lastName: 'Doe',
       projectId: '1001',
       joinProjectUrl:
-        'https://work.topcoder-dev.com/projects/1001/accept/inv-100',
+        'https://work.topcoder-dev.com/projects/1001/invitation/accepted?source=email',
       declineProjectUrl:
-        'https://work.topcoder-dev.com/projects/1001/decline/inv-100',
+        'https://work.topcoder-dev.com/projects/1001/invitation/refused?source=email',
       initiatorFirstName: 'Jane',
       initiatorLastName: 'Smith',
     });
@@ -110,7 +111,7 @@ describe('EmailService', () => {
       lastName: '',
       projectId: '1001',
       registerUrl:
-        'https://accounts.topcoder-dev.com/?mode=signUp&regSource=tcBusiness&retUrl=https://work.topcoder-dev.com/projects/1001/accept/321',
+        'https://accounts.topcoder-dev.com/?mode=signUp&regSource=tcBusiness&retUrl=https://work.topcoder-dev.com/projects/1001/invitation/accepted?source=email',
       initiatorFirstName: 'Connect',
       initiatorLastName: 'User',
     });
@@ -200,8 +201,33 @@ describe('EmailService', () => {
     expect(eventBusServiceMock.publishProjectEvent).not.toHaveBeenCalled();
   });
 
+  it('skips publish when WORK_MANAGER_URL is missing', async () => {
+    process.env.SENDGRID_PROJECT_INVITATION_KNOWN_USER_TEMPLATE_ID =
+      'known-template-id';
+    delete process.env.WORK_MANAGER_URL;
+
+    await service.sendInviteEmail(
+      '1001',
+      {
+        id: 'wm-missing',
+        email: 'known@topcoder.com',
+      },
+      {
+        userId: '123',
+        handle: 'pm',
+      },
+      'Demo',
+      {
+        isSSO: true,
+      },
+    );
+
+    expect(eventBusServiceMock.publishProjectEvent).not.toHaveBeenCalled();
+  });
+
   it('uses topcoder.com links in production', async () => {
     process.env.NODE_ENV = 'production';
+    process.env.WORK_MANAGER_URL = 'https://work.topcoder.com';
     process.env.SENDGRID_PROJECT_INVITATION_KNOWN_USER_TEMPLATE_ID =
       'known-template-id';
 
@@ -227,9 +253,10 @@ describe('EmailService', () => {
     };
 
     expect(normalizedPayload.data).toMatchObject({
-      joinProjectUrl: 'https://work.topcoder.com/projects/1001/accept/prod-1',
+      joinProjectUrl:
+        'https://work.topcoder.com/projects/1001/invitation/accepted?source=email',
       declineProjectUrl:
-        'https://work.topcoder.com/projects/1001/decline/prod-1',
+        'https://work.topcoder.com/projects/1001/invitation/refused?source=email',
     });
   });
 });

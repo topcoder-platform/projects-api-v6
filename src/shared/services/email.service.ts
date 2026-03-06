@@ -93,7 +93,8 @@ export class EmailService {
    * Publishes a project invite email event.
    *
    * No-ops when `invite.email` is empty, `invite.id` is missing, or when
-   * no invite template id env var can be resolved.
+   * no invite template id env var can be resolved. Also no-ops when
+   * `WORK_MANAGER_URL` is not configured.
    *
    * Publishes payload to `external.action.email`.
    *
@@ -138,21 +139,25 @@ export class EmailService {
       return;
     }
 
+    const workManagerUrl = process.env.WORK_MANAGER_URL?.trim();
+    if (!workManagerUrl) {
+      this.logger.warn(
+        `Skipping invite email publish for projectId=${projectId} recipient=${recipient}: WORK_MANAGER_URL is not configured.`,
+      );
+      return;
+    }
+
     const normalizedProjectId = String(projectId).trim();
     const normalizedProjectName = projectName?.trim() || `Project ${projectId}`;
-    const rootUrl = this.resolveRootUrl();
     const joinProjectUrl = this.buildWorkInviteActionUrl(
-      rootUrl,
       normalizedProjectId,
-      inviteId,
-      'accept',
+      'accepted',
     );
     const declineProjectUrl = this.buildWorkInviteActionUrl(
-      rootUrl,
       normalizedProjectId,
-      inviteId,
-      'decline',
+      'refused',
     );
+    const rootUrl = this.resolveRootUrl();
     const registerUrl = this.buildRegisterUrl(rootUrl, joinProjectUrl);
     const normalizedInitiator = this.normalizeInitiator(initiator);
     const knownUserPayload: KnownUserInviteTemplatePayload = {
@@ -319,19 +324,23 @@ export class EmailService {
   /**
    * Builds a Work app invite action URL.
    *
-   * @param rootUrl Root URL domain.
    * @param projectId Project id.
-   * @param inviteId Invite id.
-   * @param action URL action segment (`accept` or `decline`).
-   * @returns Work invite action URL.
+   * @param action URL action segment (`accepted` or `refused`).
+   * @returns Full Work Manager invite action URL built from `WORK_MANAGER_URL`.
    */
   private buildWorkInviteActionUrl(
-    rootUrl: string,
     projectId: string,
-    inviteId: string,
-    action: 'accept' | 'decline',
+    action: 'accepted' | 'refused',
   ): string {
-    return `https://work.${rootUrl}/projects/${projectId}/${action}/${inviteId}`;
+    const workManagerUrl = process.env.WORK_MANAGER_URL?.trim();
+    if (!workManagerUrl) {
+      this.logger.warn(
+        `Cannot build invite action URL for projectId=${projectId}: WORK_MANAGER_URL is not configured.`,
+      );
+      return '';
+    }
+
+    return `${workManagerUrl}/projects/${projectId}/invitation/${action}?source=email`;
   }
 
   /**

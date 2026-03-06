@@ -329,7 +329,7 @@ Reference source: `.env.example`.
 | `SENDGRID_TEMPLATE_COPILOT_ALREADY_PART_OF_PROJECT` | - | - | SendGrid template ID |
 | `SENDGRID_TEMPLATE_INFORM_PM_COPILOT_APPLICATION_ACCEPTED` | - | - | SendGrid template ID |
 | `COPILOT_PORTAL_URL` | - | - | Copilot portal URL (used in invite emails) |
-| `WORK_MANAGER_URL` | - | - | Work Manager URL (used in invite emails) |
+| `WORK_MANAGER_URL` | ✅ | - | Work Manager base URL used to build invite action links in emails. Format: `https://work.topcoder.com`. Must not have a trailing slash. |
 | `ACCOUNTS_APP_URL` | - | - | Accounts app URL (used in invite emails) |
 | `UNIQUE_GMAIL_VALIDATION` | - | `false` | Treat Gmail `+` aliases as same address |
 | `PORT` | - | `3000` | HTTP listen port |
