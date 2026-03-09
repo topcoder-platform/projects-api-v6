@@ -172,6 +172,51 @@ describe('ProjectController', () => {
     );
   });
 
+  it('gets project permission matrix for machine token callers', async () => {
+    serviceMock.getProjectPermissions.mockResolvedValue({
+      '40158994': {
+        memberships: [
+          {
+            memberId: '100956',
+            role: 'copilot',
+            isPrimary: true,
+          },
+        ],
+        topcoderRoles: ['Connect Admin'],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+    });
+
+    const result = await controller.getProjectPermissions('303', {
+      isMachine: true,
+      scopes: ['read:projects'],
+    });
+
+    expect(result).toEqual({
+      '40158994': {
+        memberships: [
+          {
+            memberId: '100956',
+            role: 'copilot',
+            isPrimary: true,
+          },
+        ],
+        topcoderRoles: ['Connect Admin'],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+    });
+    expect(serviceMock.getProjectPermissions).toHaveBeenCalledWith(
+      '303',
+      expect.objectContaining({ isMachine: true }),
+    );
+  });
+
   it('upgrades project', async () => {
     serviceMock.upgradeProject.mockResolvedValue({
       message: 'Project successfully upgraded',

@@ -96,7 +96,7 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 | `DELETE` | `/v6/projects/:projectId` | Admin only | Soft-delete project |
 | `GET` | `/v6/projects/:projectId/billingAccount` | JWT / M2M | Default billing account (Salesforce) |
 | `GET` | `/v6/projects/:projectId/billingAccounts` | JWT / M2M | All billing accounts for project |
-| `GET` | `/v6/projects/:projectId/permissions` | JWT | Work-management permission map |
+| `GET` | `/v6/projects/:projectId/permissions` | JWT / M2M | JWT: caller work-management policy map. M2M: per-member permission matrix with project permissions and template policies |
 
 ### Members
 

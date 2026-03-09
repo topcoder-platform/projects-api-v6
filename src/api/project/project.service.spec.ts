@@ -1,6 +1,7 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Permission } from 'src/shared/constants/permissions';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
+import { Scope } from 'src/shared/enums/scopes.enum';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { ProjectService } from './project.service';
 
@@ -42,6 +43,7 @@ describe('ProjectService', () => {
     hasNamedPermission: jest.fn(),
     hasPermission: jest.fn(),
     hasIntersection: jest.fn(),
+    isNamedPermissionRequireProjectMembers: jest.fn(),
   };
 
   const billingAccountServiceMock = {
@@ -52,6 +54,7 @@ describe('ProjectService', () => {
 
   const memberServiceMock = {
     getMemberDetailsByUserIds: jest.fn(),
+    getUserRoles: jest.fn(),
   };
 
   let service: ProjectService;
@@ -60,6 +63,7 @@ describe('ProjectService', () => {
     jest.clearAllMocks();
     prismaMock.$queryRaw.mockResolvedValue([]);
     memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
+    memberServiceMock.getUserRoles.mockResolvedValue([]);
     service = new ProjectService(
       prismaMock as any,
       permissionServiceMock as unknown as PermissionService,
@@ -724,7 +728,93 @@ describe('ProjectService', () => {
     );
   });
 
-  it('creates projects for machine tokens without creating a synthetic owner member', async () => {
+  it('returns a per-user permission matrix for machine tokens even without a template', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      templateId: null,
+    });
+    prismaMock.projectMember.findMany.mockResolvedValue([
+      {
+        id: BigInt(1),
+        projectId: BigInt(1001),
+        userId: BigInt(100),
+        role: 'manager',
+        isPrimary: true,
+        deletedAt: null,
+      },
+      {
+        id: BigInt(2),
+        projectId: BigInt(1001),
+        userId: BigInt(200),
+        role: 'customer',
+        isPrimary: false,
+        deletedAt: null,
+      },
+    ]);
+    permissionServiceMock.isNamedPermissionRequireProjectMembers.mockImplementation(
+      (permission: Permission) =>
+        [Permission.VIEW_PROJECT, Permission.EDIT_PROJECT].includes(permission),
+    );
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (
+        permission: Permission,
+        matrixUser: { userId?: string },
+        members: any[],
+      ) =>
+        permission === Permission.VIEW_PROJECT ||
+        (permission === Permission.EDIT_PROJECT &&
+          matrixUser.userId === '100' &&
+          members[0]?.role === 'manager'),
+    );
+    memberServiceMock.getUserRoles
+      .mockResolvedValueOnce(['Connect Admin'])
+      .mockResolvedValueOnce([]);
+
+    const result = await service.getProjectPermissions('1001', {
+      isMachine: true,
+      scopes: [Scope.PROJECTS_READ],
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECTS_READ,
+      },
+    });
+
+    expect(result).toEqual({
+      '100': {
+        memberships: [
+          {
+            memberId: '1',
+            role: 'manager',
+            isPrimary: true,
+          },
+        ],
+        topcoderRoles: ['Connect Admin'],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+          EDIT_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+      '200': {
+        memberships: [
+          {
+            memberId: '2',
+            role: 'customer',
+            isPrimary: false,
+          },
+        ],
+        topcoderRoles: [],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+    });
+    expect(prismaMock.workManagementPermission.findMany).not.toHaveBeenCalled();
+    expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('100');
+    expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('200');
+  });
+
+  it('creates projects for machine principals inferred from token claims without creating a synthetic owner member', async () => {
     const transactionProjectCreate = jest.fn().mockResolvedValue({
       id: BigInt(1001),
       status: 'in_review',
@@ -789,9 +879,11 @@ describe('ProjectService', () => {
         type: 'app',
       },
       {
-        isMachine: true,
+        isMachine: false,
         scopes: ['write:projects'],
         tokenPayload: {
+          gty: 'client-credentials',
+          scope: 'write:projects',
           sub: 'svc-projects',
         },
       },
@@ -811,7 +903,7 @@ describe('ProjectService', () => {
     expect(transactionProjectHistoryCreate).toHaveBeenCalled();
   });
 
-  it('updates projects for machine tokens using fallback audit identity', async () => {
+  it('updates projects for machine principals inferred from token claims using fallback audit identity', async () => {
     const transactionUpdate = jest.fn().mockResolvedValue({
       id: BigInt(1001),
       name: 'Updated by machine',
@@ -883,9 +975,11 @@ describe('ProjectService', () => {
         status: 'active' as any,
       },
       {
-        isMachine: true,
+        isMachine: false,
         scopes: ['write:projects'],
         tokenPayload: {
+          gty: 'client-credentials',
+          scope: 'write:projects',
           sub: 'svc-projects',
         },
       },
@@ -901,7 +995,7 @@ describe('ProjectService', () => {
     );
   });
 
-  it('deletes projects for machine tokens using fallback audit identity', async () => {
+  it('deletes projects for machine principals inferred from token claims using fallback audit identity', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [],
@@ -915,9 +1009,11 @@ describe('ProjectService', () => {
     );
 
     await service.deleteProject('1001', {
-      isMachine: true,
+      isMachine: false,
       scopes: ['write:projects'],
       tokenPayload: {
+        gty: 'client-credentials',
+        scope: 'write:projects',
         sub: 'svc-projects',
       },
     });

@@ -21,6 +21,7 @@ import {
   SWAGGER_REQUIRED_ROLES_KEY,
 } from '../guards/tokenRoles.guard';
 import { UserRole } from '../enums/userRole.enum';
+import { getRequiredPermissionsDocumentation } from './permission-docs.utils';
 
 type SwaggerOperation = {
   description?: string;
@@ -57,18 +58,14 @@ function parseStringArray(value: unknown): string[] {
 }
 
 /**
- * Parses required-permission extension values to display-friendly strings.
- *
- * Inline permission objects are JSON-stringified.
+ * Parses required-permission extension values from Swagger metadata.
  */
-function parsePermissionArray(value: unknown): string[] {
+function parseRequiredPermissions(value: unknown): RequiredPermission[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value
-    .map((entry) => stringifyPermission(entry as RequiredPermission))
-    .filter((entry) => entry.length > 0);
+  return value as RequiredPermission[];
 }
 
 /**
@@ -162,9 +159,11 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
   const roles = parseStringArray(operation[SWAGGER_REQUIRED_ROLES_KEY]);
   const scopes = parseStringArray(operation[SWAGGER_REQUIRED_SCOPES_KEY]);
   const isAnyAuthenticated = Boolean(operation[SWAGGER_ANY_AUTHENTICATED_KEY]);
-  const permissions = parsePermissionArray(
+  const permissions = parseRequiredPermissions(
     operation[SWAGGER_REQUIRED_PERMISSIONS_KEY],
   );
+  const permissionDocumentation =
+    getRequiredPermissionsDocumentation(permissions);
   const isAdminOnly = Boolean(operation[SWAGGER_ADMIN_ONLY_KEY]);
   const adminRoles = parseStringArray(
     operation[SWAGGER_ADMIN_ALLOWED_ROLES_KEY],
@@ -188,9 +187,41 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
     authorizationLines.push(`Allowed token scopes (any): ${scopes.join(', ')}`);
   }
 
-  if (permissions.length > 0) {
+  if (permissionDocumentation?.allowAnyAuthenticated) {
+    authorizationLines.push('Policy allows any authenticated caller.');
+  }
+
+  if ((permissionDocumentation?.userRoles.length || 0) > 0) {
     authorizationLines.push(
-      `Required policy permissions (any): ${permissions.join(', ')}`,
+      `Policy allows user roles (any): ${permissionDocumentation?.userRoles.join(', ')}`,
+    );
+  }
+
+  if (permissionDocumentation?.allowAnyProjectMember) {
+    authorizationLines.push('Policy allows any current project member.');
+  }
+
+  if ((permissionDocumentation?.projectRoles.length || 0) > 0) {
+    authorizationLines.push(
+      `Policy allows project member roles (any): ${permissionDocumentation?.projectRoles.join(', ')}`,
+    );
+  }
+
+  if (permissionDocumentation?.allowPendingInvite) {
+    authorizationLines.push('Policy allows pending invite recipients.');
+  }
+
+  if ((permissionDocumentation?.scopes.length || 0) > 0) {
+    authorizationLines.push(
+      `Policy allows token scopes (any): ${permissionDocumentation?.scopes.join(', ')}`,
+    );
+  }
+
+  if (permissions.length > 0 && !permissionDocumentation) {
+    authorizationLines.push(
+      `Required policy permissions (any): ${permissions
+        .map((permission) => stringifyPermission(permission))
+        .join(', ')}`,
     );
   }
 

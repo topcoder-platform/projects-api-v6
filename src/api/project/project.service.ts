@@ -56,6 +56,30 @@ interface PaginatedProjectResponse {
   total: number;
 }
 
+type ProjectPolicyMap = Record<string, boolean>;
+
+type WorkManagementPermissionRecord = {
+  policy: string;
+  permission: Prisma.JsonValue;
+};
+
+interface ProjectPermissionMembershipEntry {
+  memberId: string;
+  role: string;
+  isPrimary: boolean;
+}
+
+interface ProjectMemberPermissionMatrixEntry {
+  memberships: ProjectPermissionMembershipEntry[];
+  topcoderRoles: string[];
+  projectPermissions: ProjectPolicyMap;
+  workManagementPolicies: ProjectPolicyMap;
+}
+
+export type ProjectPermissionsResponse =
+  | ProjectPolicyMap
+  | Record<string, ProjectMemberPermissionMatrixEntry>;
+
 type ProjectMemberWithHandle = ProjectMember & {
   handle?: string | null;
 };
@@ -848,19 +872,24 @@ export class ProjectService {
   }
 
   /**
-   * Computes project template policy decisions for the caller.
+   * Returns project permissions for the caller or, for M2M, every project user.
    *
-   * Returns an empty map when the project does not have a template.
+   * Human JWT callers keep the legacy v5/v6 behavior and receive the
+   * work-management policy map allowed for the authenticated caller.
+   *
+   * M2M callers receive a per-user matrix built from active project members.
+   * Each entry includes the user's active memberships, fetched Topcoder roles,
+   * named project permissions, and template work-management policies.
    *
    * @param projectId Project id path parameter.
    * @param user Authenticated caller context.
-   * @returns Policy-name to boolean decision map.
+   * @returns Legacy caller policy map or an M2M per-user permission matrix.
    * @throws NotFoundException When the project does not exist.
    */
   async getProjectPermissions(
     projectId: string,
     user: JwtUser,
-  ): Promise<Record<string, boolean>> {
+  ): Promise<ProjectPermissionsResponse> {
     const parsedProjectId = this.parseProjectId(projectId);
 
     const project = await this.prisma.project.findFirst({
@@ -876,6 +905,46 @@ export class ProjectService {
     if (!project) {
       throw new NotFoundException(
         `Project with id ${projectId} was not found.`,
+      );
+    }
+
+    if (this.isMachinePrincipal(user)) {
+      const workManagementPermissionsPromise: Promise<
+        WorkManagementPermissionRecord[]
+      > = project.templateId
+        ? this.prisma.workManagementPermission.findMany({
+            where: {
+              projectTemplateId: project.templateId,
+              deletedAt: null,
+            },
+            select: {
+              policy: true,
+              permission: true,
+            },
+          })
+        : Promise.resolve([]);
+
+      const [projectMembers, workManagementPermissions] = await Promise.all([
+        this.prisma.projectMember.findMany({
+          where: {
+            projectId: parsedProjectId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            projectId: true,
+            userId: true,
+            role: true,
+            isPrimary: true,
+            deletedAt: true,
+          },
+        }),
+        workManagementPermissionsPromise,
+      ]);
+
+      return this.buildProjectMemberPermissionMatrix(
+        projectMembers,
+        workManagementPermissions,
       );
     }
 
@@ -910,7 +979,7 @@ export class ProjectService {
       }),
     ]);
 
-    const policyMap: Record<string, boolean> = {};
+    const policyMap: ProjectPolicyMap = {};
 
     for (const permissionRecord of workManagementPermissions) {
       const hasPermission = this.permissionService.hasPermission(
@@ -1586,11 +1655,122 @@ export class ProjectService {
   }
 
   /**
+   * Builds the M2M per-user permission matrix for a project's active members.
+   *
+   * Each user entry is keyed by numeric user id string and merges permission
+   * decisions across all active memberships for that user.
+   *
+   * @param projectMembers Active project members.
+   * @param workManagementPermissions Optional template policy rows.
+   * @returns Per-user permission matrix keyed by user id.
+   */
+  private async buildProjectMemberPermissionMatrix(
+    projectMembers: Array<
+      Pick<ProjectMember, 'id' | 'userId' | 'role' | 'isPrimary'>
+    >,
+    workManagementPermissions: WorkManagementPermissionRecord[],
+  ): Promise<Record<string, ProjectMemberPermissionMatrixEntry>> {
+    const matrixPermissions = Object.values(Permission).filter(
+      (permission): permission is Permission =>
+        this.permissionService.isNamedPermissionRequireProjectMembers(
+          permission,
+        ),
+    );
+    const membershipsByUserId = new Map<
+      string,
+      Array<Pick<ProjectMember, 'id' | 'userId' | 'role' | 'isPrimary'>>
+    >();
+
+    for (const member of projectMembers) {
+      const parsedUserId = this.parseUserIdValue(member.userId);
+
+      if (!parsedUserId) {
+        continue;
+      }
+
+      const normalizedUserId = parsedUserId.toString();
+      const memberships = membershipsByUserId.get(normalizedUserId) || [];
+      memberships.push(member);
+      membershipsByUserId.set(normalizedUserId, memberships);
+    }
+
+    const topcoderRolesByUserId = new Map<string, string[]>(
+      await Promise.all(
+        Array.from(membershipsByUserId.keys()).map(
+          async (userId): Promise<[string, string[]]> => [
+            userId,
+            await this.memberService.getUserRoles(userId),
+          ],
+        ),
+      ),
+    );
+    const permissionMatrix: Record<string, ProjectMemberPermissionMatrixEntry> =
+      {};
+
+    for (const [userId, memberships] of membershipsByUserId.entries()) {
+      const topcoderRoles = topcoderRolesByUserId.get(userId) || [];
+      const matrixUser: JwtUser = {
+        userId,
+        roles: topcoderRoles,
+        scopes: [],
+        isMachine: false,
+      };
+      const projectPermissions: ProjectPolicyMap = {};
+      const workManagementPolicies: ProjectPolicyMap = {};
+
+      for (const permission of matrixPermissions) {
+        const hasPermission = memberships.some((membership) =>
+          this.permissionService.hasNamedPermission(permission, matrixUser, [
+            membership,
+          ]),
+        );
+
+        if (hasPermission) {
+          projectPermissions[permission] = true;
+        }
+      }
+
+      for (const permissionRecord of workManagementPermissions) {
+        const normalizedPermission = this.normalizeStoredPermission(
+          permissionRecord.permission,
+        );
+        const hasPermission = memberships.some((membership) =>
+          this.permissionService.hasPermission(
+            normalizedPermission,
+            matrixUser,
+            [membership],
+          ),
+        );
+
+        if (hasPermission) {
+          workManagementPolicies[permissionRecord.policy] = true;
+        }
+      }
+
+      permissionMatrix[userId] = {
+        memberships: memberships.map((membership) => ({
+          memberId:
+            this.toOptionalBigintString(membership.id) || String(membership.id),
+          role: membership.role,
+          isPrimary: Boolean(membership.isPrimary),
+        })),
+        topcoderRoles,
+        projectPermissions,
+        workManagementPolicies,
+      };
+    }
+
+    return permissionMatrix;
+  }
+
+  /**
    * Returns the authenticated actor user id as trimmed string.
    *
    * @param user Authenticated caller context.
-   * @returns Trimmed actor user id.
-   * @throws ForbiddenException When `user.userId` is absent.
+   * @returns Trimmed actor user id, or a machine-principal id from token
+   * claims when a human user id is unavailable.
+   * @throws ForbiddenException When neither human nor machine actor identity is
+   * available.
    */
   private getActorUserId(user: JwtUser): string {
     if (!user.userId || String(user.userId).trim().length === 0) {
@@ -1609,15 +1789,17 @@ export class ProjectService {
    * Parses actor id into numeric audit column representation.
    *
    * @param user Authenticated caller context.
-   * @returns Numeric actor id.
-   * @throws ForbiddenException When actor id is missing or non-numeric.
+   * @returns Numeric actor id, or `-1` for machine principals without numeric
+   * ids.
+   * @throws ForbiddenException When actor id is missing or non-numeric for a
+   * non-machine caller.
    */
   private getAuditUserId(user: JwtUser): number {
     const actorId = this.getActorUserId(user);
     const parsedActorId = Number.parseInt(actorId, 10);
 
     if (Number.isNaN(parsedActorId)) {
-      if (user.isMachine) {
+      if (this.isMachinePrincipal(user)) {
         return -1;
       }
 
@@ -1788,7 +1970,7 @@ export class ProjectService {
    * Resolves a stable machine-principal identifier from token claims.
    */
   private getMachineActorId(user: JwtUser): string | undefined {
-    if (!user.isMachine || !user.tokenPayload) {
+    if (!this.isMachinePrincipal(user) || !user.tokenPayload) {
       return undefined;
     }
 
@@ -1800,6 +1982,42 @@ export class ProjectService {
     }
 
     return undefined;
+  }
+
+  /**
+   * Determines whether the caller is a machine principal.
+   *
+   * Falls back to raw token claims so service-layer audit logic still works
+   * when upstream normalization omits `user.isMachine`.
+   */
+  private isMachinePrincipal(user: JwtUser): boolean {
+    if (user.isMachine) {
+      return true;
+    }
+
+    if (!user.tokenPayload) {
+      return false;
+    }
+
+    const grantType = user.tokenPayload.gty;
+    if (
+      typeof grantType === 'string' &&
+      grantType.trim().toLowerCase() === 'client-credentials'
+    ) {
+      return true;
+    }
+
+    const rawScopes = user.tokenPayload.scope ?? user.tokenPayload.scopes;
+
+    if (typeof rawScopes === 'string') {
+      return rawScopes.trim().length > 0;
+    }
+
+    if (Array.isArray(rawScopes)) {
+      return rawScopes.some((scope) => String(scope).trim().length > 0);
+    }
+
+    return false;
   }
 
   /**

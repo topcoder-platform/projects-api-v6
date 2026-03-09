@@ -11,6 +11,11 @@ Flow:
 3. Route guards (`PermissionGuard`, `AdminOnlyGuard`, `ProjectMemberGuard`, `CopilotAndAboveGuard`) authorize access.
 4. Controllers can read `@CurrentUser()` and `@ProjectMembers()`.
 
+Swagger auth notes:
+
+- The Swagger `Authorization:` section now includes both auth-guard metadata and permission-derived summaries.
+- Permission-derived summaries list allowed platform roles, allowed project member roles, pending-invite access, and permission-specific M2M scopes when applicable.
+
 ## Core Building Blocks
 
 - Permission constants: `src/shared/constants/permissions.constants.ts`

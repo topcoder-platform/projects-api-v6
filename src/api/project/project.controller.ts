@@ -42,7 +42,7 @@ import {
 import { ProjectWithRelationsDto } from './dto/project-response.dto';
 import { UpgradeProjectDto } from './dto/upgrade-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { ProjectService } from './project.service';
+import { ProjectPermissionsResponse, ProjectService } from './project.service';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -311,11 +311,13 @@ export class ProjectController {
   }
 
   /**
-   * Returns policy decisions for the caller on a project.
+   * Returns project permissions for the caller or, for M2M, every project user.
    *
    * @param projectId Project id path parameter.
    * @param user Authenticated caller context.
-   * @returns Policy-name to boolean map; returns `{}` when no template exists.
+   * @returns JWT callers receive a caller policy map. M2M callers receive a
+   * per-user matrix containing memberships, Topcoder roles, named project
+   * permissions, and template work-management policies.
    * @throws BadRequestException When `projectId` is not numeric.
    * @throws UnauthorizedException When the caller is unauthenticated.
    * @throws ForbiddenException When caller cannot access the project.
@@ -339,12 +341,59 @@ export class ProjectController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Policy map',
+    description: 'JWT caller policy map or M2M per-user permission matrix',
     schema: {
-      type: 'object',
-      additionalProperties: {
-        type: 'boolean',
-      },
+      oneOf: [
+        {
+          type: 'object',
+          additionalProperties: {
+            type: 'boolean',
+          },
+        },
+        {
+          type: 'object',
+          additionalProperties: {
+            type: 'object',
+            properties: {
+              memberships: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    memberId: {
+                      type: 'string',
+                    },
+                    role: {
+                      type: 'string',
+                    },
+                    isPrimary: {
+                      type: 'boolean',
+                    },
+                  },
+                },
+              },
+              topcoderRoles: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                },
+              },
+              projectPermissions: {
+                type: 'object',
+                additionalProperties: {
+                  type: 'boolean',
+                },
+              },
+              workManagementPolicies: {
+                type: 'object',
+                additionalProperties: {
+                  type: 'boolean',
+                },
+              },
+            },
+          },
+        },
+      ],
     },
   })
   @ApiResponse({ status: 400, description: 'Bad Request' })
@@ -355,7 +404,7 @@ export class ProjectController {
   async getProjectPermissions(
     @Param('projectId') projectId: string,
     @CurrentUser() user: JwtUser,
-  ): Promise<Record<string, boolean>> {
+  ): Promise<ProjectPermissionsResponse> {
     return this.service.getProjectPermissions(projectId, user);
   }
 
