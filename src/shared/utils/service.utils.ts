@@ -60,10 +60,66 @@ export function parseOptionalNumericStringId(
 }
 
 /**
+ * Determines whether the authenticated principal is a machine token.
+ */
+export function isMachinePrincipal(user: JwtUser): boolean {
+  if (user?.isMachine) {
+    return true;
+  }
+
+  if (!user?.tokenPayload) {
+    return false;
+  }
+
+  const grantType = user.tokenPayload.gty;
+  if (
+    typeof grantType === 'string' &&
+    grantType.trim().toLowerCase() === 'client-credentials'
+  ) {
+    return true;
+  }
+
+  const rawScopes = user.tokenPayload.scope ?? user.tokenPayload.scopes;
+
+  if (typeof rawScopes === 'string') {
+    return rawScopes.trim().length > 0;
+  }
+
+  if (Array.isArray(rawScopes)) {
+    return rawScopes.some((scope) => String(scope).trim().length > 0);
+  }
+
+  return false;
+}
+
+/**
+ * Resolves a stable machine-principal identifier from token claims.
+ */
+export function getMachineActorId(user: JwtUser): string | undefined {
+  if (!isMachinePrincipal(user) || !user?.tokenPayload) {
+    return undefined;
+  }
+
+  for (const key of ['sub', 'azp', 'client_id', 'clientId']) {
+    const value = user.tokenPayload[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Resolves the authenticated user id as a trimmed string.
  */
 export function getActorUserId(user: JwtUser): string {
   if (!user?.userId || String(user.userId).trim().length === 0) {
+    const machineActorId = getMachineActorId(user);
+    if (machineActorId) {
+      return machineActorId;
+    }
+
     throw new ForbiddenException('Authenticated user id is missing.');
   }
 
@@ -72,11 +128,17 @@ export function getActorUserId(user: JwtUser): string {
 
 /**
  * Resolves the authenticated user id as a numeric audit id.
+ *
+ * Returns `-1` for machine principals without a numeric actor id.
  */
 export function getAuditUserId(user: JwtUser): number {
   const parsedUserId = Number.parseInt(getActorUserId(user), 10);
 
   if (Number.isNaN(parsedUserId)) {
+    if (isMachinePrincipal(user)) {
+      return -1;
+    }
+
     throw new ForbiddenException('Authenticated user id must be numeric.');
   }
 
@@ -85,9 +147,15 @@ export function getAuditUserId(user: JwtUser): number {
 
 /**
  * Resolves the authenticated user id as an audit id, with fallback.
+ *
+ * Uses the machine-principal actor id when a human `userId` is absent.
  */
 export function getAuditUserIdOrDefault(user: JwtUser, fallback = -1): number {
-  const userId = Number.parseInt(String(user.userId || ''), 10);
+  const actorId =
+    user?.userId && String(user.userId).trim().length > 0
+      ? String(user.userId).trim()
+      : (getMachineActorId(user) ?? '');
+  const userId = Number.parseInt(actorId, 10);
 
   if (Number.isNaN(userId)) {
     return fallback;

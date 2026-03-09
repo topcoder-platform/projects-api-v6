@@ -5,6 +5,7 @@ import { UserRole } from 'src/shared/enums/userRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
+import { isMachinePrincipal } from 'src/shared/utils/service.utils';
 
 /**
  * Shared pure-function toolkit for the copilot feature.
@@ -151,7 +152,7 @@ export function getAuditUserId(user: JwtUser): number {
   const value = Number.parseInt(String(user.userId || '').trim(), 10);
 
   if (Number.isNaN(value)) {
-    if (user.isMachine) {
+    if (isMachinePrincipal(user)) {
       return -1;
     }
 

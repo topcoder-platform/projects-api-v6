@@ -11,6 +11,10 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import {
+  getMachineActorId,
+  isMachinePrincipal,
+} from 'src/shared/utils/service.utils';
 
 export interface MetadataVersionReference {
   key: string;
@@ -103,20 +107,32 @@ export function parseOptionalBooleanQuery(value: unknown): boolean | undefined {
  * Extracts the authenticated user id as a safe positive integer.
  *
  * @param user Authenticated JWT user payload.
- * @returns Numeric user id for audit columns typed as `number`.
- * @throws {ForbiddenException} When user id is missing, non-numeric, or outside
- * the safe integer range.
+ * @returns Numeric user id for audit columns typed as `number`, or `-1` for
+ * machine principals without a numeric actor id.
+ * @throws {ForbiddenException} When a non-machine user id is missing,
+ * non-numeric, or outside the safe integer range.
  */
 export function getAuditUserIdNumber(user: JwtUser): number {
-  const rawUserId = String(user.userId || '').trim();
+  const rawUserId =
+    user?.userId && String(user.userId).trim().length > 0
+      ? String(user.userId).trim()
+      : (getMachineActorId(user) ?? '');
 
   if (!/^\d+$/.test(rawUserId)) {
+    if (isMachinePrincipal(user)) {
+      return -1;
+    }
+
     throw new ForbiddenException('Authenticated user id must be numeric.');
   }
 
   const parsed = Number.parseInt(rawUserId, 10);
 
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    if (isMachinePrincipal(user)) {
+      return -1;
+    }
+
     throw new ForbiddenException(
       'Authenticated user id must be a safe positive integer.',
     );
@@ -129,13 +145,22 @@ export function getAuditUserIdNumber(user: JwtUser): number {
  * Extracts the authenticated user id as bigint.
  *
  * @param user Authenticated JWT user payload.
- * @returns BigInt user id for audit columns typed as `bigint`.
- * @throws {ForbiddenException} When user id is missing or non-numeric.
+ * @returns BigInt user id for audit columns typed as `bigint`, or `-1n` for
+ * machine principals without a numeric actor id.
+ * @throws {ForbiddenException} When a non-machine user id is missing or
+ * non-numeric.
  */
 export function getAuditUserIdBigInt(user: JwtUser): bigint {
-  const rawUserId = String(user.userId || '').trim();
+  const rawUserId =
+    user?.userId && String(user.userId).trim().length > 0
+      ? String(user.userId).trim()
+      : (getMachineActorId(user) ?? '');
 
   if (!/^\d+$/.test(rawUserId)) {
+    if (isMachinePrincipal(user)) {
+      return BigInt(-1);
+    }
+
     throw new ForbiddenException('Authenticated user id must be numeric.');
   }
 
