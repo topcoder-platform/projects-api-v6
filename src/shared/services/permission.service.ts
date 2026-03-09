@@ -191,6 +191,22 @@ export class PermissionService {
         Scope.PROJECT_MEMBERS_READ,
       ],
     );
+    const hasProjectInviteReadScope = this.m2mService.hasRequiredScopes(
+      user.scopes || [],
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_INVITES_ALL,
+        Scope.PROJECT_INVITES_READ,
+      ],
+    );
+    const hasProjectInviteWriteScope = this.m2mService.hasRequiredScopes(
+      user.scopes || [],
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_INVITES_ALL,
+        Scope.PROJECT_INVITES_WRITE,
+      ],
+    );
 
     const member = this.getProjectMember(user.userId, projectMembers);
     const hasProjectMembership = Boolean(member);
@@ -286,16 +302,25 @@ export class PermissionService {
         return isAuthenticated;
 
       case NamedPermission.READ_PROJECT_INVITE_NOT_OWN:
-        return isAdmin || hasProjectMembership;
+        return isAdmin || hasProjectMembership || hasProjectInviteReadScope;
 
       case NamedPermission.CREATE_PROJECT_INVITE_TOPCODER:
-        return isAdmin || isManagementMember;
+        return isAdmin || isManagementMember || hasProjectInviteWriteScope;
 
       case NamedPermission.CREATE_PROJECT_INVITE_CUSTOMER:
-        return isAdmin || isManagementMember || this.isCopilot(member?.role);
+        return (
+          isAdmin ||
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          hasProjectInviteWriteScope
+        );
 
       case NamedPermission.CREATE_PROJECT_INVITE_COPILOT:
-        return isAdmin || this.hasCopilotManagerRole(user);
+        return (
+          isAdmin ||
+          this.hasCopilotManagerRole(user) ||
+          hasProjectInviteWriteScope
+        );
 
       case NamedPermission.UPDATE_PROJECT_INVITE_OWN:
       case NamedPermission.DELETE_PROJECT_INVITE_OWN:
@@ -304,22 +329,31 @@ export class PermissionService {
       case NamedPermission.UPDATE_PROJECT_INVITE_REQUESTED:
       case NamedPermission.DELETE_PROJECT_INVITE_REQUESTED:
         return (
-          isAdmin || isManagementMember || this.hasCopilotManagerRole(user)
+          isAdmin ||
+          isManagementMember ||
+          this.hasCopilotManagerRole(user) ||
+          hasProjectInviteWriteScope
         );
 
       case NamedPermission.UPDATE_PROJECT_INVITE_NOT_OWN:
       case NamedPermission.DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER:
-        return isAdmin || isManagementMember;
+        return isAdmin || isManagementMember || hasProjectInviteWriteScope;
 
       case NamedPermission.DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER:
-        return isAdmin || isManagementMember || this.isCopilot(member?.role);
+        return (
+          isAdmin ||
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          hasProjectInviteWriteScope
+        );
 
       case NamedPermission.DELETE_PROJECT_INVITE_NOT_OWN_COPILOT:
         return (
           isAdmin ||
           isManagementMember ||
           this.isCopilot(member?.role) ||
-          this.hasCopilotManagerRole(user)
+          this.hasCopilotManagerRole(user) ||
+          hasProjectInviteWriteScope
         );
 
       // Billing-account related permissions.

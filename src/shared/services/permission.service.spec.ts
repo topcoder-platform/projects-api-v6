@@ -222,6 +222,54 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows reading other users project invites for machine token with invite read scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.READ_PROJECT_INVITE_NOT_OWN,
+      {
+        scopes: [Scope.PROJECT_INVITES_READ],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows creating project invites for machine token with invite write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.CREATE_PROJECT_INVITE_TOPCODER,
+      {
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows updating non-own project invites for machine token with invite write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.UPDATE_PROJECT_INVITE_NOT_OWN,
+      {
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting non-own project invites for machine token with invite write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER,
+      {
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
   it('allows viewing project for pending email invite that matches user email', () => {
     const allowed = service.hasNamedPermission(
       Permission.VIEW_PROJECT,
