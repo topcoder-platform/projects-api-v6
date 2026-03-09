@@ -143,13 +143,18 @@ export function parseSortExpression(
  * Parses the numeric audit user id from an authenticated JWT user.
  *
  * @param user Authenticated JWT user.
- * @returns Numeric user id for audit fields.
- * @throws BadRequestException If user.userId is not numeric.
+ * @returns Numeric user id for audit fields, or `-1` for machine tokens that
+ * do not carry a numeric user id.
+ * @throws BadRequestException If a human token has a non-numeric user id.
  */
 export function getAuditUserId(user: JwtUser): number {
   const value = Number.parseInt(String(user.userId || '').trim(), 10);
 
   if (Number.isNaN(value)) {
+    if (user.isMachine) {
+      return -1;
+    }
+
     throw new BadRequestException('Authenticated user id must be numeric.');
   }
 

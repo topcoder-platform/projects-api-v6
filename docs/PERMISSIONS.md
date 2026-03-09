@@ -31,7 +31,7 @@ Supported shapes:
 
 ```ts
 {
-  topcoderRoles: [UserRole.CONNECT_ADMIN],
+  topcoderRoles: [UserRole.TOPCODER_ADMIN],
   projectRoles: [ProjectMemberRole.MANAGER],
   scopes: [Scope.PROJECTS_READ],
 }

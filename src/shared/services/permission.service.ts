@@ -180,6 +180,9 @@ export class PermissionService {
       user.scopes || [],
       [Scope.CONNECT_PROJECT_ADMIN, Scope.PROJECTS_ALL, Scope.PROJECTS_WRITE],
     );
+    const hasMachineProjectWriteScope = Boolean(
+      user.isMachine && hasProjectWriteScope,
+    );
     const hasProjectMemberReadScope = this.m2mService.hasRequiredScopes(
       user.scopes || [],
       [
@@ -241,12 +244,13 @@ export class PermissionService {
           isManagementMember ||
           this.isCopilot(member?.role) ||
           this.hasProjectUpdateTopcoderRole(user) ||
-          hasProjectWriteScope
+          hasMachineProjectWriteScope
         );
 
       case NamedPermission.DELETE_PROJECT:
         return (
           isAdmin ||
+          hasMachineProjectWriteScope ||
           Boolean(
             member &&
             this.normalizeRole(member.role) ===
@@ -348,10 +352,12 @@ export class PermissionService {
       case NamedPermission.MANAGE_COPILOT_REQUEST:
       case NamedPermission.ASSIGN_COPILOT_OPPORTUNITY:
       case NamedPermission.CANCEL_COPILOT_OPPORTUNITY:
-        return this.hasIntersection(user.roles || [], [
-          UserRole.TOPCODER_ADMIN,
-          UserRole.PROJECT_MANAGER,
-        ]);
+        return (
+          this.hasIntersection(user.roles || [], [
+            UserRole.TOPCODER_ADMIN,
+            UserRole.PROJECT_MANAGER,
+          ]) || hasMachineProjectWriteScope
+        );
 
       case NamedPermission.APPLY_COPILOT_OPPORTUNITY:
         return this.hasIntersection(user.roles || [], [UserRole.TC_COPILOT]);

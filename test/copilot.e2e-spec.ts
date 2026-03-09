@@ -478,6 +478,54 @@ describe('Copilot endpoints (e2e)', () => {
       .expect(200);
   });
 
+  it('allows m2m token with connect-project scope to list copilot requests', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.CONNECT_PROJECT_ADMIN],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.CONNECT_PROJECT_ADMIN,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .get('/v6/projects/copilots/requests')
+      .set('Authorization', 'Bearer m2m-token')
+      .expect(200);
+  });
+
+  it('allows m2m token with connect-project scope to create copilot requests', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.CONNECT_PROJECT_ADMIN],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.CONNECT_PROJECT_ADMIN,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/v6/projects/100/copilots/requests')
+      .set('Authorization', 'Bearer m2m-token')
+      .send({
+        data: {
+          projectId: 100,
+          opportunityTitle: 'Need a dev copilot',
+          complexity: 'medium',
+          requiresCommunication: 'yes',
+          paymentType: 'standard',
+          projectType: 'dev',
+          overview: 'Detailed overview text',
+          skills: [{ id: '1', name: 'Node.js' }],
+          startDate: '2026-02-01T00:00:00.000Z',
+          numWeeks: 4,
+          tzRestrictions: 'UTC-5 to UTC+1',
+          numHoursPerWeek: 20,
+        },
+      })
+      .expect(201);
+  });
+
   it('returns same application payload for repeated apply (idempotency)', async () => {
     const first = await request(app.getHttpServer())
       .post('/v6/projects/copilots/opportunity/21/apply')

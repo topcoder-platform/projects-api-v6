@@ -8,6 +8,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { SCOPES_KEY } from '../decorators/scopes.decorator';
 import { JwtService } from '../modules/global/jwt.service';
 import { M2MService } from '../modules/global/m2m.service';
+import { ADMIN_ONLY_KEY } from './auth-metadata.constants';
 import {
   ANY_AUTHENTICATED_KEY,
   ROLES_KEY,
@@ -337,6 +338,54 @@ describe('TokenRolesGuard', () => {
     );
 
     expect(result).toBe(true);
+  });
+
+  it('allows admin-only routes to defer authorization to AdminOnlyGuard', async () => {
+    const request: Record<string, any> = {
+      headers: {
+        authorization: 'Bearer human-token',
+      },
+    };
+
+    reflectorMock.getAllAndOverride.mockImplementation((key: string) => {
+      if (key === IS_PUBLIC_KEY) {
+        return false;
+      }
+      if (key === ROLES_KEY) {
+        return [];
+      }
+      if (key === SCOPES_KEY) {
+        return [];
+      }
+      if (key === ANY_AUTHENTICATED_KEY) {
+        return false;
+      }
+      if (key === ADMIN_ONLY_KEY) {
+        return true;
+      }
+      return undefined;
+    });
+
+    jwtServiceMock.validateToken.mockResolvedValue({
+      roles: ['Topcoder User'],
+      scopes: [],
+      isMachine: false,
+      tokenPayload: {
+        sub: '123',
+      },
+    });
+
+    const result = await guard.canActivate(createExecutionContext(request));
+
+    expect(result).toBe(true);
+    expect(request.user).toEqual(
+      expect.objectContaining({
+        tokenPayload: {
+          sub: '123',
+        },
+      }),
+    );
+    expect(m2mServiceMock.validateMachineToken).not.toHaveBeenCalled();
   });
 
   it('throws ForbiddenException for machine token when endpoint only defines roles', async () => {

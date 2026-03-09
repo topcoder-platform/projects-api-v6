@@ -8,7 +8,9 @@ describe('ProjectController', () => {
     getProject: jest.fn(),
     listProjectBillingAccounts: jest.fn(),
     getProjectBillingAccount: jest.fn(),
+    getProjectPermissions: jest.fn(),
     createProject: jest.fn(),
+    upgradeProject: jest.fn(),
     updateProject: jest.fn(),
     deleteProject: jest.fn(),
   };
@@ -149,6 +151,53 @@ describe('ProjectController', () => {
 
     expect(result).toEqual({ id: '202' });
     expect(serviceMock.createProject).toHaveBeenCalled();
+  });
+
+  it('gets project permissions', async () => {
+    serviceMock.getProjectPermissions.mockResolvedValue({
+      manage_team: true,
+    });
+
+    const result = await controller.getProjectPermissions('303', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      manage_team: true,
+    });
+    expect(serviceMock.getProjectPermissions).toHaveBeenCalledWith(
+      '303',
+      expect.objectContaining({ userId: '123' }),
+    );
+  });
+
+  it('upgrades project', async () => {
+    serviceMock.upgradeProject.mockResolvedValue({
+      message: 'Project successfully upgraded',
+    });
+
+    const result = await controller.upgradeProject(
+      '303',
+      {
+        targetVersion: 'v3',
+      } as any,
+      {
+        userId: '123',
+        isMachine: false,
+      },
+    );
+
+    expect(result).toEqual({
+      message: 'Project successfully upgraded',
+    });
+    expect(serviceMock.upgradeProject).toHaveBeenCalledWith(
+      '303',
+      {
+        targetVersion: 'v3',
+      },
+      expect.objectContaining({ userId: '123' }),
+    );
   });
 
   it('updates project', async () => {

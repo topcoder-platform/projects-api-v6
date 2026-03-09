@@ -176,11 +176,11 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
   const authorizationLines: string[] = [];
   const hasAllKnownUserRoles = isAllKnownUserRoles(roles);
 
-  if (isAnyAuthenticated) {
-    authorizationLines.push('Any authenticated token is allowed.');
+  if (isAnyAuthenticated || hasAllKnownUserRoles) {
+    authorizationLines.push('Any authenticated user token is allowed.');
   }
 
-  if (roles.length > 0 && !(hasAllKnownUserRoles && permissions.length > 0)) {
+  if (roles.length > 0 && !hasAllKnownUserRoles) {
     authorizationLines.push(`Allowed user roles (any): ${roles.join(', ')}`);
   }
 
@@ -213,6 +213,17 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
 }
 
 /**
+ * Removes low-value "all roles" metadata from the final OpenAPI operation.
+ */
+function pruneSwaggerAuthExtensions(operation: SwaggerOperation): void {
+  const roles = parseStringArray(operation[SWAGGER_REQUIRED_ROLES_KEY]);
+
+  if (isAllKnownUserRoles(roles)) {
+    delete operation[SWAGGER_REQUIRED_ROLES_KEY];
+  }
+}
+
+/**
  * Enriches OpenAPI operation descriptions with authorization summaries.
  *
  * Iterates each path/method, inspects custom auth metadata extensions, appends
@@ -231,6 +242,7 @@ export function enrichSwaggerAuthDocumentation(
         continue;
       }
 
+      pruneSwaggerAuthExtensions(operation);
       const authorizationLines = getAuthorizationLines(operation);
       if (authorizationLines.length === 0) {
         continue;

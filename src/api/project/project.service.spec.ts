@@ -28,12 +28,20 @@ describe('ProjectService', () => {
     projectMemberInvite: {
       findMany: jest.fn(),
     },
+    projectMember: {
+      findMany: jest.fn(),
+    },
+    workManagementPermission: {
+      findMany: jest.fn(),
+    },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 
   const permissionServiceMock = {
     hasNamedPermission: jest.fn(),
+    hasPermission: jest.fn(),
+    hasIntersection: jest.fn(),
   };
 
   const billingAccountServiceMock = {
@@ -665,6 +673,272 @@ describe('ProjectService', () => {
     expect(result.attachments).toHaveLength(1);
     expect(result.members).toBeUndefined();
     expect(result.invites).toBeUndefined();
+  });
+
+  it('normalizes stored work-management permissions for project permission responses', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      templateId: BigInt(501),
+    });
+    prismaMock.projectMember.findMany.mockResolvedValue([
+      {
+        id: BigInt(1),
+        projectId: BigInt(1001),
+        userId: BigInt(100),
+        role: 'manager',
+        isPrimary: true,
+        deletedAt: null,
+      },
+    ]);
+    prismaMock.workManagementPermission.findMany.mockResolvedValue([
+      {
+        policy: 'manage_team',
+        permission: {
+          allow: {
+            roles: ['manager'],
+          },
+        },
+      },
+    ]);
+    permissionServiceMock.hasPermission.mockReturnValue(true);
+
+    const result = await service.getProjectPermissions('1001', {
+      userId: '100',
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      manage_team: true,
+    });
+    expect(permissionServiceMock.hasPermission).toHaveBeenCalledWith(
+      {
+        allowRule: {
+          projectRoles: ['manager'],
+        },
+      },
+      expect.objectContaining({ userId: '100' }),
+      [
+        expect.objectContaining({
+          role: 'manager',
+        }),
+      ],
+    );
+  });
+
+  it('creates projects for machine tokens without creating a synthetic owner member', async () => {
+    const transactionProjectCreate = jest.fn().mockResolvedValue({
+      id: BigInt(1001),
+      status: 'in_review',
+    });
+    const transactionProjectMemberCreate = jest.fn().mockResolvedValue({});
+    const transactionProjectHistoryCreate = jest.fn().mockResolvedValue({});
+
+    prismaMock.projectType.findFirst.mockResolvedValue({
+      key: 'app',
+    });
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          project: {
+            create: transactionProjectCreate,
+          },
+          projectMember: {
+            create: transactionProjectMemberCreate,
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          projectHistory: {
+            create: transactionProjectHistoryCreate,
+          },
+        }),
+    );
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      name: 'Machine Project',
+      description: null,
+      type: 'app',
+      status: 'in_review',
+      billingAccountId: null,
+      directProjectId: null,
+      estimatedPrice: null,
+      actualPrice: null,
+      terms: [],
+      groups: [],
+      external: null,
+      bookmarks: null,
+      utm: null,
+      details: null,
+      challengeEligibility: null,
+      cancelReason: null,
+      templateId: null,
+      version: 'v3',
+      lastActivityAt: new Date(),
+      lastActivityUserId: 'svc-projects',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: -1,
+      updatedBy: -1,
+      members: [],
+      invites: [],
+      attachments: [],
+      phases: [],
+    });
+    permissionServiceMock.hasNamedPermission.mockReturnValue(false);
+
+    const result = await service.createProject(
+      {
+        name: 'Machine Project',
+        type: 'app',
+      },
+      {
+        isMachine: true,
+        scopes: ['write:projects'],
+        tokenPayload: {
+          sub: 'svc-projects',
+        },
+      },
+    );
+
+    expect(result.id).toBe('1001');
+    expect(transactionProjectCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lastActivityUserId: 'svc-projects',
+          createdBy: -1,
+          updatedBy: -1,
+        }),
+      }),
+    );
+    expect(transactionProjectMemberCreate).not.toHaveBeenCalled();
+    expect(transactionProjectHistoryCreate).toHaveBeenCalled();
+  });
+
+  it('updates projects for machine tokens using fallback audit identity', async () => {
+    const transactionUpdate = jest.fn().mockResolvedValue({
+      id: BigInt(1001),
+      name: 'Updated by machine',
+      status: 'active',
+      billingAccountId: null,
+      directProjectId: null,
+    });
+
+    prismaMock.project.findFirst
+      .mockResolvedValueOnce({
+        id: BigInt(1001),
+        name: 'Demo',
+        description: null,
+        type: 'app',
+        status: 'in_review',
+        billingAccountId: null,
+        directProjectId: null,
+        details: {},
+        bookmarks: null,
+        members: [],
+        invites: [],
+      })
+      .mockResolvedValueOnce({
+        id: BigInt(1001),
+        name: 'Updated by machine',
+        description: null,
+        type: 'app',
+        status: 'active',
+        billingAccountId: null,
+        directProjectId: null,
+        estimatedPrice: null,
+        actualPrice: null,
+        terms: [],
+        groups: [],
+        external: null,
+        bookmarks: null,
+        details: {},
+        challengeEligibility: null,
+        templateId: null,
+        version: 'v3',
+        lastActivityAt: new Date(),
+        lastActivityUserId: 'svc-projects',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: -1,
+        updatedBy: -1,
+        members: [],
+        invites: [],
+        attachments: [],
+        phases: [],
+      });
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          project: {
+            update: transactionUpdate,
+          },
+          projectHistory: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        }),
+    );
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+
+    await service.updateProject(
+      '1001',
+      {
+        name: 'Updated by machine',
+        status: 'active' as any,
+      },
+      {
+        isMachine: true,
+        scopes: ['write:projects'],
+        tokenPayload: {
+          sub: 'svc-projects',
+        },
+      },
+    );
+
+    expect(transactionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lastActivityUserId: 'svc-projects',
+          updatedBy: -1,
+        }),
+      }),
+    );
+  });
+
+  it('deletes projects for machine tokens using fallback audit identity', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      members: [],
+    });
+    prismaMock.project.update.mockResolvedValue({
+      id: BigInt(1001),
+    });
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean =>
+        permission === Permission.DELETE_PROJECT,
+    );
+
+    await service.deleteProject('1001', {
+      isMachine: true,
+      scopes: ['write:projects'],
+      tokenPayload: {
+        sub: 'svc-projects',
+      },
+    });
+
+    expect(prismaMock.project.update).toHaveBeenCalledWith({
+      where: {
+        id: BigInt(1001),
+      },
+      data: {
+        deletedAt: expect.any(Date),
+        deletedBy: BigInt(-1),
+        updatedBy: -1,
+      },
+    });
+    expect(eventUtils.publishProjectEvent).toHaveBeenCalledWith(
+      KAFKA_TOPIC.PROJECT_DELETED,
+      {
+        id: '1001',
+        deletedBy: 'svc-projects',
+      },
+    );
   });
 
   it('blocks billing account id updates without permission', async () => {

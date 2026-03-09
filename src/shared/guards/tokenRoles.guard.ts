@@ -23,6 +23,7 @@ import { SCOPES_KEY } from '../decorators/scopes.decorator';
 import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { JwtService } from '../modules/global/jwt.service';
 import { M2MService } from '../modules/global/m2m.service';
+import { ADMIN_ONLY_KEY } from './auth-metadata.constants';
 
 /**
  * Metadata key for required Topcoder roles declared with `@Roles()`.
@@ -89,9 +90,13 @@ export class TokenRolesGuard implements CanActivate {
    * - Throws `UnauthorizedException` when Bearer token is absent or malformed.
    * - Calls `JwtService.validateToken` and stores the validated user on request.
    * - Reads both `@Roles()` and `@Scopes()` metadata.
-   * - Requires one of `@Roles()`, `@Scopes()`, or `@AnyAuthenticated()`.
+   * - Requires one of `@Roles()`, `@Scopes()`, `@AnyAuthenticated()`, or
+   *   `@AdminOnly()`.
    * - Throws `ForbiddenException` when no auth metadata is declared.
    * - Returns `true` for any authenticated user when `@AnyAuthenticated()` is present.
+   * - Returns `true` for `@AdminOnly()` routes without additional role/scope
+   *   metadata so the route-specific `AdminOnlyGuard` can make the final
+   *   authorization decision.
    * - For M2M tokens: requires declared scopes and checks scope intersection.
    * - For human tokens: allows if any required role or scope matches.
    * - Throws `ForbiddenException('Insufficient permissions')` otherwise.
@@ -140,16 +145,30 @@ export class TokenRolesGuard implements CanActivate {
         context.getHandler(),
         context.getClass(),
       ]) || false;
+    const isAdminOnly =
+      this.reflector.getAllAndOverride<boolean>(ADMIN_ONLY_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) || false;
 
     if (
       normalizedRequiredRoles.length === 0 &&
       normalizedRequiredScopes.length === 0 &&
-      !isAnyAuthenticated
+      !isAnyAuthenticated &&
+      !isAdminOnly
     ) {
       throw new ForbiddenException('Authorization metadata is required');
     }
 
     if (isAnyAuthenticated) {
+      return true;
+    }
+
+    if (
+      isAdminOnly &&
+      normalizedRequiredRoles.length === 0 &&
+      normalizedRequiredScopes.length === 0
+    ) {
       return true;
     }
 

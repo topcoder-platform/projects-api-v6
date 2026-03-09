@@ -18,7 +18,10 @@ import { Permission } from 'src/shared/constants/permissions';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { Scope } from 'src/shared/enums/scopes.enum';
 import { ADMIN_ROLES } from 'src/shared/enums/userRole.enum';
-import { Permission as JsonPermission } from 'src/shared/interfaces/permission.interface';
+import {
+  Permission as JsonPermission,
+  PermissionRule as JsonPermissionRule,
+} from 'src/shared/interfaces/permission.interface';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
@@ -366,16 +369,18 @@ export class ProjectService {
         },
       });
 
-      await tx.projectMember.create({
-        data: {
-          projectId: createdProject.id,
-          userId: BigInt(actorUserId),
-          role: primaryRole,
-          isPrimary: true,
-          createdBy: auditUserId,
-          updatedBy: auditUserId,
-        },
-      });
+      if (this.isNumericIdentifier(actorUserId)) {
+        await tx.projectMember.create({
+          data: {
+            projectId: createdProject.id,
+            userId: BigInt(actorUserId),
+            role: primaryRole,
+            isPrimary: true,
+            createdBy: auditUserId,
+            updatedBy: auditUserId,
+          },
+        });
+      }
 
       if (Array.isArray(dto.members) && dto.members.length > 0) {
         const additionalMembers = dto.members.filter(
@@ -792,6 +797,7 @@ export class ProjectService {
    */
   async deleteProject(projectId: string, user: JwtUser): Promise<void> {
     const parsedProjectId = this.parseProjectId(projectId);
+    const actorUserId = this.getActorUserId(user);
     const auditUserId = this.getAuditUserId(user);
 
     const existingProject = await this.prisma.project.findFirst({
@@ -837,7 +843,7 @@ export class ProjectService {
 
     this.publishEvent(KAFKA_TOPIC.PROJECT_DELETED, {
       id: projectId,
-      deletedBy: user.userId,
+      deletedBy: actorUserId,
     });
   }
 
@@ -908,7 +914,7 @@ export class ProjectService {
 
     for (const permissionRecord of workManagementPermissions) {
       const hasPermission = this.permissionService.hasPermission(
-        (permissionRecord.permission || {}) as JsonPermission,
+        this.normalizeStoredPermission(permissionRecord.permission),
         user,
         projectMembers,
       );
@@ -1043,8 +1049,11 @@ export class ProjectService {
       user.roles || [],
       ADMIN_ROLES,
     );
-    const hasAdminScope = (user.scopes || []).includes(
-      Scope.CONNECT_PROJECT_ADMIN,
+    const hasAdminScope = this.permissionService.hasPermission(
+      {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+      },
+      user,
     );
 
     if (!hasAdminRole && !hasAdminScope) {
@@ -1585,6 +1594,11 @@ export class ProjectService {
    */
   private getActorUserId(user: JwtUser): string {
     if (!user.userId || String(user.userId).trim().length === 0) {
+      const machineActorId = this.getMachineActorId(user);
+      if (machineActorId) {
+        return machineActorId;
+      }
+
       throw new ForbiddenException('Authenticated user id is missing.');
     }
 
@@ -1603,10 +1617,189 @@ export class ProjectService {
     const parsedActorId = Number.parseInt(actorId, 10);
 
     if (Number.isNaN(parsedActorId)) {
+      if (user.isMachine) {
+        return -1;
+      }
+
       throw new ForbiddenException('Authenticated user id must be numeric.');
     }
 
     return parsedActorId;
+  }
+
+  /**
+   * Normalizes stored work-management permission payloads into the runtime
+   * permission shape expected by `PermissionService`.
+   *
+   * Legacy rows may use `{ allow: { roles: [...] } }`, where `roles` maps to
+   * project-member roles.
+   */
+  private normalizeStoredPermission(permission: unknown): JsonPermission {
+    const normalizedPermission = this.toJsonRecord(permission);
+
+    if (!normalizedPermission) {
+      return {};
+    }
+
+    const hasExplicitAllow =
+      Object.prototype.hasOwnProperty.call(normalizedPermission, 'allowRule') ||
+      Object.prototype.hasOwnProperty.call(normalizedPermission, 'allow');
+    const allowSource = hasExplicitAllow
+      ? (normalizedPermission.allowRule ?? normalizedPermission.allow)
+      : normalizedPermission;
+    const allowRule = this.normalizeStoredPermissionRule(allowSource);
+    const denyRule = this.normalizeStoredPermissionRule(
+      normalizedPermission.denyRule ?? normalizedPermission.deny,
+    );
+
+    if (hasExplicitAllow) {
+      return {
+        ...(allowRule ? { allowRule } : {}),
+        ...(denyRule ? { denyRule } : {}),
+      };
+    }
+
+    return {
+      ...(allowRule || {}),
+      ...(denyRule ? { denyRule } : {}),
+    };
+  }
+
+  /**
+   * Normalizes one stored permission rule.
+   */
+  private normalizeStoredPermissionRule(
+    rule: unknown,
+  ): JsonPermissionRule | undefined {
+    const normalizedRule = this.toJsonRecord(rule);
+
+    if (!normalizedRule) {
+      return undefined;
+    }
+
+    const projectRoles = this.normalizeStoredProjectRoles(
+      normalizedRule.projectRoles ?? normalizedRule.roles,
+    );
+    const topcoderRoles = this.normalizeStoredRoleList(
+      normalizedRule.topcoderRoles,
+    );
+    const scopes = this.normalizeStoredStringArray(normalizedRule.scopes);
+
+    return {
+      ...(typeof projectRoles === 'undefined' ? {} : { projectRoles }),
+      ...(typeof topcoderRoles === 'undefined' ? {} : { topcoderRoles }),
+      ...(typeof scopes === 'undefined' ? {} : { scopes }),
+    };
+  }
+
+  /**
+   * Coerces legacy string-list values into permission-list form.
+   */
+  private normalizeStoredRoleList(
+    value: unknown,
+  ): string[] | boolean | undefined {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    return this.normalizeStoredStringArray(value);
+  }
+
+  /**
+   * Coerces legacy array values into trimmed string arrays.
+   */
+  private normalizeStoredStringArray(value: unknown): string[] | undefined {
+    if (typeof value === 'boolean') {
+      return undefined;
+    }
+
+    if (!Array.isArray(value)) {
+      return undefined;
+    }
+
+    return value
+      .map((entry) => String(entry).trim())
+      .filter((entry) => entry.length > 0);
+  }
+
+  /**
+   * Coerces legacy project-role values into `PermissionRule.projectRoles`.
+   */
+  private normalizeStoredProjectRoles(
+    value: unknown,
+  ): JsonPermissionRule['projectRoles'] | undefined {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (!Array.isArray(value)) {
+      return undefined;
+    }
+
+    return value
+      .map((entry) => {
+        if (typeof entry === 'string') {
+          const normalizedRole = entry.trim();
+          return normalizedRole.length > 0 ? normalizedRole : null;
+        }
+
+        const normalizedRule = this.toJsonRecord(entry);
+        const role =
+          typeof normalizedRule?.role === 'string'
+            ? normalizedRule.role.trim()
+            : '';
+
+        if (!role) {
+          return null;
+        }
+
+        return {
+          role,
+          ...(typeof normalizedRule?.isPrimary === 'boolean'
+            ? { isPrimary: normalizedRule.isPrimary }
+            : {}),
+        };
+      })
+      .filter(
+        (entry): entry is string | { role: string; isPrimary?: boolean } =>
+          Boolean(entry),
+      );
+  }
+
+  /**
+   * Returns a plain object record for JSON-like permission payloads.
+   */
+  private toJsonRecord(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+
+    return value as Record<string, unknown>;
+  }
+
+  /**
+   * Checks whether an identifier is a numeric string.
+   */
+  private isNumericIdentifier(value: string): boolean {
+    return /^\d+$/.test(value);
+  }
+
+  /**
+   * Resolves a stable machine-principal identifier from token claims.
+   */
+  private getMachineActorId(user: JwtUser): string | undefined {
+    if (!user.isMachine || !user.tokenPayload) {
+      return undefined;
+    }
+
+    for (const key of ['sub', 'azp', 'client_id', 'clientId']) {
+      const value = user.tokenPayload[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+
+    return undefined;
   }
 
   /**

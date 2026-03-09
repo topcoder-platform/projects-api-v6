@@ -11,15 +11,17 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  SetMetadata,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { ApiExtension } from '@nestjs/swagger';
 import { Scope } from '../enums/scopes.enum';
-import { ADMIN_ROLES, MANAGER_ROLES } from '../enums/userRole.enum';
+import { ADMIN_ROLES, MANAGER_ROLES, UserRole } from '../enums/userRole.enum';
 import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { M2MService } from '../modules/global/m2m.service';
 import { PermissionService } from '../services/permission.service';
+import { ADMIN_ONLY_KEY } from './auth-metadata.constants';
 import { Roles } from './tokenRoles.guard';
 
 /**
@@ -34,6 +36,18 @@ export const SWAGGER_ADMIN_ALLOWED_ROLES_KEY = 'x-admin-only-roles';
  * Swagger extension key listing M2M scopes accepted by the guard.
  */
 export const SWAGGER_ADMIN_ALLOWED_SCOPES_KEY = 'x-admin-only-scopes';
+
+/**
+ * Human admin roles documented in Swagger for admin-only endpoints.
+ *
+ * Runtime admin detection still accepts legacy `Connect Admin` tokens to
+ * preserve backward compatibility, but the public contract is
+ * `administrator`/`tgadmin` plus the documented M2M scope.
+ */
+const DOCUMENTED_ADMIN_ROLES: UserRole[] = [
+  UserRole.TOPCODER_ADMIN,
+  UserRole.TG_ADMIN,
+];
 
 /**
  * Guard that permits only admin roles or admin-equivalent M2M scope.
@@ -96,9 +110,10 @@ export class AdminOnlyGuard implements CanActivate {
  */
 export const AdminOnly = () =>
   applyDecorators(
+    SetMetadata(ADMIN_ONLY_KEY, true),
     UseGuards(AdminOnlyGuard),
     ApiExtension(SWAGGER_ADMIN_ONLY_KEY, true),
-    ApiExtension(SWAGGER_ADMIN_ALLOWED_ROLES_KEY, ADMIN_ROLES),
+    ApiExtension(SWAGGER_ADMIN_ALLOWED_ROLES_KEY, DOCUMENTED_ADMIN_ROLES),
     ApiExtension(SWAGGER_ADMIN_ALLOWED_SCOPES_KEY, [
       Scope.CONNECT_PROJECT_ADMIN,
     ]),

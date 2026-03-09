@@ -124,6 +124,10 @@ export interface ProjectContext {
    */
   projectMembers: ProjectMember[];
   /**
+   * Whether invites were already loaded for the current `projectId`.
+   */
+  projectInvitesLoaded?: boolean;
+  /**
    * Cached project invites for the current project id.
    */
   projectInvites?: ProjectInvite[];

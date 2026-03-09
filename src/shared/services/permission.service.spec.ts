@@ -273,6 +273,38 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('does not allow unrelated human callers to edit projects based on scopes alone', () => {
+    const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
+      userId: '3001',
+      roles: [UserRole.TC_COPILOT],
+      scopes: [Scope.PROJECTS_WRITE],
+      isMachine: false,
+    });
+
+    expect(allowed).toBe(false);
+  });
+
+  it('allows deleting project for machine token with project write scope', () => {
+    const allowed = service.hasNamedPermission(Permission.DELETE_PROJECT, {
+      scopes: [Scope.PROJECTS_ALL],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows managing copilot requests for machine token with connect-project scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_COPILOT_REQUEST,
+      {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
   it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
     'allows editing project for %s Topcoder role without project membership',
     (role) => {

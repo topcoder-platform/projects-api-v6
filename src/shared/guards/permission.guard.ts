@@ -103,7 +103,10 @@ export class PermissionGuard implements CanActivate {
    * - Skips DB access if no project id or no project-scoped permission exists.
    * - Resets cached context when project id changes.
    * - Loads `projectMember` rows when required and members are not loaded yet.
-   * - Loads `projectMemberInvite` rows when required and invites are not loaded.
+   * - Loads `projectMemberInvite` rows when required and invites are not
+   *   loaded yet.
+   * - Tracks independent `projectMembersLoaded` / `projectInvitesLoaded`
+   *   flags so empty arrays do not suppress the first database load.
    * @todo Member/invite query and mapping logic is duplicated in multiple guards
    * and `ProjectContextInterceptor`; extract a shared `ProjectContextService`.
    */
@@ -142,6 +145,8 @@ export class PermissionGuard implements CanActivate {
       request.projectContext = {
         projectMembers: [],
         projectMembersLoaded: false,
+        projectInvites: [],
+        projectInvitesLoaded: false,
       };
     } else if (
       request.projectContext.projectMembersLoaded === undefined &&
@@ -152,11 +157,21 @@ export class PermissionGuard implements CanActivate {
       request.projectContext.projectMembersLoaded = true;
     }
 
+    if (
+      request.projectContext.projectInvitesLoaded === undefined &&
+      request.projectContext.projectId === normalizedProjectId &&
+      Array.isArray(request.projectContext.projectInvites)
+    ) {
+      // Backward-compatible bridge for context objects that predate the flag.
+      request.projectContext.projectInvitesLoaded = true;
+    }
+
     if (request.projectContext.projectId !== normalizedProjectId) {
       request.projectContext.projectId = normalizedProjectId;
       request.projectContext.projectMembers = [];
       request.projectContext.projectMembersLoaded = false;
       request.projectContext.projectInvites = [];
+      request.projectContext.projectInvitesLoaded = false;
     }
 
     if (
@@ -187,7 +202,7 @@ export class PermissionGuard implements CanActivate {
 
     if (
       requiresProjectInvites &&
-      !Array.isArray(request.projectContext.projectInvites)
+      request.projectContext.projectInvitesLoaded !== true
     ) {
       const projectInvites = await this.prisma.projectMemberInvite.findMany({
         where: {
@@ -208,6 +223,7 @@ export class PermissionGuard implements CanActivate {
         ...invite,
         status: String(invite.status),
       }));
+      request.projectContext.projectInvitesLoaded = true;
     }
 
     return {
