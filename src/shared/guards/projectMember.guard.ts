@@ -20,6 +20,7 @@ import { ProjectMember } from '../interfaces/permission.interface';
 import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { PrismaService } from '../modules/global/prisma.service';
 import { PermissionService } from '../services/permission.service';
+import { parseNumericStringId } from '../utils/service.utils';
 
 /**
  * Metadata key for required project member roles.
@@ -56,6 +57,7 @@ export class ProjectMemberGuard implements CanActivate {
    * Behavior:
    * - Throws `UnauthorizedException` if `user.userId` is missing.
    * - Throws `ForbiddenException` if `projectId` route param is missing.
+   * - Throws `BadRequestException` if `projectId` is not numeric.
    * - Resolves members from request cache or database.
    * - Throws `ForbiddenException('User is not a project member.')` when no
    * matching member exists.
@@ -74,6 +76,7 @@ export class ProjectMemberGuard implements CanActivate {
     if (!projectId) {
       throw new ForbiddenException('projectId route param is required.');
     }
+    const parsedProjectId = parseNumericStringId(projectId, 'Project id');
 
     const requiredRoles =
       this.reflector.getAllAndOverride<ProjectMemberRoleEnum[]>(
@@ -81,7 +84,11 @@ export class ProjectMemberGuard implements CanActivate {
         [context.getHandler(), context.getClass()],
       ) || [];
 
-    const projectMembers = await this.resolveProjectMembers(request, projectId);
+    const projectMembers = await this.resolveProjectMembers(
+      request,
+      projectId,
+      parsedProjectId,
+    );
     const member = projectMembers.find(
       (projectMember) =>
         String(projectMember.userId).trim() === String(user.userId).trim(),
@@ -133,6 +140,7 @@ export class ProjectMemberGuard implements CanActivate {
   private async resolveProjectMembers(
     request: AuthenticatedRequest,
     projectId: string,
+    parsedProjectId: bigint,
   ): Promise<ProjectMember[]> {
     if (
       request.projectContext?.projectId === projectId &&
@@ -143,7 +151,7 @@ export class ProjectMemberGuard implements CanActivate {
 
     const projectMembers = await this.prisma.projectMember.findMany({
       where: {
-        projectId: BigInt(projectId),
+        projectId: parsedProjectId,
         deletedAt: null,
       },
       select: {

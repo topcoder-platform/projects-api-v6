@@ -22,6 +22,7 @@ import {
 import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { PrismaService } from '../modules/global/prisma.service';
 import { PermissionService } from '../services/permission.service';
+import { parseNumericStringId } from '../utils/service.utils';
 
 /**
  * Policy guard that evaluates route-level permission requirements.
@@ -47,6 +48,7 @@ export class PermissionGuard implements CanActivate {
    * - Throws `UnauthorizedException` if `request.user` is missing.
    * - Lazily loads project context via `resolveProjectContextIfRequired`.
    * - Evaluates each permission and allows if any match.
+   * - Throws `BadRequestException` when a required `projectId` param is not numeric.
    * - Throws `ForbiddenException('Insufficient permissions')` otherwise.
    *
    * @security Routes without `@RequirePermission()` bypass this guard's checks.
@@ -101,6 +103,7 @@ export class PermissionGuard implements CanActivate {
    *
    * Behavior:
    * - Skips DB access if no project id or no project-scoped permission exists.
+   * - Throws `BadRequestException` when a required `projectId` param is not numeric.
    * - Resets cached context when project id changes.
    * - Loads `projectMember` rows when required and members are not loaded yet.
    * - Loads `projectMemberInvite` rows when required and invites are not
@@ -141,6 +144,11 @@ export class PermissionGuard implements CanActivate {
       };
     }
 
+    const parsedProjectId = parseNumericStringId(
+      normalizedProjectId,
+      'Project id',
+    );
+
     if (!request.projectContext) {
       request.projectContext = {
         projectMembers: [],
@@ -180,7 +188,7 @@ export class PermissionGuard implements CanActivate {
     ) {
       const projectMembers = await this.prisma.projectMember.findMany({
         where: {
-          projectId: BigInt(normalizedProjectId),
+          projectId: parsedProjectId,
           deletedAt: null,
         },
         select: {
@@ -206,7 +214,7 @@ export class PermissionGuard implements CanActivate {
     ) {
       const projectInvites = await this.prisma.projectMemberInvite.findMany({
         where: {
-          projectId: BigInt(normalizedProjectId),
+          projectId: parsedProjectId,
           deletedAt: null,
         },
         select: {

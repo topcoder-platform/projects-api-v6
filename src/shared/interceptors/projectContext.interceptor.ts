@@ -14,6 +14,7 @@ import { Observable } from 'rxjs';
 import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { LoggerService } from '../modules/global/logger.service';
 import { PrismaService } from '../modules/global/prisma.service';
+import { parseNumericStringId } from '../utils/service.utils';
 
 /**
  * Interceptor that preloads and caches project membership context per request.
@@ -38,9 +39,9 @@ export class ProjectContextInterceptor implements NestInterceptor {
    * - Initializes `request.projectContext` if absent.
    * - Short-circuits when no project id is present.
    * - Short-circuits on cache hits where project id already matches.
+   * - Throws `BadRequestException` when `projectId` is present but not numeric.
    * - Queries active project members and maps `role` to plain strings.
    * - On query error, logs a warning and stores `projectMembers = []`.
-   * - Never throws; request processing continues with `next.handle()`.
    *
    * @todo Member query + mapping logic is duplicated in multiple guards.
    * Introduce a shared `ProjectContextService` to centralize loading behavior.
@@ -63,6 +64,8 @@ export class ProjectContextInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    const parsedProjectId = parseNumericStringId(projectId, 'Project id');
+
     if (
       request.projectContext.projectId === projectId &&
       Array.isArray(request.projectContext.projectMembers)
@@ -75,7 +78,7 @@ export class ProjectContextInterceptor implements NestInterceptor {
     try {
       const projectMembers = await this.prisma.projectMember.findMany({
         where: {
-          projectId: BigInt(projectId),
+          projectId: parsedProjectId,
           deletedAt: null,
         },
         select: {

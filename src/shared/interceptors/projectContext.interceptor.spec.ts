@@ -1,4 +1,8 @@
-import { CallHandler, ExecutionContext } from '@nestjs/common';
+import {
+  BadRequestException,
+  CallHandler,
+  ExecutionContext,
+} from '@nestjs/common';
 import { of } from 'rxjs';
 import { ProjectContextInterceptor } from './projectContext.interceptor';
 
@@ -111,5 +115,19 @@ describe('ProjectContextInterceptor', () => {
 
     expect(request.projectContext.projectMembers).toEqual([]);
     expect(request.projectContext.projectId).toBe('1002');
+  });
+
+  it('throws BadRequestException when projectId is not numeric', async () => {
+    const request: any = {
+      params: {
+        projectId: 'abc',
+      },
+    };
+
+    await expect(
+      interceptor.intercept(createExecutionContext(request), next),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
   });
 });

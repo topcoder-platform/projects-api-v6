@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ExecutionContext } from '@nestjs/common/interfaces';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../enums/userRole.enum';
@@ -265,5 +265,34 @@ describe('PermissionGuard', () => {
       ],
     );
     expect(request.projectContext.projectInvitesLoaded).toBe(true);
+  });
+
+  it('throws BadRequestException when a required projectId is not numeric', async () => {
+    reflectorMock.getAllAndOverride.mockReturnValue(['VIEW_PROJECT']);
+    permissionServiceMock.isNamedPermissionRequireProjectMembers.mockReturnValue(
+      true,
+    );
+    permissionServiceMock.isNamedPermissionRequireProjectInvites.mockReturnValue(
+      false,
+    );
+
+    await expect(
+      guard.canActivate(
+        createExecutionContext({
+          user: {
+            userId: '123',
+            isMachine: false,
+          },
+          params: {
+            projectId: 'abc',
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
+    expect(
+      prismaServiceMock.projectMemberInvite.findMany,
+    ).not.toHaveBeenCalled();
   });
 });
