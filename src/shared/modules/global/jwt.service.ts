@@ -389,7 +389,7 @@ export class JwtService implements OnModuleInit {
   }
 
   /**
-   * Extracts token scopes from standard `scope`/`scopes` claims.
+   * Extracts token scopes from supported scope-like claims.
    *
    * @param {JwtPayloadRecord} payload Token payload.
    * @returns {string[]} Normalized list of scopes.

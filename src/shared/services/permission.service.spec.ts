@@ -6,6 +6,24 @@ import { PermissionService } from './permission.service';
 
 describe('PermissionService', () => {
   const m2mServiceMock = {
+    validateMachineToken: jest.fn((payload?: Record<string, unknown>) => {
+      const rawScope =
+        payload?.scope ??
+        payload?.scopes ??
+        payload?.scp ??
+        payload?.permissions;
+      const scopes =
+        typeof rawScope === 'string'
+          ? rawScope.split(/\s+/u).map((scope) => scope.trim().toLowerCase())
+          : Array.isArray(rawScope)
+            ? rawScope.map((scope) => String(scope).trim().toLowerCase())
+            : [];
+
+      return {
+        isMachine: payload?.gty === 'client-credentials' || scopes.length > 0,
+        scopes: scopes.filter((scope) => scope.length > 0),
+      };
+    }),
     hasRequiredScopes: jest.fn(
       (tokenScopes: string[], requiredScopes: string[]) =>
         requiredScopes.some((requiredScope) =>
@@ -347,6 +365,22 @@ describe('PermissionService', () => {
       {
         scopes: [Scope.CONNECT_PROJECT_ADMIN],
         isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows managing copilot requests when machine scope is only present on the raw token payload', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_COPILOT_REQUEST,
+      {
+        scopes: [],
+        isMachine: false,
+        tokenPayload: {
+          gty: 'client-credentials',
+          permissions: [Scope.PROJECTS_ALL],
+        },
       },
     );
 

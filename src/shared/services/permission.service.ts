@@ -55,6 +55,8 @@ export class PermissionService {
       return false;
     }
 
+    const machineContext = this.resolveMachineContext(user);
+
     if (permissionRule.projectRoles && projectMembers) {
       const member = this.getProjectMember(user.userId, projectMembers);
 
@@ -87,7 +89,7 @@ export class PermissionService {
 
     if (permissionRule.scopes) {
       hasScope = this.m2mService.hasRequiredScopes(
-        user.scopes || [],
+        machineContext.scopes,
         permissionRule.scopes,
       );
     }
@@ -149,11 +151,13 @@ export class PermissionService {
       return false;
     }
 
+    const machineContext = this.resolveMachineContext(user);
+    const effectiveScopes = machineContext.scopes;
     const isAuthenticated =
       Boolean(user.userId && String(user.userId).trim().length > 0) ||
       (Array.isArray(user.roles) && user.roles.length > 0) ||
-      (Array.isArray(user.scopes) && user.scopes.length > 0) ||
-      user.isMachine;
+      effectiveScopes.length > 0 ||
+      machineContext.isMachine;
     // TODO: intentionally permissive authentication gate for CREATE_PROJECT; reassess whether any role/scope/machine token should qualify.
 
     // TODO: replace 'topcoder_manager' string literal with UserRole enum value.
@@ -164,11 +168,11 @@ export class PermissionService {
     ]);
     const hasStrictAdminAccess =
       this.hasIntersection(user.roles || [], ADMIN_ROLES) ||
-      this.m2mService.hasRequiredScopes(user.scopes || [], [
+      this.m2mService.hasRequiredScopes(effectiveScopes, [
         Scope.CONNECT_PROJECT_ADMIN,
       ]);
     const hasProjectReadScope = this.m2mService.hasRequiredScopes(
-      user.scopes || [],
+      effectiveScopes,
       [
         Scope.CONNECT_PROJECT_ADMIN,
         Scope.PROJECTS_ALL,
@@ -177,14 +181,14 @@ export class PermissionService {
       ],
     );
     const hasProjectWriteScope = this.m2mService.hasRequiredScopes(
-      user.scopes || [],
+      effectiveScopes,
       [Scope.CONNECT_PROJECT_ADMIN, Scope.PROJECTS_ALL, Scope.PROJECTS_WRITE],
     );
     const hasMachineProjectWriteScope = Boolean(
-      user.isMachine && hasProjectWriteScope,
+      machineContext.isMachine && hasProjectWriteScope,
     );
     const hasProjectMemberReadScope = this.m2mService.hasRequiredScopes(
-      user.scopes || [],
+      effectiveScopes,
       [
         Scope.CONNECT_PROJECT_ADMIN,
         Scope.PROJECT_MEMBERS_ALL,
@@ -192,7 +196,7 @@ export class PermissionService {
       ],
     );
     const hasProjectInviteReadScope = this.m2mService.hasRequiredScopes(
-      user.scopes || [],
+      effectiveScopes,
       [
         Scope.CONNECT_PROJECT_ADMIN,
         Scope.PROJECT_INVITES_ALL,
@@ -200,7 +204,7 @@ export class PermissionService {
       ],
     );
     const hasProjectInviteWriteScope = this.m2mService.hasRequiredScopes(
-      user.scopes || [],
+      effectiveScopes,
       [
         Scope.CONNECT_PROJECT_ADMIN,
         Scope.PROJECT_INVITES_ALL,
@@ -366,7 +370,7 @@ export class PermissionService {
           isManagementMember ||
           this.isCopilot(member?.role) ||
           this.hasProjectBillingTopcoderRole(user) ||
-          this.m2mService.hasRequiredScopes(user.scopes || [], [
+          this.m2mService.hasRequiredScopes(effectiveScopes, [
             Scope.CONNECT_PROJECT_ADMIN,
             Scope.PROJECTS_READ_USER_BILLING_ACCOUNTS,
           ])
@@ -377,7 +381,7 @@ export class PermissionService {
           isManagementMember ||
           this.isCopilot(member?.role) ||
           this.hasProjectBillingTopcoderRole(user) ||
-          this.m2mService.hasRequiredScopes(user.scopes || [], [
+          this.m2mService.hasRequiredScopes(effectiveScopes, [
             Scope.PROJECTS_READ_PROJECT_BILLING_ACCOUNT_DETAILS,
           ])
         );
@@ -589,6 +593,30 @@ export class PermissionService {
     return array2.some((role) =>
       normalizedArray1.has(this.normalizeRole(role)),
     );
+  }
+
+  /**
+   * Resolves machine-token status and effective scopes from the normalized user
+   * and the raw token payload so guard and permission checks stay aligned.
+   *
+   * @param user authenticated JWT user context
+   * @returns machine classification and the scopes to evaluate
+   */
+  private resolveMachineContext(user: JwtUser): {
+    isMachine: boolean;
+    scopes: string[];
+  } {
+    const payloadMachineContext = this.m2mService.validateMachineToken(
+      user.tokenPayload,
+    );
+
+    return {
+      isMachine: Boolean(user.isMachine || payloadMachineContext.isMachine),
+      scopes:
+        Array.isArray(user.scopes) && user.scopes.length > 0
+          ? user.scopes
+          : payloadMachineContext.scopes,
+    };
   }
 
   /**

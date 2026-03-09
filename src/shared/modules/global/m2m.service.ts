@@ -112,7 +112,7 @@ export class M2MService {
   }
 
   /**
-   * Extracts scope claims from token payload.
+   * Extracts scope-like claims from token payload.
    *
    * @param {TokenPayload} payload Decoded token payload.
    * @returns {string[]} Normalized scopes.

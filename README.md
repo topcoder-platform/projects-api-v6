@@ -158,18 +158,20 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
-| `GET` | `/v6/projects/copilots/requests` | JWT | List all copilot requests (admin/PM sees all; others see own) |
-| `GET` | `/v6/projects/:projectId/copilots/requests` | JWT | Project-scoped copilot requests |
-| `GET` | `/v6/projects/copilots/requests/:copilotRequestId` | JWT | Get single copilot request |
-| `POST` | `/v6/projects/:projectId/copilots/requests` | JWT | Create copilot request |
-| `PATCH` | `/v6/projects/copilots/requests/:copilotRequestId` | JWT | Update copilot request |
-| `POST` | `/v6/projects/:projectId/copilots/requests/:copilotRequestId/approve` | JWT | Approve request -> creates opportunity |
+| `GET` | `/v6/projects/copilots/requests` | JWT / M2M | List all copilot requests (admin/PM sees all; others see own) |
+| `GET` | `/v6/projects/:projectId/copilots/requests` | JWT / M2M | Project-scoped copilot requests |
+| `GET` | `/v6/projects/copilots/requests/:copilotRequestId` | JWT / M2M | Get single copilot request |
+| `POST` | `/v6/projects/:projectId/copilots/requests` | JWT / M2M | Create copilot request |
+| `PATCH` | `/v6/projects/copilots/requests/:copilotRequestId` | JWT / M2M | Update copilot request |
+| `POST` | `/v6/projects/:projectId/copilots/requests/:copilotRequestId/approve` | JWT / M2M | Approve request -> creates opportunity |
 | `GET` | `/v6/projects/copilots/opportunities` | **Public** | List copilot opportunities |
 | `GET` | `/v6/projects/copilot/opportunity/:id` | **Public** | Get opportunity details |
 | `POST` | `/v6/projects/copilots/opportunity/:id/apply` | JWT | Apply as copilot |
 | `GET` | `/v6/projects/copilots/opportunity/:id/applications` | JWT | List applications |
 | `POST` | `/v6/projects/copilots/opportunity/:id/assign` | JWT | Assign copilot (triggers member/state transitions) |
 | `DELETE` | `/v6/projects/copilots/opportunity/:id/cancel` | JWT | Cancel opportunity (cascade) |
+
+Copilot request management routes accept M2M tokens with project-write authorization such as `write:projects`, `all:projects`, or `all:connect_project`.
 
 ### Metadata
 

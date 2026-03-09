@@ -74,15 +74,21 @@ describe('Copilot endpoints (e2e)', () => {
 
   const m2mServiceMock = {
     validateMachineToken: jest.fn((payload?: Record<string, unknown>) => {
-      const rawScope = payload?.scope;
+      const rawScope =
+        payload?.scope ??
+        payload?.scopes ??
+        payload?.scp ??
+        payload?.permissions;
       const scopes =
         typeof rawScope === 'string'
-          ? rawScope.split(' ').map((scope) => scope.trim().toLowerCase())
-          : [];
+          ? rawScope.split(/\s+/u).map((scope) => scope.trim().toLowerCase())
+          : Array.isArray(rawScope)
+            ? rawScope.map((scope) => String(scope).trim().toLowerCase())
+            : [];
 
       return {
-        isMachine: payload?.gty === 'client-credentials',
-        scopes,
+        isMachine: payload?.gty === 'client-credentials' || scopes.length > 0,
+        scopes: scopes.filter((scope) => scope.length > 0),
       };
     }),
     hasRequiredScopes: jest.fn(
@@ -478,13 +484,13 @@ describe('Copilot endpoints (e2e)', () => {
       .expect(200);
   });
 
-  it('allows m2m token with connect-project scope to list copilot requests', async () => {
+  it('allows m2m token with all:projects scope to list copilot requests', async () => {
     (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
-      scopes: [Scope.CONNECT_PROJECT_ADMIN],
+      scopes: [Scope.PROJECTS_ALL],
       isMachine: true,
       tokenPayload: {
         gty: 'client-credentials',
-        scope: Scope.CONNECT_PROJECT_ADMIN,
+        permissions: [Scope.PROJECTS_ALL],
       },
     });
 
@@ -494,13 +500,13 @@ describe('Copilot endpoints (e2e)', () => {
       .expect(200);
   });
 
-  it('allows m2m token with connect-project scope to create copilot requests', async () => {
+  it('allows m2m token with all:projects scope to create copilot requests', async () => {
     (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
-      scopes: [Scope.CONNECT_PROJECT_ADMIN],
+      scopes: [Scope.PROJECTS_ALL],
       isMachine: true,
       tokenPayload: {
         gty: 'client-credentials',
-        scope: Scope.CONNECT_PROJECT_ADMIN,
+        permissions: [Scope.PROJECTS_ALL],
       },
     });
 
