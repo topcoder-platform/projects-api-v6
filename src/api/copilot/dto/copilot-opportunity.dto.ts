@@ -16,8 +16,17 @@ import { CopilotSkillDto } from './copilot-request.dto';
  */
 
 /**
+ * Minimal project metadata included in admin/manager opportunity responses.
+ */
+export class CopilotOpportunityProjectDto {
+  @ApiProperty()
+  name: string;
+}
+
+/**
  * Flattened response merging opportunity fields with request data.
  * canApplyAsCopilot indicates whether the current user is eligible to apply.
+ * Admin/manager callers also receive minimal nested project metadata.
  */
 export class CopilotOpportunityResponseDto {
   @ApiProperty()
@@ -94,6 +103,9 @@ export class CopilotOpportunityResponseDto {
 
   @ApiPropertyOptional({ type: [String] })
   members?: string[];
+
+  @ApiPropertyOptional({ type: () => CopilotOpportunityProjectDto })
+  project?: CopilotOpportunityProjectDto;
 }
 
 /**

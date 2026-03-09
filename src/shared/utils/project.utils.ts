@@ -43,6 +43,52 @@ function normalize(value: string): string {
 }
 
 /**
+ * Removes wrapper quotes that some clients add around keyword searches.
+ *
+ * Preserves inner quotes and returns a trimmed string.
+ */
+function normalizeKeywordSearchText(value: string): string {
+  const trimmed = value.trim();
+
+  if (trimmed.length < 2) {
+    return trimmed;
+  }
+
+  const startsWithDoubleQuote = trimmed.startsWith('"');
+  const endsWithDoubleQuote = trimmed.endsWith('"');
+  const startsWithSingleQuote = trimmed.startsWith("'");
+  const endsWithSingleQuote = trimmed.endsWith("'");
+
+  if (
+    (startsWithDoubleQuote && endsWithDoubleQuote) ||
+    (startsWithSingleQuote && endsWithSingleQuote)
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+
+  return trimmed;
+}
+
+/**
+ * Converts free-form keyword input into a safe PostgreSQL tsquery string.
+ *
+ * Prisma forwards `search` clauses to PostgreSQL full-text search, which will
+ * raise syntax errors for raw user input containing spaces or tsquery
+ * operators. This helper tokenizes the input and joins the terms with `&` so
+ * searches remain valid while still matching all words.
+ */
+function buildFullTextSearchQuery(value: string): string | undefined {
+  const normalizedKeyword = normalizeKeywordSearchText(value);
+  const tokens = normalizedKeyword.match(/[\p{L}\p{N}]+/gu) ?? [];
+
+  if (tokens.length === 0) {
+    return undefined;
+  }
+
+  return tokens.join(' & ');
+}
+
+/**
  * Normalizes user ids to trimmed string form.
  *
  * @todo Duplicate helper exists in other shared modules (including
@@ -250,8 +296,8 @@ export function parseFieldsParameter(fields?: string): ParsedProjectFields {
  * - `id`, `status`, `billingAccountId`, `type`: exact or multi-value `in`.
  * - `name`: case-insensitive contains match.
  * - `directProjectId`: exact bigint match.
- * - `keyword`: full-text search (`search`) plus case-insensitive contains on
- * name and description.
+ * - `keyword`: normalized text search across name/description using safe
+ * full-text terms plus case-insensitive contains matching.
  * - `code`: case-insensitive contains on name.
  * - `customer` / `manager`: member-subquery constraints.
  * - non-admin or `memberOnly=true`: restrict to membership/invite ownership.
@@ -333,34 +379,42 @@ export function buildProjectWhereClause(
   }
 
   if (criteria.keyword) {
-    const keyword = criteria.keyword.trim();
+    const keyword = normalizeKeywordSearchText(criteria.keyword);
+    const fullTextSearchQuery = buildFullTextSearchQuery(criteria.keyword);
 
     if (keyword.length > 0) {
+      const orConditions: Prisma.ProjectWhereInput[] = [
+        {
+          name: {
+            contains: keyword,
+            mode: 'insensitive',
+          },
+        },
+        {
+          description: {
+            contains: keyword,
+            mode: 'insensitive',
+          },
+        },
+      ];
+
+      if (fullTextSearchQuery) {
+        orConditions.unshift(
+          {
+            name: {
+              search: fullTextSearchQuery,
+            },
+          },
+          {
+            description: {
+              search: fullTextSearchQuery,
+            },
+          },
+        );
+      }
+
       appendAndCondition(where, {
-        OR: [
-          {
-            name: {
-              search: keyword,
-            },
-          },
-          {
-            description: {
-              search: keyword,
-            },
-          },
-          {
-            name: {
-              contains: keyword,
-              mode: 'insensitive',
-            },
-          },
-          {
-            description: {
-              contains: keyword,
-              mode: 'insensitive',
-            },
-          },
-        ],
+        OR: orConditions,
       });
     }
   }

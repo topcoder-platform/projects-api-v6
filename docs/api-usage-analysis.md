@@ -95,7 +95,7 @@
 | PATCH | `/v5/projects/copilots/requests/:copilotRequestId` | `platform-ui` | none | `{data:{...partial editable fields...}}` | Updated request object |
 | POST | `/v5/projects/:projectId/copilots/requests/:copilotRequestId/approve` | `platform-ui` | none | `{type}` | Created copilot opportunity object |
 | GET | `/v5/projects/copilots/opportunities` | `platform-ui`, `community-app` | `page`, `pageSize`, `sort`; `community-app` also sends `noGrouping=true` | none | Opportunity list derived from request `data`; public endpoint |
-| GET | `/v5/projects/copilot/opportunity/:id` | `platform-ui` | none | none | Single opportunity details; includes flattened request fields, plus `members` and `canApplyAsCopilot` |
+| GET | `/v5/projects/copilot/opportunity/:id` | `platform-ui` | none | none | Single opportunity details; includes flattened request fields, plus `members`, `canApplyAsCopilot`, and admin/manager-only `project` metadata |
 | POST | `/v5/projects/copilots/opportunity/:id/apply` | `platform-ui` | none | `{notes}` | Created (or existing) copilot application object |
 | GET | `/v5/projects/copilots/opportunity/:id/applications` | `platform-ui` | Optional `sort` | none | For admin/PM: full applications (`id,userId,status,notes,existingMembership,...`); for non-admin: reduced fields (`userId,status,createdAt`) |
 | POST | `/v5/projects/copilots/opportunity/:id/assign` | `platform-ui` | none | `{applicationId: string}` | `{id: applicationId}` and side effects (member/requests/opportunity state transitions) |

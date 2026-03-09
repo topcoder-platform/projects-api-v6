@@ -119,7 +119,8 @@ export class ProjectListQueryDto extends PaginationDto {
   memberOnly?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Keyword for text search over name/description',
+    description:
+      'Keyword for text search over name/description; accepts plain text and quoted phrases.',
   })
   @IsOptional()
   @IsString()

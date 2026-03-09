@@ -82,6 +82,7 @@ export class CopilotOpportunityService {
    * Lists opportunities with pagination and status-priority grouping.
    * Uses a two-phase fetch: opportunities first, then membership lookup to compute canApplyAsCopilot.
    * Default ordering groups by status priority active -> canceled -> completed unless noGrouping is true.
+   * Admin/manager responses also include minimal project metadata for v5 compatibility.
    *
    * @param query Pagination, sort, and noGrouping parameters.
    * @param user Authenticated JWT user.
@@ -156,6 +157,7 @@ export class CopilotOpportunityService {
   /**
    * Returns a single opportunity with eligibility context.
    * canApplyAsCopilot is true when the user is not already a member of the project.
+   * Admin/manager responses also include minimal project metadata for v5 compatibility.
    *
    * @param opportunityId Opportunity id path value.
    * @param user Authenticated JWT user.
@@ -169,6 +171,7 @@ export class CopilotOpportunityService {
   ): Promise<CopilotOpportunityResponseDto> {
     // TODO [SECURITY]: No permission check is applied; any authenticated user can access any opportunity by id.
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
+    const includeProject = isAdminOrManager(user);
 
     const opportunity = await this.prisma.copilotOpportunity.findFirst({
       where: {
@@ -213,7 +216,7 @@ export class CopilotOpportunityService {
       opportunity,
       canApplyAsCopilot,
       members,
-      isAdminOrManager(user),
+      includeProject,
     );
   }
 
@@ -521,14 +524,14 @@ export class CopilotOpportunityService {
    * @param input Opportunity row with relations.
    * @param canApplyAsCopilot Whether caller can apply.
    * @param members Optional member userId list.
-   * @param includeProjectId Whether to include projectId in response.
+   * @param includeProjectDetails Whether to include admin/manager project metadata.
    * @returns Formatted opportunity response.
    */
   private formatOpportunity(
     input: OpportunityWithRelations,
     canApplyAsCopilot: boolean,
     members: string[] | undefined,
-    includeProjectId: boolean,
+    includeProjectDetails: boolean,
   ): CopilotOpportunityResponseDto {
     const normalized = normalizeEntity(input) as Record<string, any>;
     const requestData = getCopilotRequestData(
@@ -549,8 +552,26 @@ export class CopilotOpportunityService {
       ...requestData,
     };
 
-    if (includeProjectId && normalized.projectId) {
-      response.projectId = String(normalized.projectId);
+    const projectId =
+      normalized.projectId !== undefined && normalized.projectId !== null
+        ? String(normalized.projectId)
+        : normalized.project?.id !== undefined &&
+            normalized.project?.id !== null
+          ? String(normalized.project.id)
+          : undefined;
+
+    if (includeProjectDetails && projectId) {
+      response.projectId = projectId;
+    }
+
+    if (
+      includeProjectDetails &&
+      projectId &&
+      typeof normalized.project?.name === 'string'
+    ) {
+      response.project = {
+        name: normalized.project.name,
+      };
     }
 
     return response;

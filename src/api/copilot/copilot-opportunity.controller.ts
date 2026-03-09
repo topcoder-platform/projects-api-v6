@@ -69,7 +69,7 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'List copilot opportunities',
     description:
-      'Lists available copilot opportunities. This endpoint is accessible to authenticated users, including copilots.',
+      'Lists available copilot opportunities. This endpoint is accessible to authenticated users, including copilots. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
@@ -119,7 +119,7 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'Get copilot opportunity',
     description:
-      'Returns one copilot opportunity with flattened request data and apply eligibility context for /projects/copilots/opportunity/:id.',
+      'Returns one copilot opportunity with flattened request data and apply eligibility context for /projects/copilots/opportunity/:id. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
   })
   @ApiParam({ name: 'id', required: true, type: String })
   @ApiResponse({ status: 200, type: CopilotOpportunityResponseDto })
