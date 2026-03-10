@@ -820,12 +820,14 @@ export class ProjectMemberService {
    * Resolves the target project-member user id from request payload state.
    *
    * Defaults to the authenticated actor when `dto.userId` is omitted, and
-   * rejects provided values that are not numeric.
+   * rejects provided values that are not numeric or exceed the supported
+   * signed 64-bit bigint range.
    *
    * @param userId Raw `CreateMemberDto.userId` payload value.
    * @param actorUserId Authenticated caller id used as the default target.
    * @returns Normalized target user id string.
-   * @throws {BadRequestException} If a provided `userId` is not numeric.
+   * @throws {BadRequestException} If a provided `userId` is not numeric or is
+   * outside the supported bigint range.
    */
   private resolveTargetUserId(
     userId: CreateMemberDto['userId'] | string | bigint | null | undefined,

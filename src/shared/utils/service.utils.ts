@@ -15,6 +15,8 @@ import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { hasAdminRole } from 'src/shared/utils/permission.utils';
 
+const MAX_SIGNED_BIGINT_ID = 9223372036854775807n;
+
 /**
  * Parses an id using `BigInt(...)` semantics and throws on invalid input.
  */
@@ -28,6 +30,9 @@ export function parseBigIntId(value: string, entityName: string): bigint {
 
 /**
  * Parses a strictly numeric-string id (`/^[0-9]+$/`) as bigint.
+ *
+ * Rejects values that exceed the signed 64-bit bigint range supported by the
+ * backing database schema.
  */
 export function parseNumericStringId(value: string, fieldName: string): bigint {
   const normalized = String(value || '').trim();
@@ -36,7 +41,15 @@ export function parseNumericStringId(value: string, fieldName: string): bigint {
     throw new BadRequestException(`${fieldName} must be a numeric string.`);
   }
 
-  return BigInt(normalized);
+  const parsed = BigInt(normalized);
+
+  if (parsed > MAX_SIGNED_BIGINT_ID) {
+    throw new BadRequestException(
+      `${fieldName} must be less than or equal to ${MAX_SIGNED_BIGINT_ID.toString()}.`,
+    );
+  }
+
+  return parsed;
 }
 
 /**

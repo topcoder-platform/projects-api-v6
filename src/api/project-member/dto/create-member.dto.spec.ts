@@ -14,13 +14,32 @@ describe('CreateMemberDto', () => {
     ).toThrow(BadRequestException);
   });
 
-  it('accepts numeric-string user ids', () => {
+  it('accepts numeric-string user ids without coercing them to numbers', () => {
     const dto = plainToInstance(CreateMemberDto, {
       userId: '456',
       role: ProjectMemberRole.customer,
     });
 
-    expect(dto.userId).toBe(456);
+    expect(dto.userId).toBe('456');
     expect(validateSync(dto)).toEqual([]);
+  });
+
+  it('preserves numeric-string user ids above Number.MAX_SAFE_INTEGER', () => {
+    const dto = plainToInstance(CreateMemberDto, {
+      userId: '9007199254740993',
+      role: ProjectMemberRole.customer,
+    });
+
+    expect(dto.userId).toBe('9007199254740993');
+    expect(validateSync(dto)).toEqual([]);
+  });
+
+  it('rejects user ids outside the supported bigint range', () => {
+    expect(() =>
+      plainToInstance(CreateMemberDto, {
+        userId: '9223372036854775808',
+        role: ProjectMemberRole.customer,
+      }),
+    ).toThrow(BadRequestException);
   });
 });

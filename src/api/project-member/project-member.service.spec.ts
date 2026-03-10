@@ -151,7 +151,7 @@ describe('ProjectMemberService', () => {
     await service.addMember(
       '1001',
       {
-        userId: 456,
+        userId: '456',
         role: ProjectMemberRole.customer,
       },
       {
@@ -182,7 +182,28 @@ describe('ProjectMemberService', () => {
       service.addMember(
         '1001',
         {
-          userId: 'invalid' as unknown as number,
+          userId: 'invalid' as unknown as string,
+          role: ProjectMemberRole.customer,
+        },
+        {
+          userId: '123',
+          roles: ['Topcoder User'],
+          isMachine: false,
+        },
+        undefined,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaMock.project.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects out-of-range target user ids before querying the project', async () => {
+    await expect(
+      service.addMember(
+        '1001',
+        {
+          userId: '10000000000000011111',
           role: ProjectMemberRole.customer,
         },
         {
