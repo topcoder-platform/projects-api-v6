@@ -13,7 +13,7 @@ ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
 WORKDIR /app
 COPY --chown=node:node . .
 RUN npm install pnpm -g
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 RUN pnpm run build
 RUN chmod +x appStartUp.sh
 
