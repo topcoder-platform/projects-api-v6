@@ -240,6 +240,66 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows creating other project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows updating project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting topcoder project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_MEMBER_TOPCODER,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting customer project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_MEMBER_CUSTOMER,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting copilot project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_MEMBER_COPILOT,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
   it('allows reading other users project invites for machine token with invite read scope', () => {
     const allowed = service.hasNamedPermission(
       Permission.READ_PROJECT_INVITE_NOT_OWN,

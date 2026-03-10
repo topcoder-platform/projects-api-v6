@@ -195,6 +195,14 @@ export class PermissionService {
         Scope.PROJECT_MEMBERS_READ,
       ],
     );
+    const hasProjectMemberWriteScope = this.m2mService.hasRequiredScopes(
+      effectiveScopes,
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_MEMBERS_ALL,
+        Scope.PROJECT_MEMBERS_WRITE,
+      ],
+    );
     const hasProjectInviteReadScope = this.m2mService.hasRequiredScopes(
       effectiveScopes,
       [
@@ -288,17 +296,23 @@ export class PermissionService {
       case NamedPermission.CREATE_PROJECT_MEMBER_NOT_OWN:
       case NamedPermission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER:
       case NamedPermission.DELETE_PROJECT_MEMBER_TOPCODER:
-        return isAdmin || isManagementMember;
+        return isAdmin || isManagementMember || hasProjectMemberWriteScope;
 
       case NamedPermission.DELETE_PROJECT_MEMBER_CUSTOMER:
-        return isAdmin || isManagementMember || this.isCopilot(member?.role);
+        return (
+          isAdmin ||
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          hasProjectMemberWriteScope
+        );
 
       case NamedPermission.DELETE_PROJECT_MEMBER_COPILOT:
         return (
           isAdmin ||
           isManagementMember ||
           this.isCopilot(member?.role) ||
-          this.hasCopilotManagerRole(user)
+          this.hasCopilotManagerRole(user) ||
+          hasProjectMemberWriteScope
         );
 
       // Project invite read/write permissions.
