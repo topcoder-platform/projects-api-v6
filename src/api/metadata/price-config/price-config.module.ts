@@ -5,6 +5,11 @@ import { PriceConfigRevisionController } from './price-config-revision.controlle
 import { PriceConfigVersionController } from './price-config-version.controller';
 import { PriceConfigService } from './price-config.service';
 
+/**
+ * Registers price config controllers and service, and exports
+ * `PriceConfigService` for consumers that validate and resolve price config
+ * references.
+ */
 @Module({
   imports: [GlobalProvidersModule],
   controllers: [

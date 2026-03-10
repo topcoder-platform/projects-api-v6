@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +17,13 @@ import {
   parseBigIntParam,
   toSerializable,
 } from '../utils/metadata-utils';
+import {
+  getStoredReference as getStoredReferenceValue,
+  handleMetadataServiceError,
+  mergeJson as mergeJsonValue,
+  toNullableJson as toNullableJsonValue,
+  toRecord as toRecordValue,
+} from '../utils/metadata-template.utils';
 import { validateFormReference } from '../utils/metadata-validation.utils';
 import { FormService } from '../form/form.service';
 import { CreateProductTemplateDto } from './dto/create-product-template.dto';
@@ -26,6 +32,12 @@ import { UpdateProductTemplateDto } from './dto/update-product-template.dto';
 import { UpgradeProductTemplateDto } from './dto/upgrade-product-template.dto';
 
 @Injectable()
+/**
+ * Manages product templates used for work products within a project.
+ *
+ * Supports both legacy inline `template` JSON and modern versioned `form`
+ * references. The `upgrade` operation migrates legacy templates.
+ */
 export class ProductTemplateService {
   constructor(
     private readonly prisma: PrismaService,
@@ -34,6 +46,9 @@ export class ProductTemplateService {
     private readonly formService: FormService,
   ) {}
 
+  /**
+   * Lists product templates, optionally including disabled entries.
+   */
   async findAll(
     includeDisabled = false,
   ): Promise<ProductTemplateResponseDto[]> {
@@ -48,6 +63,9 @@ export class ProductTemplateService {
     return Promise.all(records.map((record) => this.toDto(record, false)));
   }
 
+  /**
+   * Loads one product template by id.
+   */
   async findOne(id: bigint): Promise<ProductTemplateResponseDto> {
     const template = await this.prisma.productTemplate.findFirst({
       where: {
@@ -65,6 +83,9 @@ export class ProductTemplateService {
     return this.toDto(template, true);
   }
 
+  /**
+   * Creates a product template and validates the optional form reference.
+   */
   async create(
     dto: CreateProductTemplateDto,
     userId: bigint,
@@ -109,6 +130,9 @@ export class ProductTemplateService {
     }
   }
 
+  /**
+   * Updates a product template and validates the optional form reference.
+   */
   async update(
     id: bigint,
     dto: UpdateProductTemplateDto,
@@ -198,6 +222,9 @@ export class ProductTemplateService {
     }
   }
 
+  /**
+   * Soft deletes a product template.
+   */
   async delete(id: bigint, userId: bigint): Promise<void> {
     try {
       const existing = await this.prisma.productTemplate.findFirst({
@@ -240,6 +267,9 @@ export class ProductTemplateService {
     }
   }
 
+  /**
+   * Upgrades a legacy product template to use a versioned form reference.
+   */
   async upgrade(
     id: bigint,
     dto: UpgradeProductTemplateDto,
@@ -315,6 +345,9 @@ export class ProductTemplateService {
     }
   }
 
+  /**
+   * Maps Prisma records to API DTOs and optionally resolves full form details.
+   */
   private async toDto(
     template: ProductTemplate,
     resolveForm: boolean,
@@ -348,6 +381,9 @@ export class ProductTemplateService {
     };
   }
 
+  /**
+   * Resolves the stored form reference into the latest matching form record.
+   */
   private async resolveFormReference(
     value: Prisma.JsonValue | null,
   ): Promise<Record<string, unknown> | null> {
@@ -385,6 +421,9 @@ export class ProductTemplateService {
       : null;
   }
 
+  /**
+   * Converts optional values to a Prisma nullable JSON payload.
+   */
   private toNullableJson(
     value:
       | Record<string, unknown>
@@ -392,51 +431,40 @@ export class ProductTemplateService {
       | null
       | undefined,
   ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
-    if (typeof value === 'undefined') {
-      return undefined;
-    }
-
-    if (value === null) {
-      return Prisma.JsonNull;
-    }
-
-    return value as Prisma.InputJsonValue;
+    return toNullableJsonValue(value);
   }
 
+  /**
+   * Reads and normalizes a stored form reference from JSON.
+   */
   private getStoredFormReference(
     value: Prisma.JsonValue | null,
   ): MetadataVersionReference | null {
-    try {
-      return normalizeMetadataReference(value, 'form');
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        return null;
-      }
-      throw error;
-    }
+    return getStoredReferenceValue(value, 'form');
   }
 
+  /**
+   * Converts JSON values to plain object maps when possible.
+   */
   private toRecord(
     value: Prisma.JsonValue | null,
   ): Record<string, unknown> | null {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return null;
-    }
-
-    return value as Record<string, unknown>;
+    return toRecordValue(value);
   }
 
+  /**
+   * Merges incoming JSON fields over existing object values.
+   */
   private mergeJson(
     current: Prisma.JsonValue | null,
     next: Record<string, unknown>,
   ): Record<string, unknown> {
-    const currentRecord = this.toRecord(current);
-    return {
-      ...(currentRecord || {}),
-      ...next,
-    };
+    return mergeJsonValue(current, next);
   }
 
+  /**
+   * Validates mutually exclusive legacy and versioned config fields.
+   */
   private validateTemplateConfigConstraints(
     dto: CreateProductTemplateDto | UpdateProductTemplateDto,
   ): void {
@@ -447,15 +475,22 @@ export class ProductTemplateService {
     }
   }
 
+  /**
+   * Parses a template id route parameter.
+   */
   parseTemplateId(templateId: string): bigint {
     return parseBigIntParam(templateId, 'templateId');
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates unexpected errors to
+   * PrismaErrorService.
+   */
   private handleError(error: unknown, operation: string): never {
-    if (error instanceof HttpException) {
-      throw error;
-    }
-
-    this.prismaErrorService.handleError(error, operation);
+    return handleMetadataServiceError(
+      error,
+      operation,
+      this.prismaErrorService,
+    );
   }
 }

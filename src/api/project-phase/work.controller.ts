@@ -21,11 +21,11 @@ import {
 } from '@nestjs/swagger';
 import { WorkStreamService } from 'src/api/workstream/workstream.service';
 import { Permission } from 'src/shared/constants/permissions';
+import { WORK_LAYER_ALLOWED_ROLES } from 'src/shared/constants/roles';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
 import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
@@ -35,28 +35,36 @@ import { PhaseResponseDto } from './dto/phase-response.dto';
 import { UpdatePhaseDto } from './dto/update-phase.dto';
 import { ProjectPhaseService } from './project-phase.service';
 
-const WORK_ALLOWED_ROLES = [
-  UserRole.TOPCODER_ADMIN,
-  UserRole.CONNECT_ADMIN,
-  UserRole.TG_ADMIN,
-  UserRole.MANAGER,
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-  UserRole.COPILOT_MANAGER,
-];
-
 @ApiTags('Work')
 @ApiBearerAuth()
 @Controller('/projects/:projectId/workstreams/:workStreamId/works')
+/**
+ * Alias REST controller exposing project phases as "works" under
+ * `/projects/:projectId/workstreams/:workStreamId/works`. Used by the
+ * platform-ui Work app. Delegates all business logic to `ProjectPhaseService`;
+ * uses `WorkStreamService` to validate work-stream membership before each
+ * operation.
+ */
 export class WorkController {
   constructor(
     private readonly projectPhaseService: ProjectPhaseService,
     private readonly workStreamService: WorkStreamService,
   ) {}
 
+  /**
+   * Validates the work stream exists, resolves linked phase ids, then delegates
+   * phase listing to `ProjectPhaseService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param query - Work list query parameters.
+   * @param user - Authenticated user.
+   * @returns Array of work DTOs.
+   * @throws {NotFoundException} When work stream is missing.
+   */
   @Get()
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -108,9 +116,20 @@ export class WorkController {
     });
   }
 
+  /**
+   * Validates work-stream linkage for the phase id, then delegates retrieval to
+   * `ProjectPhaseService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param id - Work id (phase id).
+   * @param user - Authenticated user.
+   * @returns One work DTO.
+   * @throws {NotFoundException} When work stream is missing or work is not linked.
+   */
   @Get(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(
     Scope.PROJECTS_READ,
     Scope.PROJECTS_WRITE,
@@ -151,9 +170,20 @@ export class WorkController {
     return this.projectPhaseService.getPhase(projectId, id, user);
   }
 
+  /**
+   * Validates the work stream, creates a phase as a work, then creates a
+   * `phase_work_streams` link via `WorkStreamService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param dto - Work create payload.
+   * @param user - Authenticated user.
+   * @returns Created work DTO.
+   * @throws {NotFoundException} When the work stream does not exist.
+   */
   @Post()
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORK_CREATE)
   @ApiOperation({
@@ -195,9 +225,21 @@ export class WorkController {
     return created;
   }
 
+  /**
+   * Validates that the work belongs to the work stream, then delegates update
+   * to `ProjectPhaseService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param id - Work id (phase id).
+   * @param dto - Work update payload.
+   * @param user - Authenticated user.
+   * @returns Updated work DTO.
+   * @throws {NotFoundException} When work stream is missing or work is not linked.
+   */
   @Patch(':id')
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORK_EDIT)
   @ApiOperation({
@@ -235,10 +277,21 @@ export class WorkController {
     return this.projectPhaseService.updatePhase(projectId, id, dto, user);
   }
 
+  /**
+   * Validates work-stream linkage, then delegates soft deletion to
+   * `ProjectPhaseService`.
+   *
+   * @param projectId - Project id from the route.
+   * @param workStreamId - Work stream id from the route.
+   * @param id - Work id (phase id).
+   * @param user - Authenticated user.
+   * @returns Nothing.
+   * @throws {NotFoundException} When work stream is missing or work is not linked.
+   */
   @Delete(':id')
   @HttpCode(204)
   @UseGuards(PermissionGuard)
-  @Roles(...WORK_ALLOWED_ROLES)
+  @Roles(...WORK_LAYER_ALLOWED_ROLES)
   @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
   @RequirePermission(Permission.WORK_DELETE)
   @ApiOperation({

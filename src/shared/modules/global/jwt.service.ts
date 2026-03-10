@@ -5,24 +5,67 @@ import {
 } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
+import { extractScopesFromPayload } from 'src/shared/utils/scope.utils';
 import { LoggerService } from './logger.service';
 
+/**
+ * JWT validation service.
+ *
+ * Implements a dual-path token validation strategy:
+ * 1) legacy tc-core middleware validation, then
+ * 2) JWKS-backed Auth0/JWT validation fallback.
+ *
+ * Runtime behavior is environment-dependent and includes non-production
+ * shortcuts that should not be used in internet-accessible environments.
+ */
 // tc-core-library-js is CommonJS-only.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const tcCore = require('tc-core-library-js');
 
 type JwtPayloadRecord = Record<string, unknown>;
 
+/**
+ * Authenticated user model derived from JWT payload data.
+ */
 export interface JwtUser {
+  /**
+   * Primary user identifier when present.
+   *
+   * Expected to be a numeric string parseable by `BigInt` (for example from
+   * `userId`/`sub` claims). Extraction prefers numeric identifiers and falls
+   * back to other identifier claims when necessary.
+   */
   userId?: string;
+  /**
+   * User email extracted from token claims.
+   */
+  email?: string;
+  /**
+   * Topcoder handle extracted from token claims.
+   */
   handle?: string;
+  /**
+   * Role names extracted from token claims.
+   */
   roles?: string[];
+  /**
+   * Token scopes in normalized list form.
+   */
   scopes?: string[];
+  /**
+   * Indicates whether the token appears to be a machine-to-machine token.
+   */
   isMachine: boolean;
+  /**
+   * Raw token payload used for downstream claim access.
+   */
   tokenPayload?: JwtPayloadRecord;
 }
 
 @Injectable()
+/**
+ * Service that validates and parses JWT tokens into a normalized `JwtUser`.
+ */
 export class JwtService implements OnModuleInit {
   private readonly logger = LoggerService.forRoot('JwtService');
   private readonly jwksClients = new Map<string, jwksClient.JwksClient>();
@@ -30,9 +73,16 @@ export class JwtService implements OnModuleInit {
   private readonly audience = process.env.AUTH0_AUDIENCE;
   private jwtAuthenticator: any;
 
+  /**
+   * Initializes the optional tc-core JWT authenticator.
+   *
+   * If `AUTH_SECRET` is absent, tc-core validation is skipped and only the JWKS
+   * fallback path can validate tokens.
+   */
   onModuleInit(): void {
     if (tcCore?.middleware?.jwtAuthenticator) {
       if (!process.env.AUTH_SECRET) {
+        // TODO (security): Absence of AUTH_SECRET only logs a warning and disables tc-core validation. The service continues to start. Ensure the JWKS fallback path is always configured in production when AUTH_SECRET is omitted.
         this.logger.warn(
           'AUTH_SECRET is not configured. tc-core JWT validator disabled.',
         );
@@ -52,6 +102,15 @@ export class JwtService implements OnModuleInit {
     }
   }
 
+  /**
+   * Validates an incoming JWT and builds a normalized user model.
+   *
+   * Accepts either a raw JWT string or a `Bearer ` prefixed token.
+   *
+   * @param {string} rawToken Raw token or Bearer token value.
+   * @returns {Promise<JwtUser>} Parsed authenticated user data.
+   * @throws {UnauthorizedException} When token validation fails.
+   */
   async validateToken(rawToken: string): Promise<JwtUser> {
     const token = this.normalizeToken(rawToken);
 
@@ -63,6 +122,15 @@ export class JwtService implements OnModuleInit {
     return this.buildJwtUser(payload);
   }
 
+  /**
+   * Normalizes a raw Authorization header/token value.
+   *
+   * Removes a leading `Bearer ` prefix and trims whitespace.
+   *
+   * @param {string} token Raw token value.
+   * @returns {string} Normalized token string.
+   * @throws {UnauthorizedException} When token is empty after normalization.
+   */
   private normalizeToken(token: string): string {
     const normalized = token.startsWith('Bearer ')
       ? token.slice('Bearer '.length)
@@ -75,6 +143,13 @@ export class JwtService implements OnModuleInit {
     return normalized.trim();
   }
 
+  /**
+   * Validates a token using tc-core's Express-style middleware wrapper.
+   *
+   * @param {string} token Normalized token.
+   * @returns {Promise<JwtPayloadRecord | null>} Decoded payload or null when tc-core validation is unavailable.
+   * @throws {UnauthorizedException} In production when tc-core validation fails.
+   */
   private async validateWithTcCore(
     token: string,
   ): Promise<JwtPayloadRecord | null> {
@@ -125,6 +200,7 @@ export class JwtService implements OnModuleInit {
         throw new UnauthorizedException('Invalid token');
       }
 
+      // TODO (security): In non-production, a tc-core validation failure is swallowed and returns null, causing fallthrough to validateWithJwt which skips signature verification. This means any structurally valid JWT is accepted in non-production. Ensure non-production environments are never internet-accessible.
       this.logger.warn(
         `tc-core token validation fallback used: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -133,6 +209,13 @@ export class JwtService implements OnModuleInit {
     }
   }
 
+  /**
+   * Validates a token using JWT parsing and, in production, JWKS signature checks.
+   *
+   * @param {string} token Normalized token.
+   * @returns {Promise<JwtPayloadRecord>} Verified JWT payload.
+   * @throws {UnauthorizedException} When token structure is invalid, issuer/keyId is missing, signing key cannot be fetched, or signature verification fails.
+   */
   private async validateWithJwt(token: string): Promise<JwtPayloadRecord> {
     const decoded = jwt.decode(token, { complete: true }) as
       | (jwt.Jwt & { payload?: jwt.JwtPayload | string })
@@ -149,6 +232,7 @@ export class JwtService implements OnModuleInit {
     const payload = decoded.payload as JwtPayloadRecord;
 
     if (process.env.NODE_ENV !== 'production') {
+      // TODO (security): CRITICAL - JWT signature verification is skipped entirely in non-production (NODE_ENV !== 'production'). Any token with a valid structure will be accepted. This must never reach a publicly accessible environment.
       return payload;
     }
 
@@ -176,6 +260,16 @@ export class JwtService implements OnModuleInit {
     return verifiedPayload as JwtPayloadRecord;
   }
 
+  /**
+   * Resolves the JWT signing key from issuer JWKS data.
+   *
+   * Lazily initializes and caches one JWKS client per issuer.
+   *
+   * @param {string} issuer Token issuer URL.
+   * @param {string} keyId JWT key identifier (`kid`).
+   * @returns {Promise<jwt.Secret>} Public key used for signature verification.
+   * @throws {UnauthorizedException} When the JWKS client cannot be initialized or key lookup fails.
+   */
   private getSigningKey(issuer: string, keyId: string): Promise<jwt.Secret> {
     const normalizedIssuer = issuer.replace(/\/$/, '');
 
@@ -215,6 +309,16 @@ export class JwtService implements OnModuleInit {
     });
   }
 
+  /**
+   * Builds a normalized `JwtUser` model from token payload claims.
+   *
+   * Uses a two-pass extraction strategy:
+   * 1) direct known-claim extraction for standard fields
+   * 2) suffix-based fallback scanning for alternate claim names
+   *
+   * @param {JwtPayloadRecord} payload Decoded JWT payload.
+   * @returns {JwtUser} Parsed user and machine-token metadata.
+   */
   private buildJwtUser(payload: JwtPayloadRecord): JwtUser {
     const user: JwtUser = {
       isMachine: false,
@@ -231,17 +335,6 @@ export class JwtService implements OnModuleInit {
     if (userId) {
       user.userId = userId;
     }
-
-    const handle = this.extractString(payload, ['handle']);
-    if (handle) {
-      user.handle = handle;
-    }
-
-    const roles = this.extractRoles(payload);
-    if (roles.length > 0) {
-      user.roles = roles;
-    }
-
     for (const key of Object.keys(payload)) {
       const lowerKey = key.toLowerCase();
 
@@ -264,6 +357,13 @@ export class JwtService implements OnModuleInit {
         }
       }
 
+      if (!user.email && lowerKey.endsWith('email')) {
+        const value = payload[key];
+        if (typeof value === 'string' && value.trim().length > 0) {
+          user.email = value.trim().toLowerCase();
+        }
+      }
+
       if (
         (!user.roles || user.roles.length === 0) &&
         lowerKey.endsWith('roles')
@@ -277,63 +377,57 @@ export class JwtService implements OnModuleInit {
       }
     }
 
+    if (
+      (!user.userId || !this.isNumericIdentifier(user.userId)) &&
+      user.handle &&
+      this.isNumericIdentifier(user.handle)
+    ) {
+      user.userId = user.handle;
+    }
+
     return user;
   }
 
+  /**
+   * Extracts token scopes from supported scope-like claims.
+   *
+   * @param {JwtPayloadRecord} payload Token payload.
+   * @returns {string[]} Normalized list of scopes.
+   */
   private extractScopes(payload: JwtPayloadRecord): string[] {
-    const rawScope = payload.scope || payload.scopes;
-
-    if (typeof rawScope === 'string') {
-      return rawScope
-        .split(' ')
-        .map((scope) => scope.trim())
-        .filter((scope) => scope.length > 0);
-    }
-
-    if (Array.isArray(rawScope)) {
-      return rawScope
-        .map((scope) => String(scope).trim())
-        .filter((scope) => scope.length > 0);
-    }
-
-    return [];
+    return extractScopesFromPayload(payload, (scope) => scope.trim());
   }
 
-  private extractRoles(payload: JwtPayloadRecord): string[] {
-    const rawRoles = payload.roles;
-
-    if (!Array.isArray(rawRoles)) {
-      return [];
-    }
-
-    return rawRoles
-      .map((role) => String(role).trim())
-      .filter((role) => role.length > 0);
-  }
-
-  private extractString(
-    payload: JwtPayloadRecord,
-    keys: string[],
-  ): string | undefined {
-    for (const key of keys) {
-      const value = payload[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value;
-      }
-    }
-
-    return undefined;
-  }
-
+  /**
+   * Extracts a user identifier from common claims.
+   *
+   * @param {JwtPayloadRecord} payload Token payload.
+   * @returns {string | undefined} User identifier from `userId`/`sub`/`handle`.
+   * Numeric values are preferred so downstream `BigInt` parsing can succeed.
+   */
   private extractUserId(payload: JwtPayloadRecord): string | undefined {
-    const userId = this.extractIdentifier(payload.userId);
-    if (userId) {
-      return userId;
+    const candidates = [
+      this.extractIdentifier(payload.userId),
+      this.extractIdentifier(payload.sub),
+      this.extractIdentifier(payload.handle),
+    ].filter((value): value is string => typeof value === 'string');
+
+    const numericCandidate = candidates.find((value) =>
+      this.isNumericIdentifier(value),
+    );
+    if (numericCandidate) {
+      return numericCandidate;
     }
 
-    return this.extractIdentifier(payload.sub);
+    return candidates[0];
   }
 
+  /**
+   * Converts supported identifier types into string form.
+   *
+   * @param {unknown} value Candidate identifier value.
+   * @returns {string | undefined} Normalized identifier string.
+   */
   private extractIdentifier(value: unknown): string | undefined {
     if (typeof value === 'string' && value.trim().length > 0) {
       return value.trim();
@@ -350,10 +444,23 @@ export class JwtService implements OnModuleInit {
     return undefined;
   }
 
+  /**
+   * Checks whether an identifier string is purely numeric.
+   *
+   * @param {string} value Identifier value.
+   * @returns {boolean} True when the value contains only digits.
+   */
   private isNumericIdentifier(value: string): boolean {
     return /^\d+$/.test(value.trim());
   }
 
+  /**
+   * Reads valid JWT issuers from `VALID_ISSUERS`.
+   *
+   * Supports JSON array or comma-separated string formats.
+   *
+   * @returns {string[]} Configured issuer values.
+   */
   private getValidIssuers(): string[] {
     const validIssuers = process.env.VALID_ISSUERS;
 
@@ -378,6 +485,12 @@ export class JwtService implements OnModuleInit {
     return [];
   }
 
+  /**
+   * Resolves issuer value from token payload or configuration fallback.
+   *
+   * @param {JwtPayloadRecord} payload Token payload.
+   * @returns {string | undefined} Resolved issuer.
+   */
   private resolveIssuer(payload: JwtPayloadRecord): string | undefined {
     const issuer = payload.iss;
 
@@ -385,6 +498,7 @@ export class JwtService implements OnModuleInit {
       return issuer;
     }
 
+    // TODO (security): When the token has no 'iss' claim, this method falls back to validIssuers[0]. A token without an issuer claim should be rejected outright rather than assumed to belong to the first configured issuer.
     if (this.validIssuers.length > 0) {
       return this.validIssuers[0];
     }
@@ -392,6 +506,12 @@ export class JwtService implements OnModuleInit {
     return undefined;
   }
 
+  /**
+   * Extracts an error message from tc-core middleware response payloads.
+   *
+   * @param {unknown} payload Error payload.
+   * @returns {string | undefined} Extracted message text.
+   */
   private extractErrorMessage(payload: unknown): string | undefined {
     if (typeof payload === 'string' && payload.trim().length > 0) {
       return payload;

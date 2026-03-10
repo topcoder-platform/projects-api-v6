@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
+import { AnyAuthenticated } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { getAuditUserIdNumber } from '../utils/metadata-utils';
 import { CreateProjectTypeDto } from './dto/create-project-type.dto';
@@ -26,13 +27,23 @@ import { ProjectTypeService } from './project-type.service';
 
 @ApiTags('Metadata - Project Types')
 @ApiBearerAuth()
+@AnyAuthenticated()
 @Controller('/projects/metadata/projectTypes')
+/**
+ * REST controller for project type metadata.
+ *
+ * Read endpoints allow any authenticated caller. Write endpoints require admin
+ * access via `@AdminOnly()`.
+ */
 export class ProjectTypeController {
   constructor(private readonly projectTypeService: ProjectTypeService) {}
 
   @Get()
   @ApiOperation({ summary: 'List project types' })
   @ApiResponse({ status: 200, type: [ProjectTypeResponseDto] })
+  /**
+   * Lists project types.
+   */
   async list(): Promise<ProjectTypeResponseDto[]> {
     return this.projectTypeService.findAll();
   }
@@ -42,6 +53,9 @@ export class ProjectTypeController {
   @ApiParam({ name: 'key', description: 'Project type key' })
   @ApiResponse({ status: 200, type: ProjectTypeResponseDto })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Gets one project type by key.
+   */
   async getOne(@Param('key') key: string): Promise<ProjectTypeResponseDto> {
     return this.projectTypeService.findByKey(key);
   }
@@ -51,6 +65,9 @@ export class ProjectTypeController {
   @ApiOperation({ summary: 'Create project type' })
   @ApiResponse({ status: 201, type: ProjectTypeResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  /**
+   * Creates a project type.
+   */
   async create(
     @Body() dto: CreateProjectTypeDto,
     @CurrentUser() user: JwtUser,
@@ -65,6 +82,9 @@ export class ProjectTypeController {
   @ApiResponse({ status: 200, type: ProjectTypeResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Updates a project type.
+   */
   async update(
     @Param('key') key: string,
     @Body() dto: UpdateProjectTypeDto,
@@ -81,6 +101,9 @@ export class ProjectTypeController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Soft deletes a project type.
+   */
   async delete(
     @Param('key') key: string,
     @CurrentUser() user: JwtUser,

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ExecutionContext,
   ForbiddenException,
   UnauthorizedException,
@@ -152,5 +153,22 @@ describe('CopilotAndAboveGuard', () => {
       request.user,
       undefined,
     );
+  });
+
+  it('throws BadRequestException when projectId is not numeric', async () => {
+    await expect(
+      guard.canActivate(
+        createExecutionContext({
+          user: {
+            userId: '123',
+          },
+          params: {
+            projectId: 'abc',
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
   });
 });

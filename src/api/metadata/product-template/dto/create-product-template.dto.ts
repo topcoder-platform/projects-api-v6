@@ -11,6 +11,23 @@ import {
 } from 'class-validator';
 import { MetadataReferenceDto } from '../../dto/metadata-reference.dto';
 
+/**
+ * Request payload for creating a product template.
+ *
+ * @property name Template name.
+ * @property productKey Product key used for lookups.
+ * @property category Category value.
+ * @property subCategory Sub-category value.
+ * @property icon Icon identifier.
+ * @property brief Brief description.
+ * @property details Detailed description.
+ * @property aliases Alias list.
+ * @property template Legacy inline template JSON.
+ * @property form Optional versioned form reference.
+ * @property disabled Disabled flag.
+ * @property hidden Hidden flag.
+ * @property isAddOn Add-on flag.
+ */
 export class CreateProductTemplateDto {
   @ApiProperty()
   @IsString()

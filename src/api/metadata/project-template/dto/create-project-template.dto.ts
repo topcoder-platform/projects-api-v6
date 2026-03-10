@@ -11,6 +11,26 @@ import {
 } from 'class-validator';
 import { MetadataReferenceDto } from '../../dto/metadata-reference.dto';
 
+/**
+ * Request payload for creating a project template.
+ *
+ * @property name Template display name.
+ * @property key Template key used for lookups.
+ * @property category High-level category label.
+ * @property subCategory Optional sub-category label.
+ * @property metadata Optional metadata object.
+ * @property icon Icon identifier.
+ * @property question Prompt text.
+ * @property info Informational text.
+ * @property aliases Alias list.
+ * @property scope Legacy inline scope configuration.
+ * @property phases Legacy inline phases configuration.
+ * @property form Optional versioned form reference.
+ * @property planConfig Optional versioned plan config reference.
+ * @property priceConfig Optional versioned price config reference.
+ * @property disabled Disabled flag.
+ * @property hidden Hidden flag.
+ */
 export class CreateProjectTemplateDto {
   @ApiProperty()
   @IsString()

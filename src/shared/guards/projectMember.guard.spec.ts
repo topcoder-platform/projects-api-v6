@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ExecutionContext,
   ForbiddenException,
   UnauthorizedException,
@@ -214,6 +215,23 @@ describe('ProjectMemberGuard', () => {
     const result = await guard.canActivate(createExecutionContext(request));
 
     expect(result).toBe(true);
+    expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
+  });
+
+  it('throws BadRequestException when projectId is not numeric', async () => {
+    await expect(
+      guard.canActivate(
+        createExecutionContext({
+          user: {
+            userId: '123',
+          },
+          params: {
+            projectId: 'abc',
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
     expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
   });
 });

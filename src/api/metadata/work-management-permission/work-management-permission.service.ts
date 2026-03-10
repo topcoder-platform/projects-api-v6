@@ -19,6 +19,13 @@ import { UpdateWorkManagementPermissionDto } from './dto/update-work-management-
 import { WorkManagementPermissionResponseDto } from './dto/work-management-permission-response.dto';
 
 @Injectable()
+/**
+ * Manages work management permission records for each `policy` and
+ * `projectTemplateId` pair.
+ *
+ * These records are used by platform UI flows to enforce permission-driven
+ * behavior per project template.
+ */
 export class WorkManagementPermissionService {
   constructor(
     private readonly prisma: PrismaService,
@@ -26,6 +33,9 @@ export class WorkManagementPermissionService {
     private readonly eventBusService: EventBusService,
   ) {}
 
+  /**
+   * Lists permissions for a project template.
+   */
   async findAll(
     criteria: WorkManagementPermissionCriteriaDto,
   ): Promise<WorkManagementPermissionResponseDto[]> {
@@ -40,6 +50,9 @@ export class WorkManagementPermissionService {
     return records.map((record) => this.toDto(record));
   }
 
+  /**
+   * Finds one permission by id.
+   */
   async findOne(id: bigint): Promise<WorkManagementPermissionResponseDto> {
     const record = await this.prisma.workManagementPermission.findFirst({
       where: {
@@ -57,6 +70,13 @@ export class WorkManagementPermissionService {
     return this.toDto(record);
   }
 
+  /**
+   * Creates a permission record.
+   *
+   * Throws:
+   * - NotFoundException when `projectTemplateId` does not exist.
+   * - ConflictException when `(policy, projectTemplateId)` already exists.
+   */
   async create(
     dto: CreateWorkManagementPermissionDto,
     userId: number,
@@ -103,6 +123,13 @@ export class WorkManagementPermissionService {
     }
   }
 
+  /**
+   * Updates a permission record.
+   *
+   * Throws:
+   * - NotFoundException when record or project template does not exist.
+   * - ConflictException when resulting `(policy, projectTemplateId)` conflicts.
+   */
   async update(
     id: bigint,
     dto: UpdateWorkManagementPermissionDto,
@@ -180,6 +207,9 @@ export class WorkManagementPermissionService {
     }
   }
 
+  /**
+   * Soft deletes a permission record.
+   */
   async delete(id: bigint, userId: number): Promise<void> {
     try {
       const existing = await this.prisma.workManagementPermission.findFirst({
@@ -225,10 +255,16 @@ export class WorkManagementPermissionService {
     }
   }
 
+  /**
+   * Parses a permission id route/query parameter.
+   */
   parseId(value: string): bigint {
     return parseBigIntParam(value, 'id');
   }
 
+  /**
+   * Validates that referenced project template exists.
+   */
   private async ensureProjectTemplateExists(
     projectTemplateId: bigint,
   ): Promise<void> {
@@ -249,6 +285,9 @@ export class WorkManagementPermissionService {
     }
   }
 
+  /**
+   * Maps Prisma entity to response DTO.
+   */
   private toDto(
     record: WorkManagementPermission,
   ): WorkManagementPermissionResponseDto {
@@ -267,6 +306,9 @@ export class WorkManagementPermissionService {
     };
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates unknown errors to Prisma.
+   */
   private handleError(error: unknown, operation: string): never {
     if (error instanceof HttpException) {
       throw error;

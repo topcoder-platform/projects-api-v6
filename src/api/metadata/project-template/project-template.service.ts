@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -19,6 +18,13 @@ import {
   toSerializable,
 } from '../utils/metadata-utils';
 import {
+  getStoredReference as getStoredReferenceValue,
+  handleMetadataServiceError,
+  mergeJson as mergeJsonValue,
+  toNullableJson as toNullableJsonValue,
+  toRecord as toRecordValue,
+} from '../utils/metadata-template.utils';
+import {
   validateFormReference,
   validatePlanConfigReference,
   validatePriceConfigReference,
@@ -32,6 +38,12 @@ import { UpdateProjectTemplateDto } from './dto/update-project-template.dto';
 import { UpgradeProjectTemplateDto } from './dto/upgrade-project-template.dto';
 
 @Injectable()
+/**
+ * Manages project templates, including legacy inline config fields and modern
+ * versioned metadata references (`form`, `planConfig`, `priceConfig`).
+ *
+ * The `upgrade` flow migrates legacy templates into the versioned format.
+ */
 export class ProjectTemplateService {
   constructor(
     private readonly prisma: PrismaService,
@@ -42,6 +54,9 @@ export class ProjectTemplateService {
     private readonly priceConfigService: PriceConfigService,
   ) {}
 
+  /**
+   * Lists project templates, optionally including disabled entries.
+   */
   async findAll(
     includeDisabled = false,
   ): Promise<ProjectTemplateResponseDto[]> {
@@ -56,6 +71,9 @@ export class ProjectTemplateService {
     return Promise.all(records.map((record) => this.toDto(record, false)));
   }
 
+  /**
+   * Loads one project template by id.
+   */
   async findOne(id: bigint): Promise<ProjectTemplateResponseDto> {
     const template = await this.prisma.projectTemplate.findFirst({
       where: {
@@ -73,6 +91,9 @@ export class ProjectTemplateService {
     return this.toDto(template, true);
   }
 
+  /**
+   * Creates a project template and validates metadata references.
+   */
   async create(
     dto: CreateProjectTemplateDto,
     userId: bigint,
@@ -128,6 +149,9 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Updates a project template and validates metadata references.
+   */
   async update(
     id: bigint,
     dto: UpdateProjectTemplateDto,
@@ -240,6 +264,9 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Soft deletes a project template.
+   */
   async delete(id: bigint, userId: bigint): Promise<void> {
     try {
       const existing = await this.prisma.projectTemplate.findFirst({
@@ -282,12 +309,16 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Upgrades a legacy template to versioned metadata references.
+   */
   async upgrade(
     id: bigint,
     dto: UpgradeProjectTemplateDto,
     userId: bigint,
   ): Promise<ProjectTemplateResponseDto> {
     try {
+      // TODO (SECURITY): upgrade() creates form, planConfig, and priceConfig versions in separate DB calls with no wrapping transaction. A failure mid-upgrade leaves the template in a partially upgraded state. Wrap in prisma.$transaction().
       const existing = await this.prisma.projectTemplate.findFirst({
         where: {
           id,
@@ -438,6 +469,10 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Maps Prisma records to API DTOs and optionally resolves full referenced
+   * metadata entities.
+   */
   private async toDto(
     template: ProjectTemplate,
     resolveReferences: boolean,
@@ -486,6 +521,10 @@ export class ProjectTemplateService {
     };
   }
 
+  /**
+   * Resolves a stored metadata reference into the latest matching versioned
+   * config record.
+   */
   private async resolveVersionedReference(
     value: Prisma.JsonValue | null,
     type: 'form' | 'planConfig' | 'priceConfig',
@@ -500,68 +539,54 @@ export class ProjectTemplateService {
       return null;
     }
 
-    if (type === 'form') {
-      const latest = await this.prisma.form.findFirst({
-        where: {
-          key: reference.key,
-          ...(reference.version > 0
-            ? { version: BigInt(reference.version) }
-            : {}),
-          deletedAt: null,
-        },
-        orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-      });
-
-      return latest
+    const where = {
+      key: reference.key,
+      ...(reference.version > 0
         ? {
-            id: latest.id.toString(),
-            key: latest.key,
-            version: latest.version.toString(),
-            revision: latest.revision.toString(),
-            config: toSerializable(latest.config || {}) as Record<
-              string,
-              unknown
-            >,
+            version: BigInt(reference.version),
           }
-        : null;
+        : {}),
+      deletedAt: null,
+    };
+    const orderBy = [
+      { version: 'desc' as const },
+      { revision: 'desc' as const },
+    ];
+    const select = {
+      id: true,
+      key: true,
+      version: true,
+      revision: true,
+      config: true,
+    } as const;
+
+    let latest: {
+      id: bigint;
+      key: string;
+      version: bigint;
+      revision: bigint;
+      config: Prisma.JsonValue | null;
+    } | null = null;
+
+    switch (type) {
+      case 'form':
+        latest = await this.prisma.form.findFirst({ where, orderBy, select });
+        break;
+      case 'planConfig':
+        latest = await this.prisma.planConfig.findFirst({
+          where,
+          orderBy,
+          select,
+        });
+        break;
+      case 'priceConfig':
+        latest = await this.prisma.priceConfig.findFirst({
+          where,
+          orderBy,
+          select,
+        });
+        break;
     }
-
-    if (type === 'planConfig') {
-      const latest = await this.prisma.planConfig.findFirst({
-        where: {
-          key: reference.key,
-          ...(reference.version > 0
-            ? { version: BigInt(reference.version) }
-            : {}),
-          deletedAt: null,
-        },
-        orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-      });
-
-      return latest
-        ? {
-            id: latest.id.toString(),
-            key: latest.key,
-            version: latest.version.toString(),
-            revision: latest.revision.toString(),
-            config: toSerializable(latest.config || {}) as Record<
-              string,
-              unknown
-            >,
-          }
-        : null;
-    }
-
-    const latest = await this.prisma.priceConfig.findFirst({
-      where: {
-        key: reference.key,
-        ...(reference.version > 0
-          ? { version: BigInt(reference.version) }
-          : {}),
-        deletedAt: null,
-      },
-      orderBy: [{ version: 'desc' }, { revision: 'desc' }],
-    });
 
     return latest
       ? {
@@ -577,6 +602,9 @@ export class ProjectTemplateService {
       : null;
   }
 
+  /**
+   * Converts optional values to a Prisma nullable JSON payload.
+   */
   private toNullableJson(
     value:
       | MetadataVersionReference
@@ -584,52 +612,41 @@ export class ProjectTemplateService {
       | null
       | undefined,
   ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
-    if (typeof value === 'undefined') {
-      return undefined;
-    }
-
-    if (value === null) {
-      return Prisma.JsonNull;
-    }
-
-    return value as Prisma.InputJsonValue;
+    return toNullableJsonValue(value);
   }
 
+  /**
+   * Reads and normalizes a stored metadata reference from JSON.
+   */
   private getStoredReference(
     value: Prisma.JsonValue | null,
     type: 'form' | 'planConfig' | 'priceConfig',
   ): MetadataVersionReference | null {
-    try {
-      return normalizeMetadataReference(value, type);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        return null;
-      }
-      throw error;
-    }
+    return getStoredReferenceValue(value, type);
   }
 
+  /**
+   * Converts JSON values to plain object maps when possible.
+   */
   private toRecord(
     value: Prisma.JsonValue | null,
   ): Record<string, unknown> | null {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return null;
-    }
-
-    return value as Record<string, unknown>;
+    return toRecordValue(value);
   }
 
+  /**
+   * Merges incoming JSON fields over existing object values.
+   */
   private mergeJson(
     current: Prisma.JsonValue | null,
     next: Record<string, unknown>,
   ): Record<string, unknown> {
-    const currentRecord = this.toRecord(current);
-    return {
-      ...(currentRecord || {}),
-      ...next,
-    };
+    return mergeJsonValue(current, next);
   }
 
+  /**
+   * Validates mutually exclusive legacy and versioned config fields.
+   */
   private validateTemplateConfigConstraints(
     dto: CreateProjectTemplateDto | UpdateProjectTemplateDto,
   ): void {
@@ -652,15 +669,22 @@ export class ProjectTemplateService {
     }
   }
 
+  /**
+   * Parses a template id route parameter.
+   */
   parseTemplateId(templateId: string): bigint {
     return parseBigIntParam(templateId, 'templateId');
   }
 
+  /**
+   * Re-throws framework HTTP exceptions and delegates unexpected errors to
+   * PrismaErrorService.
+   */
   private handleError(error: unknown, operation: string): never {
-    if (error instanceof HttpException) {
-      throw error;
-    }
-
-    this.prismaErrorService.handleError(error, operation);
+    return handleMetadataServiceError(
+      error,
+      operation,
+      this.prismaErrorService,
+    );
   }
 }

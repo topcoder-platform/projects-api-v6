@@ -1,3 +1,8 @@
+/**
+ * Fine-grained authorization guard driven by `@RequirePermission()` metadata.
+ *
+ * This guard evaluates named or inline permissions using `PermissionService`.
+ */
 import {
   CanActivate,
   ExecutionContext,
@@ -17,15 +22,37 @@ import {
 import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { PrismaService } from '../modules/global/prisma.service';
 import { PermissionService } from '../services/permission.service';
+import { parseNumericStringId } from '../utils/service.utils';
 
+/**
+ * Policy guard that evaluates route-level permission requirements.
+ */
 @Injectable()
 export class PermissionGuard implements CanActivate {
+  /**
+   * @param reflector Metadata reader for `@RequirePermission()`.
+   * @param permissionService Permission evaluator.
+   * @param prisma Prisma client used for lazy project context loading.
+   */
   constructor(
     private readonly reflector: Reflector,
     private readonly permissionService: PermissionService,
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Resolves and evaluates route permissions.
+   *
+   * Behavior:
+   * - Returns `true` when no `@RequirePermission()` metadata is declared.
+   * - Throws `UnauthorizedException` if `request.user` is missing.
+   * - Lazily loads project context via `resolveProjectContextIfRequired`.
+   * - Evaluates each permission and allows if any match.
+   * - Throws `BadRequestException` when a required `projectId` param is not numeric.
+   * - Throws `ForbiddenException('Insufficient permissions')` otherwise.
+   *
+   * @security Routes without `@RequirePermission()` bypass this guard's checks.
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const permissions = this.reflector.getAllAndOverride<RequiredPermission[]>(
       PERMISSION_KEY,
@@ -70,6 +97,22 @@ export class PermissionGuard implements CanActivate {
     return true;
   }
 
+  /**
+   * Loads project members/invites only when the requested permissions require
+   * project-scoped context.
+   *
+   * Behavior:
+   * - Skips DB access if no project id or no project-scoped permission exists.
+   * - Throws `BadRequestException` when a required `projectId` param is not numeric.
+   * - Resets cached context when project id changes.
+   * - Loads `projectMember` rows when required and members are not loaded yet.
+   * - Loads `projectMemberInvite` rows when required and invites are not
+   *   loaded yet.
+   * - Tracks independent `projectMembersLoaded` / `projectInvitesLoaded`
+   *   flags so empty arrays do not suppress the first database load.
+   * @todo Member/invite query and mapping logic is duplicated in multiple guards
+   * and `ProjectContextInterceptor`; extract a shared `ProjectContextService`.
+   */
   private async resolveProjectContextIfRequired(
     request: AuthenticatedRequest,
     permissions: RequiredPermission[],
@@ -101,25 +144,51 @@ export class PermissionGuard implements CanActivate {
       };
     }
 
+    const parsedProjectId = parseNumericStringId(
+      normalizedProjectId,
+      'Project id',
+    );
+
     if (!request.projectContext) {
       request.projectContext = {
         projectMembers: [],
+        projectMembersLoaded: false,
+        projectInvites: [],
+        projectInvitesLoaded: false,
       };
+    } else if (
+      request.projectContext.projectMembersLoaded === undefined &&
+      request.projectContext.projectId === normalizedProjectId &&
+      Array.isArray(request.projectContext.projectMembers)
+    ) {
+      // Backward-compatible bridge for context objects that predate the flag.
+      request.projectContext.projectMembersLoaded = true;
+    }
+
+    if (
+      request.projectContext.projectInvitesLoaded === undefined &&
+      request.projectContext.projectId === normalizedProjectId &&
+      Array.isArray(request.projectContext.projectInvites)
+    ) {
+      // Backward-compatible bridge for context objects that predate the flag.
+      request.projectContext.projectInvitesLoaded = true;
     }
 
     if (request.projectContext.projectId !== normalizedProjectId) {
       request.projectContext.projectId = normalizedProjectId;
       request.projectContext.projectMembers = [];
+      request.projectContext.projectMembersLoaded = false;
       request.projectContext.projectInvites = [];
+      request.projectContext.projectInvitesLoaded = false;
     }
 
     if (
       requiresProjectMembers &&
-      request.projectContext.projectMembers.length === 0
+      request.projectContext.projectMembersLoaded !== true
     ) {
       const projectMembers = await this.prisma.projectMember.findMany({
         where: {
-          projectId: BigInt(normalizedProjectId),
+          projectId: parsedProjectId,
           deletedAt: null,
         },
         select: {
@@ -136,15 +205,16 @@ export class PermissionGuard implements CanActivate {
         ...member,
         role: String(member.role),
       }));
+      request.projectContext.projectMembersLoaded = true;
     }
 
     if (
       requiresProjectInvites &&
-      !Array.isArray(request.projectContext.projectInvites)
+      request.projectContext.projectInvitesLoaded !== true
     ) {
       const projectInvites = await this.prisma.projectMemberInvite.findMany({
         where: {
-          projectId: BigInt(normalizedProjectId),
+          projectId: parsedProjectId,
           deletedAt: null,
         },
         select: {
@@ -161,6 +231,7 @@ export class PermissionGuard implements CanActivate {
         ...invite,
         status: String(invite.status),
       }));
+      request.projectContext.projectInvitesLoaded = true;
     }
 
     return {
@@ -169,6 +240,11 @@ export class PermissionGuard implements CanActivate {
     };
   }
 
+  /**
+   * Checks if a permission depends on project members.
+   *
+   * Delegates named and inline permissions to `PermissionService`.
+   */
   private requireProjectMembers(permission: RequiredPermission): boolean {
     if (typeof permission === 'string') {
       return this.permissionService.isNamedPermissionRequireProjectMembers(
@@ -179,6 +255,12 @@ export class PermissionGuard implements CanActivate {
     return this.permissionService.isPermissionRequireProjectMembers(permission);
   }
 
+  /**
+   * Checks if a permission depends on project invites.
+   *
+   * Only named permission keys are supported; inline `Permission` objects return
+   * `false`.
+   */
   private requireProjectInvites(permission: RequiredPermission): boolean {
     if (typeof permission !== 'string') {
       return false;

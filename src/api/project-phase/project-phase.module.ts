@@ -12,4 +12,11 @@ import { WorkController } from './work.controller';
   providers: [ProjectPhaseService],
   exports: [ProjectPhaseService],
 })
+/**
+ * NestJS feature module for project phases (works). Registers
+ * `ProjectPhaseController` (classic `/phases` routes) and `WorkController`
+ * (workstream-scoped `/works` routes). Exports `ProjectPhaseService` for use
+ * by `WorkController` and other consumers. Includes `WorkStreamModule` to
+ * support work-stream linkage flows.
+ */
 export class ProjectPhaseModule {}

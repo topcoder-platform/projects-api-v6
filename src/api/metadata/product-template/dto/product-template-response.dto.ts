@@ -1,5 +1,27 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * API response payload for product templates.
+ *
+ * @property id Template id.
+ * @property name Template name.
+ * @property productKey Product key.
+ * @property category Category value.
+ * @property subCategory Sub-category value.
+ * @property icon Icon identifier.
+ * @property brief Brief description.
+ * @property details Detailed description.
+ * @property aliases Alias list.
+ * @property template Legacy inline template payload.
+ * @property form Resolved form reference payload.
+ * @property disabled Disabled flag.
+ * @property hidden Hidden flag.
+ * @property isAddOn Add-on flag.
+ * @property createdAt Creation timestamp.
+ * @property updatedAt Update timestamp.
+ * @property createdBy Creator user id.
+ * @property updatedBy Updater user id.
+ */
 export class ProductTemplateResponseDto {
   @ApiProperty()
   id: string;

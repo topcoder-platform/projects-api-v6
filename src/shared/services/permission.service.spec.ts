@@ -6,6 +6,24 @@ import { PermissionService } from './permission.service';
 
 describe('PermissionService', () => {
   const m2mServiceMock = {
+    validateMachineToken: jest.fn((payload?: Record<string, unknown>) => {
+      const rawScope =
+        payload?.scope ??
+        payload?.scopes ??
+        payload?.scp ??
+        payload?.permissions;
+      const scopes =
+        typeof rawScope === 'string'
+          ? rawScope.split(/\s+/u).map((scope) => scope.trim().toLowerCase())
+          : Array.isArray(rawScope)
+            ? rawScope.map((scope) => String(scope).trim().toLowerCase())
+            : [];
+
+      return {
+        isMachine: payload?.gty === 'client-credentials' || scopes.length > 0,
+        scopes: scopes.filter((scope) => scope.length > 0),
+      };
+    }),
     hasRequiredScopes: jest.fn(
       (tokenScopes: string[], requiredScopes: string[]) =>
         requiredScopes.some((requiredScope) =>
@@ -203,6 +221,184 @@ describe('PermissionService', () => {
 
     expect(allowed).toBe(true);
   });
+
+  it('allows viewing project for machine token with project read scope', () => {
+    const allowed = service.hasNamedPermission(Permission.VIEW_PROJECT, {
+      scopes: [Scope.PROJECTS_READ],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows reading project members for machine token with project-member read scope', () => {
+    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
+      scopes: [Scope.PROJECT_MEMBERS_READ],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows reading other users project invites for machine token with invite read scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.READ_PROJECT_INVITE_NOT_OWN,
+      {
+        scopes: [Scope.PROJECT_INVITES_READ],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows creating project invites for machine token with invite write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.CREATE_PROJECT_INVITE_TOPCODER,
+      {
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows updating non-own project invites for machine token with invite write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.UPDATE_PROJECT_INVITE_NOT_OWN,
+      {
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting non-own project invites for machine token with invite write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER,
+      {
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows viewing project for pending email invite that matches user email', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.VIEW_PROJECT,
+      {
+        userId: '88770025',
+        email: 'jmgasper+devtest140@gmail.com',
+        isMachine: false,
+      },
+      [],
+      [
+        {
+          email: 'JMGasper+devtest140@gmail.com',
+          status: 'pending',
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows viewing project for pending email invite using namespaced email claim', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.VIEW_PROJECT,
+      {
+        userId: '88770025',
+        isMachine: false,
+        tokenPayload: {
+          'https://topcoder-dev.com/email': 'jmgasper+devtest140@gmail.com',
+        },
+      },
+      [],
+      [
+        {
+          email: 'jmgasper+devtest140@gmail.com',
+          status: 'pending',
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows editing project for machine token with project write scope', () => {
+    const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
+      scopes: [Scope.PROJECTS_WRITE],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('does not allow unrelated human callers to edit projects based on scopes alone', () => {
+    const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
+      userId: '3001',
+      roles: [UserRole.TC_COPILOT],
+      scopes: [Scope.PROJECTS_WRITE],
+      isMachine: false,
+    });
+
+    expect(allowed).toBe(false);
+  });
+
+  it('allows deleting project for machine token with project write scope', () => {
+    const allowed = service.hasNamedPermission(Permission.DELETE_PROJECT, {
+      scopes: [Scope.PROJECTS_ALL],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows managing copilot requests for machine token with connect-project scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_COPILOT_REQUEST,
+      {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows managing copilot requests when machine scope is only present on the raw token payload', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_COPILOT_REQUEST,
+      {
+        scopes: [],
+        isMachine: false,
+        tokenPayload: {
+          gty: 'client-credentials',
+          permissions: [Scope.PROJECTS_ALL],
+        },
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'allows editing project for %s Topcoder role without project membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
+        userId: '555',
+        roles: [role],
+        isMachine: false,
+      });
+
+      expect(allowed).toBe(true);
+    },
+  );
 
   it('marks billing account permissions as requiring project member context', () => {
     expect(

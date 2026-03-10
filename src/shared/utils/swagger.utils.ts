@@ -1,3 +1,10 @@
+/**
+ * Swagger/OpenAPI auth documentation enrichers.
+ *
+ * `enrichSwaggerAuthDocumentation` is applied in `main.ts` to translate custom
+ * auth extension metadata into human-readable authorization summaries while
+ * ensuring `401` and `403` responses are declared.
+ */
 import { OpenAPIObject } from '@nestjs/swagger';
 import {
   SWAGGER_REQUIRED_PERMISSIONS_KEY,
@@ -9,7 +16,12 @@ import {
   SWAGGER_ADMIN_ALLOWED_SCOPES_KEY,
   SWAGGER_ADMIN_ONLY_KEY,
 } from '../guards/adminOnly.guard';
-import { SWAGGER_REQUIRED_ROLES_KEY } from '../guards/tokenRoles.guard';
+import {
+  SWAGGER_ANY_AUTHENTICATED_KEY,
+  SWAGGER_REQUIRED_ROLES_KEY,
+} from '../guards/tokenRoles.guard';
+import { UserRole } from '../enums/userRole.enum';
+import { getRequiredPermissionsDocumentation } from './permission-docs.utils';
 
 type SwaggerOperation = {
   description?: string;
@@ -28,6 +40,13 @@ const HTTP_METHODS = [
   'trace',
 ] as const;
 
+const ALL_KNOWN_USER_ROLES = new Set(
+  Object.values(UserRole).map((role) => role.trim().toLowerCase()),
+);
+
+/**
+ * Safely coerces unknown values to a trimmed `string[]`.
+ */
 function parseStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -38,16 +57,20 @@ function parseStringArray(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
-function parsePermissionArray(value: unknown): string[] {
+/**
+ * Parses required-permission extension values from Swagger metadata.
+ */
+function parseRequiredPermissions(value: unknown): RequiredPermission[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value
-    .map((entry) => stringifyPermission(entry as RequiredPermission))
-    .filter((entry) => entry.length > 0);
+  return value as RequiredPermission[];
 }
 
+/**
+ * Stringifies a permission key or inline permission object.
+ */
 function stringifyPermission(permission: RequiredPermission): string {
   if (typeof permission === 'string') {
     return permission;
@@ -56,6 +79,12 @@ function stringifyPermission(permission: RequiredPermission): string {
   return JSON.stringify(permission);
 }
 
+/**
+ * Appends an `Authorization:` section to an operation description.
+ *
+ * Idempotent: if an authorization section already exists, description is left
+ * unchanged.
+ */
 function addAuthSection(
   description: string | undefined,
   authorizationLines: string[],
@@ -80,6 +109,9 @@ function addAuthSection(
   return `${description}\n\n${authSection}`;
 }
 
+/**
+ * Ensures standard auth error response stubs exist on an operation.
+ */
 function ensureErrorResponses(operation: SwaggerOperation): void {
   operation.responses = operation.responses || {};
 
@@ -92,12 +124,46 @@ function ensureErrorResponses(operation: SwaggerOperation): void {
   }
 }
 
+/**
+ * Detects whether Swagger role metadata effectively means "any known user role".
+ *
+ * Many endpoints use this broad role gate as a coarse auth pass-through and
+ * rely on policy permissions for actual access decisions.
+ */
+function isAllKnownUserRoles(roles: string[]): boolean {
+  if (roles.length === 0) {
+    return false;
+  }
+
+  const normalizedRoles = new Set(
+    roles.map((role) => role.trim().toLowerCase()).filter(Boolean),
+  );
+
+  if (normalizedRoles.size !== ALL_KNOWN_USER_ROLES.size) {
+    return false;
+  }
+
+  for (const knownRole of ALL_KNOWN_USER_ROLES) {
+    if (!normalizedRoles.has(knownRole)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Builds human-readable authorization lines from custom Swagger extensions.
+ */
 function getAuthorizationLines(operation: SwaggerOperation): string[] {
   const roles = parseStringArray(operation[SWAGGER_REQUIRED_ROLES_KEY]);
   const scopes = parseStringArray(operation[SWAGGER_REQUIRED_SCOPES_KEY]);
-  const permissions = parsePermissionArray(
+  const isAnyAuthenticated = Boolean(operation[SWAGGER_ANY_AUTHENTICATED_KEY]);
+  const permissions = parseRequiredPermissions(
     operation[SWAGGER_REQUIRED_PERMISSIONS_KEY],
   );
+  const permissionDocumentation =
+    getRequiredPermissionsDocumentation(permissions);
   const isAdminOnly = Boolean(operation[SWAGGER_ADMIN_ONLY_KEY]);
   const adminRoles = parseStringArray(
     operation[SWAGGER_ADMIN_ALLOWED_ROLES_KEY],
@@ -107,8 +173,13 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
   );
 
   const authorizationLines: string[] = [];
+  const hasAllKnownUserRoles = isAllKnownUserRoles(roles);
 
-  if (roles.length > 0) {
+  if (isAnyAuthenticated || hasAllKnownUserRoles) {
+    authorizationLines.push('Any authenticated user token is allowed.');
+  }
+
+  if (roles.length > 0 && !hasAllKnownUserRoles) {
     authorizationLines.push(`Allowed user roles (any): ${roles.join(', ')}`);
   }
 
@@ -116,9 +187,41 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
     authorizationLines.push(`Allowed token scopes (any): ${scopes.join(', ')}`);
   }
 
-  if (permissions.length > 0) {
+  if (permissionDocumentation?.allowAnyAuthenticated) {
+    authorizationLines.push('Policy allows any authenticated caller.');
+  }
+
+  if ((permissionDocumentation?.userRoles.length || 0) > 0) {
     authorizationLines.push(
-      `Required policy permissions (any): ${permissions.join(', ')}`,
+      `Policy allows user roles (any): ${permissionDocumentation?.userRoles.join(', ')}`,
+    );
+  }
+
+  if (permissionDocumentation?.allowAnyProjectMember) {
+    authorizationLines.push('Policy allows any current project member.');
+  }
+
+  if ((permissionDocumentation?.projectRoles.length || 0) > 0) {
+    authorizationLines.push(
+      `Policy allows project member roles (any): ${permissionDocumentation?.projectRoles.join(', ')}`,
+    );
+  }
+
+  if (permissionDocumentation?.allowPendingInvite) {
+    authorizationLines.push('Policy allows pending invite recipients.');
+  }
+
+  if ((permissionDocumentation?.scopes.length || 0) > 0) {
+    authorizationLines.push(
+      `Policy allows token scopes (any): ${permissionDocumentation?.scopes.join(', ')}`,
+    );
+  }
+
+  if (permissions.length > 0 && !permissionDocumentation) {
+    authorizationLines.push(
+      `Required policy permissions (any): ${permissions
+        .map((permission) => stringifyPermission(permission))
+        .join(', ')}`,
     );
   }
 
@@ -140,6 +243,26 @@ function getAuthorizationLines(operation: SwaggerOperation): string[] {
   return authorizationLines;
 }
 
+/**
+ * Removes low-value "all roles" metadata from the final OpenAPI operation.
+ */
+function pruneSwaggerAuthExtensions(operation: SwaggerOperation): void {
+  const roles = parseStringArray(operation[SWAGGER_REQUIRED_ROLES_KEY]);
+
+  if (isAllKnownUserRoles(roles)) {
+    delete operation[SWAGGER_REQUIRED_ROLES_KEY];
+  }
+}
+
+/**
+ * Enriches OpenAPI operation descriptions with authorization summaries.
+ *
+ * Iterates each path/method, inspects custom auth metadata extensions, appends
+ * authorization details to operation descriptions, and ensures `401`/`403`
+ * response declarations.
+ *
+ * @returns The same mutated OpenAPI document instance.
+ */
 export function enrichSwaggerAuthDocumentation(
   document: OpenAPIObject,
 ): OpenAPIObject {
@@ -150,6 +273,7 @@ export function enrichSwaggerAuthDocumentation(
         continue;
       }
 
+      pruneSwaggerAuthExtensions(operation);
       const authorizationLines = getAuthorizationLines(operation);
       if (authorizationLines.length === 0) {
         continue;

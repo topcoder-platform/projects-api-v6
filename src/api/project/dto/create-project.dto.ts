@@ -21,6 +21,14 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+/**
+ * Parses optional numeric input from query/body payloads.
+ *
+ * @param value Raw value.
+ * @returns Parsed number or `undefined`.
+ * @todo Duplicates `parseNumberInput` behavior from `pagination.dto.ts`;
+ * consolidate shared numeric parsing in DTO utilities.
+ */
 function parseOptionalNumber(value: unknown): number | undefined {
   if (typeof value === 'undefined' || value === null || value === '') {
     return undefined;
@@ -35,6 +43,14 @@ function parseOptionalNumber(value: unknown): number | undefined {
   return parsed;
 }
 
+/**
+ * Parses optional integer input.
+ *
+ * @param value Raw value.
+ * @returns Truncated integer or `undefined`.
+ * @todo Duplicates `parseNumberInput` behavior from `pagination.dto.ts`;
+ * consolidate shared numeric parsing in DTO utilities.
+ */
 function parseOptionalInteger(value: unknown): number | undefined {
   const parsed = parseOptionalNumber(value);
 
@@ -45,6 +61,12 @@ function parseOptionalInteger(value: unknown): number | undefined {
   return Math.trunc(parsed);
 }
 
+/**
+ * Parses `allowedUsers` arrays into validated integer ids.
+ *
+ * @param value Raw array candidate.
+ * @returns Integer user ids or `undefined` when input is not an array.
+ */
 function parseAllowedUsers(value: unknown): number[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
@@ -55,6 +77,9 @@ function parseAllowedUsers(value: unknown): number[] | undefined {
     .filter((entry): entry is number => typeof entry === 'number');
 }
 
+/**
+ * DTO describing UTM metadata for project tracking.
+ */
 export class ProjectUtmDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -82,6 +107,9 @@ export class ProjectUtmDto {
   term?: string;
 }
 
+/**
+ * DTO describing a bookmark entry associated with a project.
+ */
 export class BookmarkDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -95,6 +123,9 @@ export class BookmarkDto {
   url: string;
 }
 
+/**
+ * DTO for external system metadata payload.
+ */
 export class ProjectExternalDto {
   @ApiPropertyOptional({
     description: 'External links or metadata for third-party systems.',
@@ -106,6 +137,9 @@ export class ProjectExternalDto {
   data?: Record<string, unknown>;
 }
 
+/**
+ * DTO for challenge-eligibility metadata payload.
+ */
 export class ChallengeEligibilityDto {
   @ApiPropertyOptional({
     description: 'Challenge eligibility rules metadata',
@@ -117,6 +151,9 @@ export class ChallengeEligibilityDto {
   data?: Record<string, unknown>;
 }
 
+/**
+ * DTO for a single estimation item.
+ */
 export class EstimationItemDto {
   @ApiProperty({
     enum: EstimationType,
@@ -151,6 +188,9 @@ export class EstimationItemDto {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * DTO for project-level estimation records.
+ */
 export class EstimationDto {
   @ApiProperty()
   @IsString()
@@ -205,6 +245,9 @@ export class EstimationDto {
   items?: EstimationItemDto[];
 }
 
+/**
+ * DTO for project attachment input payload.
+ */
 export class ProjectAttachmentInputDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -252,6 +295,12 @@ export class ProjectAttachmentInputDto {
   allowedUsers?: number[];
 }
 
+/**
+ * Request DTO for `POST /projects`.
+ *
+ * Supports core project fields plus nested estimations, attachments,
+ * bookmarks, utm metadata, external metadata, and challenge-eligibility data.
+ */
 export class CreateProjectDto {
   @ApiProperty({
     description: 'Project name',
@@ -286,6 +335,15 @@ export class CreateProjectDto {
   @IsOptional()
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
+
+  @ApiPropertyOptional({
+    description: 'Cancellation reason for cancelled projects.',
+    maxLength: 255,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  cancelReason?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

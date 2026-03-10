@@ -43,4 +43,15 @@ describe('JwtService', () => {
 
     expect(user.userId).toBe('auth0|abcd');
   });
+
+  it('extracts lower-cased email from namespaced email claim', async () => {
+    const token = signToken({
+      sub: 'auth0|abcd',
+      'https://topcoder-dev.com/email': 'User+Alias@Example.com',
+    });
+
+    const user = await service.validateToken(token);
+
+    expect(user.email).toBe('user+alias@example.com');
+  });
 });

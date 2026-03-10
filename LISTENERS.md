@@ -1,6 +1,6 @@
 # Kafka Listener Audit for `projects-api-v6` Topics
 
-Date: 2026-02-08  
+Date: 2026-03-04  
 Scope: all top-level services/apps in this monorepo.  
 Excluded per request: `projects-api-v6`, `tc-project-service`.
 
@@ -8,6 +8,7 @@ Excluded per request: `projects-api-v6`, `tc-project-service`.
 
 - `project.created`
 - `project.updated`
+- `project.action.billingAccount.update`
 - `project.deleted`
 - `project.member.added`
 - `project.member.removed`
@@ -22,6 +23,7 @@ No non-excluded service in this monorepo statically subscribes to these topics.
 |---|---|---|---|
 | `KAFKA_PROJECT_CREATED_TOPIC` | `project.created` | None found | N/A |
 | `KAFKA_PROJECT_UPDATED_TOPIC` | `project.updated` | None found | N/A |
+| `KAFKA_PROJECT_BILLING_ACCOUNT_UPDATED_TOPIC` | `project.action.billingAccount.update` | None found | N/A |
 | `KAFKA_PROJECT_DELETED_TOPIC` | `project.deleted` | None found | N/A |
 | `KAFKA_PROJECT_MEMBER_ADDED_TOPIC` | `project.member.added` | None found | N/A |
 | `KAFKA_PROJECT_MEMBER_REMOVED_TOPIC` | `project.member.removed` | None found | N/A |

@@ -1,6 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsObject } from 'class-validator';
 
+/**
+ * Request payload for creating a new form version.
+ *
+ * @property config Form JSON configuration body.
+ */
 export class CreateFormVersionDto {
   @ApiProperty({
     type: 'object',

@@ -29,9 +29,15 @@ import { PlanConfigService } from './plan-config.service';
 @ApiTags('Metadata - Plan Configs')
 @ApiBearerAuth()
 @Controller('/projects/metadata/planConfig/:key/versions')
+/**
+ * REST controller for plan config version operations.
+ *
+ * Read endpoints are currently unguarded; write endpoints require `@AdminOnly`.
+ */
 export class PlanConfigVersionController {
   constructor(private readonly planConfigService: PlanConfigService) {}
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get()
   @ApiOperation({
     summary: 'List planConfig versions',
@@ -41,12 +47,16 @@ export class PlanConfigVersionController {
   @ApiParam({ name: 'key', description: 'PlanConfig key' })
   @ApiResponse({ status: 200, type: [PlanConfigResponseDto] })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Lists latest revision per version for a plan config key.
+   */
   async listVersions(
     @Param('key') key: string,
   ): Promise<PlanConfigResponseDto[]> {
     return this.planConfigService.findAllVersions(key);
   }
 
+  // TODO (SECURITY): This GET endpoint has no auth guard and is not marked @Public(). Clarify intent.
   @Get(':version')
   @ApiOperation({
     summary: 'Get latest revision by planConfig version',
@@ -55,6 +65,9 @@ export class PlanConfigVersionController {
   @ApiParam({ name: 'version', description: 'PlanConfig version' })
   @ApiResponse({ status: 200, type: PlanConfigResponseDto })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Fetches latest revision for one plan config version.
+   */
   async getVersion(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -73,6 +86,9 @@ export class PlanConfigVersionController {
   @ApiParam({ name: 'key', description: 'PlanConfig key' })
   @ApiResponse({ status: 201, type: PlanConfigResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  /**
+   * Creates a new plan config version.
+   */
   async createVersion(
     @Param('key') key: string,
     @Body() dto: CreatePlanConfigVersionDto,
@@ -95,6 +111,9 @@ export class PlanConfigVersionController {
   @ApiResponse({ status: 200, type: PlanConfigResponseDto })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Updates the latest revision of a plan config version.
+   */
   async updateVersion(
     @Param('key') key: string,
     @Param('version') version: string,
@@ -119,6 +138,9 @@ export class PlanConfigVersionController {
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'PlanConfig not found' })
+  /**
+   * Soft deletes all revisions of a plan config version.
+   */
   async deleteVersion(
     @Param('key') key: string,
     @Param('version') version: string,

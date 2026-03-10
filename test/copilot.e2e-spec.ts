@@ -74,15 +74,21 @@ describe('Copilot endpoints (e2e)', () => {
 
   const m2mServiceMock = {
     validateMachineToken: jest.fn((payload?: Record<string, unknown>) => {
-      const rawScope = payload?.scope;
+      const rawScope =
+        payload?.scope ??
+        payload?.scopes ??
+        payload?.scp ??
+        payload?.permissions;
       const scopes =
         typeof rawScope === 'string'
-          ? rawScope.split(' ').map((scope) => scope.trim().toLowerCase())
-          : [];
+          ? rawScope.split(/\s+/u).map((scope) => scope.trim().toLowerCase())
+          : Array.isArray(rawScope)
+            ? rawScope.map((scope) => String(scope).trim().toLowerCase())
+            : [];
 
       return {
-        isMachine: payload?.gty === 'client-credentials',
-        scopes,
+        isMachine: payload?.gty === 'client-credentials' || scopes.length > 0,
+        scopes: scopes.filter((scope) => scope.length > 0),
       };
     }),
     hasRequiredScopes: jest.fn(
@@ -476,6 +482,54 @@ describe('Copilot endpoints (e2e)', () => {
       .get('/v6/projects/copilots/opportunities')
       .set('Authorization', 'Bearer m2m-token')
       .expect(200);
+  });
+
+  it('allows m2m token with all:projects scope to list copilot requests', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECTS_ALL],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        permissions: [Scope.PROJECTS_ALL],
+      },
+    });
+
+    await request(app.getHttpServer())
+      .get('/v6/projects/copilots/requests')
+      .set('Authorization', 'Bearer m2m-token')
+      .expect(200);
+  });
+
+  it('allows m2m token with all:projects scope to create copilot requests', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECTS_ALL],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        permissions: [Scope.PROJECTS_ALL],
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/v6/projects/100/copilots/requests')
+      .set('Authorization', 'Bearer m2m-token')
+      .send({
+        data: {
+          projectId: 100,
+          opportunityTitle: 'Need a dev copilot',
+          complexity: 'medium',
+          requiresCommunication: 'yes',
+          paymentType: 'standard',
+          projectType: 'dev',
+          overview: 'Detailed overview text',
+          skills: [{ id: '1', name: 'Node.js' }],
+          startDate: '2026-02-01T00:00:00.000Z',
+          numWeeks: 4,
+          tzRestrictions: 'UTC-5 to UTC+1',
+          numHoursPerWeek: 20,
+        },
+      })
+      .expect(201);
   });
 
   it('returns same application payload for repeated apply (idempotency)', async () => {

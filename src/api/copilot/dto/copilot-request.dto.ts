@@ -19,23 +19,11 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { parseOptionalLooseInteger } from 'src/shared/utils/dto-transform.utils';
 
-function parseOptionalInteger(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  if (typeof value === 'number') {
-    return Number.isNaN(value) ? undefined : Math.trunc(value);
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-
-  return undefined;
-}
+/**
+ * Input/output DTOs for the copilot request lifecycle.
+ */
 
 export enum CopilotComplexity {
   LOW = 'low',
@@ -53,6 +41,9 @@ export enum CopilotPaymentType {
   OTHER = 'other',
 }
 
+/**
+ * Represents a skill tag attached to a copilot request.
+ */
 export class CopilotSkillDto {
   @ApiProperty()
   @IsString()
@@ -65,6 +56,10 @@ export class CopilotSkillDto {
   name: string;
 }
 
+/**
+ * Validated payload for the data envelope of a new copilot request.
+ * All fields are required except copilotUsername and otherPaymentType.
+ */
 export class CreateCopilotRequestDataDto {
   @ApiProperty({ description: 'Project id' })
   @Type(() => Number)
@@ -141,10 +136,16 @@ export class CreateCopilotRequestDataDto {
   numHoursPerWeek: number;
 }
 
+/**
+ * Partial payload for PATCH operations on copilot request data.
+ */
 export class UpdateCopilotRequestDataDto extends PartialType(
   CreateCopilotRequestDataDto,
 ) {}
 
+/**
+ * Top-level envelope wrapper for create request payloads.
+ */
 export class CreateCopilotRequestDto {
   @ApiProperty({ type: () => CreateCopilotRequestDataDto })
   @ValidateNested()
@@ -152,6 +153,9 @@ export class CreateCopilotRequestDto {
   data: CreateCopilotRequestDataDto;
 }
 
+/**
+ * Top-level envelope wrapper for update request payloads.
+ */
 export class UpdateCopilotRequestDto {
   @ApiProperty({ type: () => UpdateCopilotRequestDataDto })
   @ValidateNested()
@@ -159,6 +163,9 @@ export class UpdateCopilotRequestDto {
   data: UpdateCopilotRequestDataDto;
 }
 
+/**
+ * Embedded opportunity summary returned in request responses.
+ */
 export class CopilotRequestOpportunityResponseDto {
   @ApiProperty()
   id: string;
@@ -182,12 +189,18 @@ export class CopilotRequestOpportunityResponseDto {
   updatedAt: Date;
 }
 
+/**
+ * Full response shape for a copilot request.
+ */
 export class CopilotRequestResponseDto {
   @ApiProperty()
   id: string;
 
   @ApiPropertyOptional()
   projectId?: string;
+
+  @ApiPropertyOptional({ type: Object })
+  project?: Record<string, unknown>;
 
   @ApiProperty({ enum: CopilotRequestStatus, enumName: 'CopilotRequestStatus' })
   status: CopilotRequestStatus;
@@ -211,17 +224,20 @@ export class CopilotRequestResponseDto {
   copilotOpportunity?: CopilotRequestOpportunityResponseDto[];
 }
 
+/**
+ * Pagination and sort query parameters for request listing endpoints.
+ */
 export class CopilotRequestListQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseOptionalInteger(value))
+  @Transform(({ value }) => parseOptionalLooseInteger(value))
   @IsInt()
   @Min(1)
   page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseOptionalInteger(value))
+  @Transform(({ value }) => parseOptionalLooseInteger(value))
   @IsInt()
   @Min(1)
   pageSize?: number;

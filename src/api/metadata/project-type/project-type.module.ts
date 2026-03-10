@@ -3,6 +3,10 @@ import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders
 import { ProjectTypeController } from './project-type.controller';
 import { ProjectTypeService } from './project-type.service';
 
+/**
+ * Registers project type controller/service and exports `ProjectTypeService`
+ * for metadata consumers.
+ */
 @Module({
   imports: [GlobalProvidersModule],
   controllers: [ProjectTypeController],

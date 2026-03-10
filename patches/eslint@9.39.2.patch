@@ -1,0 +1,50 @@
+diff --git a/lib/shared/ajv.js b/lib/shared/ajv.js
+index 5c5c41bd7470bd190bd4efb5caab88c73ae01f56..6aa3190f4c4f7fe94c50980d77b4538b51953c02 100644
+--- a/lib/shared/ajv.js
++++ b/lib/shared/ajv.js
+@@ -8,8 +8,13 @@
+ // Requirements
+ //------------------------------------------------------------------------------
+ 
+-const Ajv = require("ajv"),
+-	metaSchema = require("ajv/lib/refs/json-schema-draft-04.json");
++const Ajv = require("ajv");
++
++const metaSchema = {
++	id: "http://json-schema.org/draft-04/schema#",
++	$id: "http://json-schema.org/draft-04/schema#",
++	$schema: "http://json-schema.org/draft-04/schema#",
++};
+ 
+ //------------------------------------------------------------------------------
+ // Public Interface
+@@ -20,15 +25,24 @@ module.exports = (additionalOptions = {}) => {
+ 		meta: false,
+ 		useDefaults: true,
+ 		validateSchema: false,
+-		missingRefs: "ignore",
+ 		verbose: true,
+-		schemaId: "auto",
+ 		...additionalOptions,
+ 	});
+ 
+-	ajv.addMetaSchema(metaSchema);
+-	// eslint-disable-next-line no-underscore-dangle -- Ajv's API
+-	ajv._opts.defaultMeta = metaSchema.id;
++	if (typeof ajv.addMetaSchema === "function") {
++		try {
++			ajv.addMetaSchema(metaSchema);
++		} catch {
++			// Ignore duplicate/incompatible meta schema errors across Ajv major versions.
++		}
++	}
++
++	if (ajv.opts) {
++		ajv.opts.defaultMeta = metaSchema.$id || metaSchema.id;
++	} else if (ajv._opts) {
++		// eslint-disable-next-line no-underscore-dangle -- Ajv v6 path
++		ajv._opts.defaultMeta = metaSchema.id;
++	}
+ 
+ 	return ajv;
+ };

@@ -43,11 +43,19 @@ const WORK_MANAGEMENT_PERMISSION_ROLES = Object.values(UserRole);
 @ApiTags('Metadata - Work Management Permission')
 @ApiBearerAuth()
 @Controller('/projects/metadata/workManagementPermission')
+/**
+ * REST controller for work management permissions.
+ *
+ * All endpoints are authenticated. `GET` requires
+ * `WORK_MANAGEMENT_PERMISSION_VIEW`; write operations require
+ * `@AdminOnly()` and `WORK_MANAGEMENT_PERMISSION_EDIT`.
+ */
 export class WorkManagementPermissionController {
   constructor(
     private readonly workManagementPermissionService: WorkManagementPermissionService,
   ) {}
 
+  // TODO (SECURITY): The GET endpoint applies PermissionGuard + RequirePermission(WORK_MANAGEMENT_PERMISSION_VIEW). Verify this is intentional — other metadata read endpoints (FormController, ProjectTemplateController) have no auth guard on GET routes, creating an inconsistency.
   @Get()
   @UseGuards(PermissionGuard)
   @Roles(...WORK_MANAGEMENT_PERMISSION_ROLES)
@@ -79,8 +87,14 @@ export class WorkManagementPermissionController {
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
+  // TODO (QUALITY): Duplicate @ApiResponse({ status: 200 }) decorators on listOrGet — remove the second one (line 82).
   @ApiResponse({ status: 200, type: WorkManagementPermissionResponseDto })
   @ApiResponse({ status: 404, description: 'Not found' })
+  /**
+   * Lists permissions for a project template or fetches one by id.
+   *
+   * HTTP 200 on success, 400 on invalid query, 404 when id is not found.
+   */
   async listOrGet(
     @Query() query: WorkManagementPermissionQueryDto,
   ): Promise<
@@ -105,6 +119,11 @@ export class WorkManagementPermissionController {
     return this.workManagementPermissionService.findAll(criteria);
   }
 
+  /**
+   * Creates a permission record.
+   *
+   * HTTP 201 on success.
+   */
   @Post()
   @AdminOnly()
   @UseGuards(PermissionGuard)
@@ -129,6 +148,11 @@ export class WorkManagementPermissionController {
     );
   }
 
+  /**
+   * Updates a permission record by request body `id`.
+   *
+   * HTTP 200 on success.
+   */
   @Patch()
   @AdminOnly()
   @UseGuards(PermissionGuard)
@@ -160,6 +184,11 @@ export class WorkManagementPermissionController {
     );
   }
 
+  /**
+   * Soft deletes a permission record.
+   *
+   * HTTP 204 on success.
+   */
   @Delete()
   @HttpCode(204)
   @AdminOnly()

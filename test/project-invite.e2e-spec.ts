@@ -9,6 +9,7 @@ import { InviteStatus, ProjectMemberRole } from '@prisma/client';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { ProjectInviteService } from '../src/api/project-invite/project-invite.service';
+import { Scope } from '../src/shared/enums/scopes.enum';
 import { JwtService, JwtUser } from '../src/shared/modules/global/jwt.service';
 import { M2MService } from '../src/shared/modules/global/m2m.service';
 import { PrismaService } from '../src/shared/modules/global/prisma.service';
@@ -69,11 +70,30 @@ describe('Project Invite endpoints (e2e)', () => {
   };
 
   const m2mServiceMock = {
-    validateMachineToken: jest.fn(() => ({
-      isMachine: false,
-      scopes: [],
-    })),
-    hasRequiredScopes: jest.fn(() => false),
+    validateMachineToken: jest.fn((payload?: Record<string, unknown>) => {
+      const rawScope = payload?.scope;
+      const scopes =
+        typeof rawScope === 'string'
+          ? rawScope.split(' ').map((scope) => scope.trim().toLowerCase())
+          : [];
+
+      return {
+        isMachine: payload?.gty === 'client-credentials',
+        scopes,
+      };
+    }),
+    hasRequiredScopes: jest.fn(
+      (tokenScopes: string[], requiredScopes: string[]): boolean => {
+        if (requiredScopes.length === 0) {
+          return true;
+        }
+
+        const normalized = tokenScopes.map((scope) => scope.toLowerCase());
+        return requiredScopes.some((scope) =>
+          normalized.includes(scope.toLowerCase()),
+        );
+      },
+    ),
   };
 
   const prismaServiceMock = {
@@ -173,6 +193,33 @@ describe('Project Invite endpoints (e2e)', () => {
     expect(projectInviteServiceMock.createInvites).toHaveBeenCalled();
   });
 
+  it('creates invites for m2m token with project-invite write scope', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECT_INVITES_WRITE],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECT_INVITES_WRITE,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/v6/projects/1001/invites')
+      .set('Authorization', 'Bearer m2m-invite-write')
+      .send({ handles: ['member'], role: ProjectMemberRole.customer })
+      .expect(201);
+
+    expect(projectInviteServiceMock.createInvites).toHaveBeenCalledWith(
+      '1001',
+      expect.objectContaining({ role: ProjectMemberRole.customer }),
+      expect.objectContaining({
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      }),
+      undefined,
+    );
+  });
+
   it('returns 403 for partial failures', async () => {
     projectInviteServiceMock.createInvites.mockResolvedValueOnce({
       success: [{ id: '1' }],
@@ -201,6 +248,34 @@ describe('Project Invite endpoints (e2e)', () => {
     expect(projectInviteServiceMock.updateInvite).toHaveBeenCalled();
   });
 
+  it('updates invite for m2m token with project-invite write scope', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECT_INVITES_WRITE],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECT_INVITES_WRITE,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .patch('/v6/projects/1001/invites/10')
+      .set('Authorization', 'Bearer m2m-invite-write')
+      .send({ status: InviteStatus.accepted })
+      .expect(200);
+
+    expect(projectInviteServiceMock.updateInvite).toHaveBeenCalledWith(
+      '1001',
+      '10',
+      expect.objectContaining({ status: InviteStatus.accepted }),
+      expect.objectContaining({
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      }),
+      undefined,
+    );
+  });
+
   it('deletes invite', async () => {
     await request(app.getHttpServer())
       .delete('/v6/projects/1001/invites/10')
@@ -208,6 +283,31 @@ describe('Project Invite endpoints (e2e)', () => {
       .expect(204);
 
     expect(projectInviteServiceMock.deleteInvite).toHaveBeenCalled();
+  });
+
+  it('deletes invite for m2m token with project-invite write scope', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECT_INVITES_WRITE],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECT_INVITES_WRITE,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .delete('/v6/projects/1001/invites/10')
+      .set('Authorization', 'Bearer m2m-invite-write')
+      .expect(204);
+
+    expect(projectInviteServiceMock.deleteInvite).toHaveBeenCalledWith(
+      '1001',
+      '10',
+      expect.objectContaining({
+        scopes: [Scope.PROJECT_INVITES_WRITE],
+        isMachine: true,
+      }),
+    );
   });
 
   it('gets invite', async () => {

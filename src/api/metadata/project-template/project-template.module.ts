@@ -6,6 +6,10 @@ import { PriceConfigModule } from '../price-config/price-config.module';
 import { ProjectTemplateController } from './project-template.controller';
 import { ProjectTemplateService } from './project-template.service';
 
+/**
+ * Registers project template controller/service and exports
+ * `ProjectTemplateService` for metadata APIs and dependent services.
+ */
 @Module({
   imports: [
     GlobalProvidersModule,

@@ -17,10 +17,31 @@ import {
 import { JwtUser } from '../modules/global/jwt.service';
 import { M2MService } from '../modules/global/m2m.service';
 
+/**
+ * Central authorization engine for Projects API permissions.
+ *
+ * Evaluates both rule-based permission objects and named permissions against a
+ * {@link JwtUser}, optional project members, and optional project invites.
+ *
+ * This service is injected broadly across controllers and services. The
+ * `ProjectContextInterceptor` preloads project members/invites so those arrays
+ * are available when permission checks run.
+ */
 @Injectable()
 export class PermissionService {
   constructor(private readonly m2mService: M2MService) {}
 
+  /**
+   * Matches a single permission rule against user/project context.
+   *
+   * The rule is considered matched when any one dimension matches:
+   * project role OR Topcoder role OR M2M scope.
+   *
+   * @param permissionRule rule to evaluate
+   * @param user authenticated JWT user context
+   * @param projectMembers optional members for project-role checks
+   * @returns `true` when at least one rule dimension matches
+   */
   matchPermissionRule(
     permissionRule: PermissionRule | null | undefined,
     user: JwtUser,
@@ -33,6 +54,8 @@ export class PermissionService {
     if (!permissionRule || !user) {
       return false;
     }
+
+    const machineContext = this.resolveMachineContext(user);
 
     if (permissionRule.projectRoles && projectMembers) {
       const member = this.getProjectMember(user.userId, projectMembers);
@@ -66,7 +89,7 @@ export class PermissionService {
 
     if (permissionRule.scopes) {
       hasScope = this.m2mService.hasRequiredScopes(
-        user.scopes || [],
+        machineContext.scopes,
         permissionRule.scopes,
       );
     }
@@ -74,6 +97,16 @@ export class PermissionService {
     return hasProjectRole || hasTopcoderRole || hasScope;
   }
 
+  /**
+   * Evaluates a permission object using allow/deny semantics.
+   *
+   * Effective result is `allowRule` minus `denyRule`.
+   *
+   * @param permission permission object or shorthand rule
+   * @param user authenticated JWT user context
+   * @param projectMembers optional members for project-role checks
+   * @returns `true` when allow matches and deny does not match
+   */
   hasPermission(
     permission: Permission | null | undefined,
     user: JwtUser,
@@ -92,6 +125,22 @@ export class PermissionService {
     return allow && !deny;
   }
 
+  /**
+   * Evaluates one of the named permissions used by guards/controllers.
+   *
+   * Contains an explicit switch with all named permission intents for project,
+   * member, invite, billing, copilot, attachment, and work-management actions.
+   *
+   * @param permission named permission enum value
+   * @param user authenticated JWT user context
+   * @param projectMembers project member list required by many permission paths
+   * @param projectInvites invite list required by invite-aware permissions
+   * @returns `true` when the user satisfies the named permission rule
+   * @security `CREATE_PROJECT` currently trusts a permissive `isAuthenticated`
+   * check: any non-empty `userId`, any role, any scope, or `isMachine`.
+   * @security Admin detection currently includes the raw role string
+   * `'topcoder_manager'`, which can drift from enum-backed role names.
+   */
   hasNamedPermission(
     permission: NamedPermission,
     user: JwtUser,
@@ -102,12 +151,16 @@ export class PermissionService {
       return false;
     }
 
+    const machineContext = this.resolveMachineContext(user);
+    const effectiveScopes = machineContext.scopes;
     const isAuthenticated =
       Boolean(user.userId && String(user.userId).trim().length > 0) ||
       (Array.isArray(user.roles) && user.roles.length > 0) ||
-      (Array.isArray(user.scopes) && user.scopes.length > 0) ||
-      user.isMachine;
+      effectiveScopes.length > 0 ||
+      machineContext.isMachine;
+    // TODO: intentionally permissive authentication gate for CREATE_PROJECT; reassess whether any role/scope/machine token should qualify.
 
+    // TODO: replace 'topcoder_manager' string literal with UserRole enum value.
     const isAdmin = this.hasIntersection(user.roles || [], [
       ...ADMIN_ROLES,
       UserRole.MANAGER,
@@ -115,9 +168,49 @@ export class PermissionService {
     ]);
     const hasStrictAdminAccess =
       this.hasIntersection(user.roles || [], ADMIN_ROLES) ||
-      this.m2mService.hasRequiredScopes(user.scopes || [], [
+      this.m2mService.hasRequiredScopes(effectiveScopes, [
         Scope.CONNECT_PROJECT_ADMIN,
       ]);
+    const hasProjectReadScope = this.m2mService.hasRequiredScopes(
+      effectiveScopes,
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECTS_ALL,
+        Scope.PROJECTS_READ,
+        Scope.PROJECTS_WRITE,
+      ],
+    );
+    const hasProjectWriteScope = this.m2mService.hasRequiredScopes(
+      effectiveScopes,
+      [Scope.CONNECT_PROJECT_ADMIN, Scope.PROJECTS_ALL, Scope.PROJECTS_WRITE],
+    );
+    const hasMachineProjectWriteScope = Boolean(
+      machineContext.isMachine && hasProjectWriteScope,
+    );
+    const hasProjectMemberReadScope = this.m2mService.hasRequiredScopes(
+      effectiveScopes,
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_MEMBERS_ALL,
+        Scope.PROJECT_MEMBERS_READ,
+      ],
+    );
+    const hasProjectInviteReadScope = this.m2mService.hasRequiredScopes(
+      effectiveScopes,
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_INVITES_ALL,
+        Scope.PROJECT_INVITES_READ,
+      ],
+    );
+    const hasProjectInviteWriteScope = this.m2mService.hasRequiredScopes(
+      effectiveScopes,
+      [
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_INVITES_ALL,
+        Scope.PROJECT_INVITES_WRITE,
+      ],
+    );
 
     const member = this.getProjectMember(user.userId, projectMembers);
     const hasProjectMembership = Boolean(member);
@@ -134,32 +227,50 @@ export class PermissionService {
         return false;
       }
 
-      if (!invite.userId) {
-        return false;
+      if (
+        invite.userId &&
+        this.normalizeUserId(invite.userId) ===
+          this.normalizeUserId(user.userId)
+      ) {
+        return true;
       }
 
-      return (
-        this.normalizeUserId(invite.userId) ===
-        this.normalizeUserId(user.userId)
-      );
+      const inviteEmail = this.normalizeEmail(invite.email);
+      const userEmail = this.getUserEmail(user);
+
+      return Boolean(inviteEmail && userEmail && inviteEmail === userEmail);
     });
 
+    // TODO: extract to private isAdminManagerOrCopilot() helper to reduce duplication.
     switch (permission) {
+      // Project read/write lifecycle permissions.
       case NamedPermission.READ_PROJECT_ANY:
         return isAdmin;
 
       case NamedPermission.VIEW_PROJECT:
-        return isAdmin || hasProjectMembership || hasPendingInvite;
+        return (
+          isAdmin ||
+          hasProjectMembership ||
+          hasPendingInvite ||
+          hasProjectReadScope
+        );
 
       case NamedPermission.CREATE_PROJECT:
         return isAuthenticated;
 
       case NamedPermission.EDIT_PROJECT:
-        return isAdmin || isManagementMember || this.isCopilot(member?.role);
+        return (
+          isAdmin ||
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          this.hasProjectUpdateTopcoderRole(user) ||
+          hasMachineProjectWriteScope
+        );
 
       case NamedPermission.DELETE_PROJECT:
         return (
           isAdmin ||
+          hasMachineProjectWriteScope ||
           Boolean(
             member &&
             this.normalizeRole(member.role) ===
@@ -167,8 +278,9 @@ export class PermissionService {
           )
         );
 
+      // Project member management permissions.
       case NamedPermission.READ_PROJECT_MEMBER:
-        return isAdmin || hasProjectMembership;
+        return isAdmin || hasProjectMembership || hasProjectMemberReadScope;
 
       case NamedPermission.CREATE_PROJECT_MEMBER_OWN:
         return isAuthenticated;
@@ -189,20 +301,30 @@ export class PermissionService {
           this.hasCopilotManagerRole(user)
         );
 
+      // Project invite read/write permissions.
       case NamedPermission.READ_PROJECT_INVITE_OWN:
         return isAuthenticated;
 
       case NamedPermission.READ_PROJECT_INVITE_NOT_OWN:
-        return isAdmin || hasProjectMembership;
+        return isAdmin || hasProjectMembership || hasProjectInviteReadScope;
 
       case NamedPermission.CREATE_PROJECT_INVITE_TOPCODER:
-        return isAdmin || isManagementMember;
+        return isAdmin || isManagementMember || hasProjectInviteWriteScope;
 
       case NamedPermission.CREATE_PROJECT_INVITE_CUSTOMER:
-        return isAdmin || isManagementMember || this.isCopilot(member?.role);
+        return (
+          isAdmin ||
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          hasProjectInviteWriteScope
+        );
 
       case NamedPermission.CREATE_PROJECT_INVITE_COPILOT:
-        return isAdmin || this.hasCopilotManagerRole(user);
+        return (
+          isAdmin ||
+          this.hasCopilotManagerRole(user) ||
+          hasProjectInviteWriteScope
+        );
 
       case NamedPermission.UPDATE_PROJECT_INVITE_OWN:
       case NamedPermission.DELETE_PROJECT_INVITE_OWN:
@@ -211,24 +333,34 @@ export class PermissionService {
       case NamedPermission.UPDATE_PROJECT_INVITE_REQUESTED:
       case NamedPermission.DELETE_PROJECT_INVITE_REQUESTED:
         return (
-          isAdmin || isManagementMember || this.hasCopilotManagerRole(user)
+          isAdmin ||
+          isManagementMember ||
+          this.hasCopilotManagerRole(user) ||
+          hasProjectInviteWriteScope
         );
 
       case NamedPermission.UPDATE_PROJECT_INVITE_NOT_OWN:
       case NamedPermission.DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER:
-        return isAdmin || isManagementMember;
+        return isAdmin || isManagementMember || hasProjectInviteWriteScope;
 
       case NamedPermission.DELETE_PROJECT_INVITE_NOT_OWN_CUSTOMER:
-        return isAdmin || isManagementMember || this.isCopilot(member?.role);
+        return (
+          isAdmin ||
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          hasProjectInviteWriteScope
+        );
 
       case NamedPermission.DELETE_PROJECT_INVITE_NOT_OWN_COPILOT:
         return (
           isAdmin ||
           isManagementMember ||
           this.isCopilot(member?.role) ||
-          this.hasCopilotManagerRole(user)
+          this.hasCopilotManagerRole(user) ||
+          hasProjectInviteWriteScope
         );
 
+      // Billing-account related permissions.
       case NamedPermission.MANAGE_PROJECT_BILLING_ACCOUNT_ID:
       case NamedPermission.MANAGE_PROJECT_DIRECT_PROJECT_ID:
         return isAdmin;
@@ -238,7 +370,7 @@ export class PermissionService {
           isManagementMember ||
           this.isCopilot(member?.role) ||
           this.hasProjectBillingTopcoderRole(user) ||
-          this.m2mService.hasRequiredScopes(user.scopes || [], [
+          this.m2mService.hasRequiredScopes(effectiveScopes, [
             Scope.CONNECT_PROJECT_ADMIN,
             Scope.PROJECTS_READ_USER_BILLING_ACCOUNTS,
           ])
@@ -249,18 +381,21 @@ export class PermissionService {
           isManagementMember ||
           this.isCopilot(member?.role) ||
           this.hasProjectBillingTopcoderRole(user) ||
-          this.m2mService.hasRequiredScopes(user.scopes || [], [
+          this.m2mService.hasRequiredScopes(effectiveScopes, [
             Scope.PROJECTS_READ_PROJECT_BILLING_ACCOUNT_DETAILS,
           ])
         );
 
+      // Copilot opportunity permissions.
       case NamedPermission.MANAGE_COPILOT_REQUEST:
       case NamedPermission.ASSIGN_COPILOT_OPPORTUNITY:
       case NamedPermission.CANCEL_COPILOT_OPPORTUNITY:
-        return this.hasIntersection(user.roles || [], [
-          UserRole.TOPCODER_ADMIN,
-          UserRole.PROJECT_MANAGER,
-        ]);
+        return (
+          this.hasIntersection(user.roles || [], [
+            UserRole.TOPCODER_ADMIN,
+            UserRole.PROJECT_MANAGER,
+          ]) || hasMachineProjectWriteScope
+        );
 
       case NamedPermission.APPLY_COPILOT_OPPORTUNITY:
         return this.hasIntersection(user.roles || [], [UserRole.TC_COPILOT]);
@@ -271,6 +406,7 @@ export class PermissionService {
           UserRole.CONNECT_ADMIN,
         ]);
 
+      // Project attachment permissions.
       case NamedPermission.VIEW_PROJECT_ATTACHMENT:
         return isAdmin || hasProjectMembership;
 
@@ -287,6 +423,7 @@ export class PermissionService {
       case NamedPermission.UPDATE_PROJECT_ATTACHMENT_NOT_OWN:
         return isAdmin;
 
+      // Phase/work/workstream permissions.
       case NamedPermission.ADD_PROJECT_PHASE:
       case NamedPermission.UPDATE_PROJECT_PHASE:
       case NamedPermission.DELETE_PROJECT_PHASE:
@@ -311,6 +448,7 @@ export class PermissionService {
       case NamedPermission.WORKITEM_DELETE:
         return isAdmin || isManagementMember;
 
+      // Work manager permission matrix endpoints.
       case NamedPermission.WORK_MANAGEMENT_PERMISSION_VIEW:
         return isAuthenticated;
 
@@ -322,6 +460,12 @@ export class PermissionService {
     }
   }
 
+  /**
+   * Checks whether a rule-based permission needs project members in context.
+   *
+   * @param permission permission object or shorthand rule
+   * @returns `true` when allow or deny rule references project roles
+   */
   isPermissionRequireProjectMembers(
     permission: Permission | null | undefined,
   ): boolean {
@@ -338,7 +482,17 @@ export class PermissionService {
     );
   }
 
+  /**
+   * Checks whether a named permission needs project members in context.
+   *
+   * This list is a static allowlist and must stay aligned with
+   * {@link hasNamedPermission}.
+   *
+   * @param permission named permission enum value
+   * @returns `true` when project member context is required
+   */
   isNamedPermissionRequireProjectMembers(permission: NamedPermission): boolean {
+    // TODO: derive this list programmatically or add a unit test to enforce sync.
     return [
       NamedPermission.VIEW_PROJECT,
       NamedPermission.EDIT_PROJECT,
@@ -385,11 +539,24 @@ export class PermissionService {
     ].includes(permission);
   }
 
+  /**
+   * Checks whether a named permission needs project invites in context.
+   *
+   * @param permission named permission enum value
+   * @returns `true` for invite-aware permissions (currently `VIEW_PROJECT`)
+   */
   isNamedPermissionRequireProjectInvites(permission: NamedPermission): boolean {
     return permission === NamedPermission.VIEW_PROJECT;
   }
 
+  /**
+   * Resolves the default project role from Topcoder roles by precedence.
+   *
+   * @param user authenticated JWT user context
+   * @returns first matched default {@link ProjectMemberRole}, or `undefined`
+   */
   getDefaultProjectRole(user: JwtUser): ProjectMemberRole | undefined {
+    // TODO: duplicated with src/shared/utils/member.utils.ts#getDefaultProjectRole; consolidate shared role-resolution logic.
     for (const rule of DEFAULT_PROJECT_ROLE) {
       if (this.hasPermission({ topcoderRoles: [rule.topcoderRole] }, user)) {
         return rule.projectRole;
@@ -399,11 +566,27 @@ export class PermissionService {
     return undefined;
   }
 
+  /**
+   * Normalizes a role value into lowercase-trimmed form.
+   *
+   * @param role role string to normalize
+   * @returns normalized lowercase role
+   */
   normalizeRole(role: string): string {
+    // TODO: duplicated with src/shared/utils/member.utils.ts#normalizeRole; extract shared normalization utility.
+    // TODO: consider making these protected/private.
     return String(role).trim().toLowerCase();
   }
 
+  /**
+   * Checks whether two role arrays intersect (case-insensitive).
+   *
+   * @param array1 source roles
+   * @param array2 roles to match against
+   * @returns `true` when at least one normalized role intersects
+   */
   hasIntersection(array1: string[], array2: string[]): boolean {
+    // TODO: consider making these protected/private.
     const normalizedArray1 = new Set(
       array1.map((role) => this.normalizeRole(role)),
     );
@@ -412,6 +595,37 @@ export class PermissionService {
     );
   }
 
+  /**
+   * Resolves machine-token status and effective scopes from the normalized user
+   * and the raw token payload so guard and permission checks stay aligned.
+   *
+   * @param user authenticated JWT user context
+   * @returns machine classification and the scopes to evaluate
+   */
+  private resolveMachineContext(user: JwtUser): {
+    isMachine: boolean;
+    scopes: string[];
+  } {
+    const payloadMachineContext = this.m2mService.validateMachineToken(
+      user.tokenPayload,
+    );
+
+    return {
+      isMachine: Boolean(user.isMachine || payloadMachineContext.isMachine),
+      scopes:
+        Array.isArray(user.scopes) && user.scopes.length > 0
+          ? user.scopes
+          : payloadMachineContext.scopes,
+    };
+  }
+
+  /**
+   * Finds a project member record for the given user id.
+   *
+   * @param userId user id from JWT or invite context
+   * @param projectMembers project members loaded for the current project
+   * @returns member record when found
+   */
   private getProjectMember(
     userId: string | number | undefined,
     projectMembers: ProjectMember[],
@@ -427,12 +641,84 @@ export class PermissionService {
     );
   }
 
+  /**
+   * Normalizes a user id into a trimmed string.
+   *
+   * @param userId user id from JWT/member/invite payloads
+   * @returns trimmed string user id
+   */
   private normalizeUserId(
     userId: string | number | bigint | undefined,
   ): string {
+    // TODO: duplicated with src/shared/utils/member.utils.ts#normalizeUserId; extract shared normalization utility.
     return String(userId || '').trim();
   }
 
+  /**
+   * Reads normalized user email from parsed claims.
+   *
+   * Uses `JwtUser.email` first, then falls back to suffix-based lookup in
+   * `tokenPayload` for compatibility with namespaced claims.
+   *
+   * @param user authenticated JWT user
+   * @returns lower-cased email or `undefined`
+   */
+  private getUserEmail(user: JwtUser): string | undefined {
+    const directEmail = this.normalizeEmail(user.email);
+
+    if (directEmail) {
+      return directEmail;
+    }
+
+    const payload = user.tokenPayload;
+
+    if (!payload || typeof payload !== 'object') {
+      return undefined;
+    }
+
+    for (const key of Object.keys(payload)) {
+      if (!key.toLowerCase().endsWith('email')) {
+        continue;
+      }
+
+      const value = (payload as Record<string, unknown>)[key];
+      if (typeof value !== 'string') {
+        continue;
+      }
+
+      const normalizedEmail = this.normalizeEmail(value);
+
+      if (normalizedEmail) {
+        return normalizedEmail;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Normalizes email values for case-insensitive comparisons.
+   *
+   * @param value raw email value
+   * @returns lower-cased trimmed email or `undefined`
+   */
+  private normalizeEmail(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalizedEmail = value.trim().toLowerCase();
+
+    return normalizedEmail.length > 0 ? normalizedEmail : undefined;
+  }
+
+  /**
+   * Evaluates a project-role rule against a specific member.
+   *
+   * @param member project member under evaluation
+   * @param rule role rule including optional `isPrimary` requirement
+   * @returns `true` when role (and optional primary flag) match
+   */
   private matchProjectRoleRule(
     member: ProjectMember,
     rule: ProjectRoleRule,
@@ -451,6 +737,12 @@ export class PermissionService {
     return true;
   }
 
+  /**
+   * Checks whether a project role is copilot.
+   *
+   * @param role project role to test
+   * @returns `true` when role resolves to `COPILOT`
+   */
   private isCopilot(role?: string): boolean {
     if (!role) {
       return false;
@@ -461,6 +753,12 @@ export class PermissionService {
     );
   }
 
+  /**
+   * Checks whether a project role is customer.
+   *
+   * @param role project role to test
+   * @returns `true` when role resolves to `CUSTOMER`
+   */
   private isCustomer(role?: string): boolean {
     if (!role) {
       return false;
@@ -472,10 +770,22 @@ export class PermissionService {
     );
   }
 
+  /**
+   * Checks whether user has the copilot-manager Topcoder role.
+   *
+   * @param user authenticated JWT user context
+   * @returns `true` when user has `COPILOT_MANAGER`
+   */
   private hasCopilotManagerRole(user: JwtUser): boolean {
     return this.hasIntersection(user.roles || [], [UserRole.COPILOT_MANAGER]);
   }
 
+  /**
+   * Checks Topcoder roles allowed to view billing-account data.
+   *
+   * @param user authenticated JWT user context
+   * @returns `true` when user has one of billing-related roles
+   */
   private hasProjectBillingTopcoderRole(user: JwtUser): boolean {
     return this.hasIntersection(user.roles || [], [
       ...ADMIN_ROLES,
@@ -484,6 +794,20 @@ export class PermissionService {
       UserRole.TOPCODER_TASK_MANAGER,
       UserRole.TALENT_MANAGER,
       UserRole.TOPCODER_TALENT_MANAGER,
+    ]);
+  }
+
+  /**
+   * Checks Topcoder roles allowed to edit projects.
+   *
+   * @param user authenticated JWT user context
+   * @returns `true` when user has one of project-edit roles
+   */
+  private hasProjectUpdateTopcoderRole(user: JwtUser): boolean {
+    return this.hasIntersection(user.roles || [], [
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
+      UserRole.PROJECT_MANAGER,
     ]);
   }
 }

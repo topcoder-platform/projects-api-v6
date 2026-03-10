@@ -45,9 +45,24 @@ import {
 @Roles(UserRole.PROJECT_MANAGER, UserRole.TOPCODER_ADMIN)
 @Scopes(Scope.PROJECTS_WRITE, Scope.PROJECTS_ALL, Scope.CONNECT_PROJECT_ADMIN)
 @RequirePermission(Permission.MANAGE_COPILOT_REQUEST)
+/**
+ * Exposes copilot request CRUD and approval endpoints under /projects.
+ * All endpoints require MANAGE_COPILOT_REQUEST permission and are restricted
+ * to PROJECT_MANAGER and TOPCODER_ADMIN roles.
+ */
 export class CopilotRequestController {
   constructor(private readonly service: CopilotRequestService) {}
 
+  /**
+   * GET /projects/copilots/requests
+   * Cross-project request listing endpoint that sets pagination headers.
+   *
+   * @param req Express request.
+   * @param res Express response.
+   * @param query Pagination/sort query.
+   * @param user Authenticated JWT user.
+   * @returns Copilot request page data.
+   */
   @Get('copilots/requests')
   @ApiOperation({
     summary: 'List all copilot requests',
@@ -80,6 +95,14 @@ export class CopilotRequestController {
     return result.data;
   }
 
+  /**
+   * GET /projects/copilots/requests/:copilotRequestId
+   * Returns one copilot request.
+   *
+   * @param copilotRequestId Copilot request id path value.
+   * @param user Authenticated JWT user.
+   * @returns One copilot request response.
+   */
   @Get('copilots/requests/:copilotRequestId')
   @ApiOperation({
     summary: 'Get copilot request',
@@ -98,6 +121,15 @@ export class CopilotRequestController {
     return this.service.getRequest(copilotRequestId, user);
   }
 
+  /**
+   * PATCH /projects/copilots/requests/:copilotRequestId
+   * Partial request update endpoint; terminal statuses are rejected.
+   *
+   * @param copilotRequestId Copilot request id path value.
+   * @param dto Patch payload.
+   * @param user Authenticated JWT user.
+   * @returns Updated request response.
+   */
   @Patch('copilots/requests/:copilotRequestId')
   @ApiOperation({
     summary: 'Update copilot request',
@@ -119,6 +151,17 @@ export class CopilotRequestController {
     return this.service.updateRequest(copilotRequestId, dto, user);
   }
 
+  /**
+   * GET /projects/:projectId/copilots/requests
+   * Project-scoped request list endpoint that sets pagination headers.
+   *
+   * @param req Express request.
+   * @param res Express response.
+   * @param projectId Project id path value.
+   * @param query Pagination/sort query.
+   * @param user Authenticated JWT user.
+   * @returns Project request page data.
+   */
   @Get(':projectId/copilots/requests')
   @ApiOperation({
     summary: 'List copilot requests for project',
@@ -153,6 +196,14 @@ export class CopilotRequestController {
     return result.data;
   }
 
+  /**
+   * POST /projects/copilots/requests
+   * Creates a request using data.projectId from the request body.
+   *
+   * @param dto Create request payload.
+   * @param user Authenticated JWT user.
+   * @returns Created request response.
+   */
   @Post('copilots/requests')
   @ApiOperation({
     summary: 'Create copilot request',
@@ -172,6 +223,15 @@ export class CopilotRequestController {
     return this.service.createRequest(String(dto.data.projectId), dto, user);
   }
 
+  /**
+   * POST /projects/:projectId/copilots/requests
+   * Creates a request using projectId from the path.
+   *
+   * @param projectId Project id path value.
+   * @param dto Create request payload.
+   * @param user Authenticated JWT user.
+   * @returns Created request response.
+   */
   @Post(':projectId/copilots/requests')
   @ApiOperation({
     summary: 'Create copilot request',
@@ -193,6 +253,16 @@ export class CopilotRequestController {
     return this.service.createRequest(projectId, dto, user);
   }
 
+  /**
+   * POST /projects/:projectId/copilots/requests/:copilotRequestId/approve
+   * Approves request and creates opportunity, with optional type override in body.
+   *
+   * @param projectId Project id path value.
+   * @param copilotRequestId Copilot request id path value.
+   * @param type Optional opportunity type override.
+   * @param user Authenticated JWT user.
+   * @returns Created opportunity payload.
+   */
   @Post(':projectId/copilots/requests/:copilotRequestId/approve')
   @ApiOperation({
     summary: 'Approve copilot request',

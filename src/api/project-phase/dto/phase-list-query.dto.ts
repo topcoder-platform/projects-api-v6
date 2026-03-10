@@ -1,31 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { parseOptionalBoolean } from 'src/shared/utils/dto-transform.utils';
 
-function parseOptionalBoolean(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-
-    if (normalized === 'true') {
-      return true;
-    }
-
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-
-  return undefined;
-}
-
+/**
+ * Query params for phase/work listing endpoints:
+ * `GET /projects/:projectId/phases` and
+ * `GET /projects/:projectId/workstreams/:workStreamId/works`.
+ */
 export class PhaseListQueryDto {
   @ApiPropertyOptional({
     description:
-      'CSV fields to include. Supports phase fields plus products,members,approvals.',
+      'CSV field projection (for example: `id,name,products`). Supports phase fields plus `products`, `members`, and `approvals`.',
   })
   @IsOptional()
   @IsString()
@@ -33,7 +19,7 @@ export class PhaseListQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Sort expression. Supported fields: startDate, endDate, status, order.',
+      'Sort expression. Allowed fields: `startDate`, `endDate`, `status`, `order`.',
     example: 'startDate asc',
   })
   @IsOptional()
@@ -41,7 +27,8 @@ export class PhaseListQueryDto {
   sort?: string;
 
   @ApiPropertyOptional({
-    description: 'If true, filter to phases where current user is a member.',
+    description:
+      'If true, non-admin users only see phases where they are active members.',
   })
   @IsOptional()
   @Transform(({ value }) => parseOptionalBoolean(value))

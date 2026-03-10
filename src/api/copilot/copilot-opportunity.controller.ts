@@ -41,9 +41,23 @@ import {
 @ApiTags('Copilot Opportunities')
 @ApiBearerAuth()
 @Controller('/projects')
+/**
+ * Exposes opportunity browsing endpoints for authenticated users and
+ * privileged assignment/cancellation endpoints for admins/PMs.
+ */
 export class CopilotOpportunityController {
   constructor(private readonly service: CopilotOpportunityService) {}
 
+  /**
+   * GET /projects/copilots/opportunities
+   * Lists opportunities for all authenticated roles and sets pagination headers.
+   *
+   * @param req Express request.
+   * @param res Express response.
+   * @param query Pagination/sort query.
+   * @param user Authenticated JWT user.
+   * @returns Opportunity page data.
+   */
   @Get('copilots/opportunities')
   @Roles(...Object.values(UserRole))
   @Scopes(
@@ -55,7 +69,7 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'List copilot opportunities',
     description:
-      'Lists available copilot opportunities. This endpoint is accessible to authenticated users, including copilots.',
+      'Lists available copilot opportunities. This endpoint is accessible to authenticated users, including copilots. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
@@ -83,7 +97,18 @@ export class CopilotOpportunityController {
     return result.data;
   }
 
+  /**
+   * GET /projects/copilot/opportunity/:id
+   * GET /projects/copilots/opportunity/:id
+   * Returns one opportunity response.
+   *
+   * @param id Opportunity id path value.
+   * @param user Authenticated JWT user.
+   * @returns One opportunity response.
+   */
+  @Get('copilot/opportunity/:id')
   @Get('copilots/opportunity/:id')
+  // TODO [QUALITY]: Two route decorators (singular/plural) map to the same handler for legacy compatibility; document which route is canonical.
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECTS_READ,
@@ -94,7 +119,7 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'Get copilot opportunity',
     description:
-      'Returns one copilot opportunity with flattened request data and apply eligibility context for /projects/copilots/opportunity/:id.',
+      'Returns one copilot opportunity with flattened request data and apply eligibility context for /projects/copilots/opportunity/:id. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
   })
   @ApiParam({ name: 'id', required: true, type: String })
   @ApiResponse({ status: 200, type: CopilotOpportunityResponseDto })
@@ -108,6 +133,15 @@ export class CopilotOpportunityController {
     return this.service.getOpportunity(id, user);
   }
 
+  /**
+   * POST /projects/copilots/opportunity/:id/assign
+   * Assigns an application with full assignment transaction behavior.
+   *
+   * @param id Opportunity id path value.
+   * @param dto Assignment payload.
+   * @param user Authenticated JWT user.
+   * @returns Assigned application id payload.
+   */
   @Post('copilots/opportunity/:id/assign')
   @UseGuards(PermissionGuard)
   @Roles(UserRole.PROJECT_MANAGER, UserRole.TOPCODER_ADMIN)
@@ -134,6 +168,14 @@ export class CopilotOpportunityController {
     return this.service.assignCopilot(id, dto, user);
   }
 
+  /**
+   * DELETE /projects/copilots/opportunity/:id/cancel
+   * Cancels an opportunity and related applications.
+   *
+   * @param id Opportunity id path value.
+   * @param user Authenticated JWT user.
+   * @returns Canceled opportunity id payload.
+   */
   @Delete('copilots/opportunity/:id/cancel')
   @UseGuards(PermissionGuard)
   @Roles(UserRole.PROJECT_MANAGER, UserRole.TOPCODER_ADMIN)

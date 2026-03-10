@@ -8,7 +8,9 @@ describe('ProjectController', () => {
     getProject: jest.fn(),
     listProjectBillingAccounts: jest.fn(),
     getProjectBillingAccount: jest.fn(),
+    getProjectPermissions: jest.fn(),
     createProject: jest.fn(),
+    upgradeProject: jest.fn(),
     updateProject: jest.fn(),
     deleteProject: jest.fn(),
   };
@@ -149,6 +151,98 @@ describe('ProjectController', () => {
 
     expect(result).toEqual({ id: '202' });
     expect(serviceMock.createProject).toHaveBeenCalled();
+  });
+
+  it('gets project permissions', async () => {
+    serviceMock.getProjectPermissions.mockResolvedValue({
+      manage_team: true,
+    });
+
+    const result = await controller.getProjectPermissions('303', {
+      userId: '123',
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      manage_team: true,
+    });
+    expect(serviceMock.getProjectPermissions).toHaveBeenCalledWith(
+      '303',
+      expect.objectContaining({ userId: '123' }),
+    );
+  });
+
+  it('gets project permission matrix for machine token callers', async () => {
+    serviceMock.getProjectPermissions.mockResolvedValue({
+      '40158994': {
+        memberships: [
+          {
+            memberId: '100956',
+            role: 'copilot',
+            isPrimary: true,
+          },
+        ],
+        topcoderRoles: ['Connect Admin'],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+    });
+
+    const result = await controller.getProjectPermissions('303', {
+      isMachine: true,
+      scopes: ['read:projects'],
+    });
+
+    expect(result).toEqual({
+      '40158994': {
+        memberships: [
+          {
+            memberId: '100956',
+            role: 'copilot',
+            isPrimary: true,
+          },
+        ],
+        topcoderRoles: ['Connect Admin'],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+    });
+    expect(serviceMock.getProjectPermissions).toHaveBeenCalledWith(
+      '303',
+      expect.objectContaining({ isMachine: true }),
+    );
+  });
+
+  it('upgrades project', async () => {
+    serviceMock.upgradeProject.mockResolvedValue({
+      message: 'Project successfully upgraded',
+    });
+
+    const result = await controller.upgradeProject(
+      '303',
+      {
+        targetVersion: 'v3',
+      } as any,
+      {
+        userId: '123',
+        isMachine: false,
+      },
+    );
+
+    expect(result).toEqual({
+      message: 'Project successfully upgraded',
+    });
+    expect(serviceMock.upgradeProject).toHaveBeenCalledWith(
+      '303',
+      {
+        targetVersion: 'v3',
+      },
+      expect.objectContaining({ userId: '123' }),
+    );
   });
 
   it('updates project', async () => {

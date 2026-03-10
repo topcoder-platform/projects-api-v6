@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,29 +8,46 @@ import { CreatePhaseProductDto } from 'src/api/phase-product/dto/create-phase-pr
 import { UpdatePhaseProductDto } from 'src/api/phase-product/dto/update-phase-product.dto';
 import { Permission } from 'src/shared/constants/permissions';
 import { APP_CONFIG } from 'src/shared/config/app.config';
+import { ProjectPermissionContext } from 'src/shared/interfaces/project-permission-context.interface';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
+import {
+  ensureProjectNamedPermission,
+  getAuditUserIdOrDefault,
+  loadProjectPermissionContext,
+  parseBigIntId,
+  toDetailsObject as toDetailsObjectValue,
+  toJsonInput as toJsonInputValue,
+} from 'src/shared/utils/service.utils';
 import { PhaseProductResponseDto } from './dto/phase-product-response.dto';
 
-interface ProjectPermissionContext {
-  id: bigint;
-  directProjectId: bigint | null;
-  billingAccountId: bigint | null;
-  members: Array<{
-    userId: bigint;
-    role: string;
-    deletedAt: Date | null;
-  }>;
-}
-
 @Injectable()
+/**
+ * Business logic for phase products. Enforces a per-phase product count limit
+ * (`APP_CONFIG.maxPhaseProductCount`, default 20). Inherits
+ * `directProjectId` and `billingAccountId` from the parent project when not
+ * explicitly provided, preserving v5 behavior. Used by
+ * `PhaseProductController` and `WorkItemController`.
+ */
 export class PhaseProductService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionService: PermissionService,
   ) {}
 
+  /**
+   * Validates project and phase existence, then lists non-deleted products
+   * ordered by ascending id.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param user - Authenticated user.
+   * @returns Product DTO list.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks view permission.
+   * @throws {NotFoundException} When project or phase is not found.
+   */
   async listPhaseProducts(
     projectId: string,
     phaseId: string,
@@ -63,6 +79,18 @@ export class PhaseProductService {
     return products.map((product) => this.toDto(product));
   }
 
+  /**
+   * Validates project and phase, then fetches one non-deleted product.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param productId - Product id from the route.
+   * @param user - Authenticated user.
+   * @returns Product DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks view permission.
+   * @throws {NotFoundException} When phase or product is missing.
+   */
   async getPhaseProduct(
     projectId: string,
     phaseId: string,
@@ -100,6 +128,19 @@ export class PhaseProductService {
     return this.toDto(product);
   }
 
+  /**
+   * Creates a phase product with product-count guardrails and defaulting for
+   * `directProjectId`/`billingAccountId` from the parent project.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param dto - Create payload.
+   * @param user - Authenticated user.
+   * @returns Created product DTO.
+   * @throws {BadRequestException} When input is invalid or per-phase limit is exceeded.
+   * @throws {ForbiddenException} When the caller lacks create permission.
+   * @throws {NotFoundException} When project or phase is missing.
+   */
   async createPhaseProduct(
     projectId: string,
     phaseId: string,
@@ -171,6 +212,20 @@ export class PhaseProductService {
     return response;
   }
 
+  /**
+   * Partially updates a phase product. `templateId`, `directProjectId`, and
+   * `billingAccountId` are updated only when provided as numbers.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param productId - Product id from the route.
+   * @param dto - Update payload.
+   * @param user - Authenticated user.
+   * @returns Updated product DTO.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks update permission.
+   * @throws {NotFoundException} When phase or product is missing.
+   */
   async updatePhaseProduct(
     projectId: string,
     phaseId: string,
@@ -241,6 +296,7 @@ export class PhaseProductService {
     });
 
     const response = this.toDto(updatedProduct);
+    // TODO [QUALITY]: Remove unused `void` suppressions; these variables are already used earlier in the method or should be removed from scope.
     void projectId;
     void phaseId;
     void user;
@@ -249,6 +305,18 @@ export class PhaseProductService {
     return response;
   }
 
+  /**
+   * Soft deletes a phase product.
+   *
+   * @param projectId - Project id from the route.
+   * @param phaseId - Phase id from the route.
+   * @param productId - Product id from the route.
+   * @param user - Authenticated user.
+   * @returns Nothing.
+   * @throws {BadRequestException} When route ids are invalid.
+   * @throws {ForbiddenException} When the caller lacks delete permission.
+   * @throws {NotFoundException} When phase or product is missing.
+   */
   async deletePhaseProduct(
     projectId: string,
     phaseId: string,
@@ -299,12 +367,23 @@ export class PhaseProductService {
       },
     });
 
+    // TODO [QUALITY]: Remove unused `void` suppressions; these variables are already used earlier in the method or should be removed from scope.
     void projectId;
     void phaseId;
     void user;
     void deletedProduct;
   }
 
+  /**
+   * Ensures a non-deleted phase exists for the given project.
+   *
+   * @param projectId - Parsed project id.
+   * @param phaseId - Parsed phase id.
+   * @param projectIdInput - Raw project id for error messages.
+   * @param phaseIdInput - Raw phase id for error messages.
+   * @returns Nothing.
+   * @throws {NotFoundException} When the phase is not found.
+   */
   private async ensurePhaseExists(
     projectId: bigint,
     phaseId: bigint,
@@ -329,40 +408,28 @@ export class PhaseProductService {
     }
   }
 
+  /**
+   * Loads project permission context used by permission checks and defaulting.
+   *
+   * @param projectId - Parsed project id.
+   * @returns Project permission context.
+   * @throws {NotFoundException} When the project does not exist.
+   */
   private async getProjectPermissionContext(
     projectId: bigint,
   ): Promise<ProjectPermissionContext> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        directProjectId: true,
-        billingAccountId: true,
-        members: {
-          where: {
-            deletedAt: null,
-          },
-          select: {
-            userId: true,
-            role: true,
-            deletedAt: true,
-          },
-        },
-      },
-    });
-
-    if (!project) {
-      throw new NotFoundException(
-        `Project with id ${projectId} was not found.`,
-      );
-    }
-
-    return project;
+    return loadProjectPermissionContext(this.prisma, projectId);
   }
 
+  /**
+   * Enforces a named permission against project members.
+   *
+   * @param permission - Permission to verify.
+   * @param user - Authenticated user.
+   * @param projectMembers - Active project members.
+   * @returns Nothing.
+   * @throws {ForbiddenException} When permission is missing.
+   */
   private ensureNamedPermission(
     permission: Permission,
     user: JwtUser,
@@ -372,17 +439,20 @@ export class PhaseProductService {
       deletedAt: Date | null;
     }>,
   ): void {
-    const hasPermission = this.permissionService.hasNamedPermission(
+    ensureProjectNamedPermission(
+      this.permissionService,
       permission,
       user,
       projectMembers,
     );
-
-    if (!hasPermission) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
   }
 
+  /**
+   * Maps a phase product entity into response DTO form.
+   *
+   * @param product - Phase product entity.
+   * @returns Serialized response DTO.
+   */
   private toDto(product: PhaseProduct): PhaseProductResponseDto {
     return {
       id: product.id.toString(),
@@ -407,43 +477,48 @@ export class PhaseProductService {
     };
   }
 
+  /**
+   * Safely converts unknown JSON-like details to plain object form.
+   *
+   * @param value - Candidate JSON value.
+   * @returns Object details payload.
+   */
   private toDetailsObject(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return {};
-    }
-
-    return value as Record<string, unknown>;
+    return toDetailsObjectValue(value);
   }
 
+  /**
+   * Converts arbitrary values to Prisma JSON input semantics.
+   *
+   * @param value - Candidate JSON value.
+   * @returns Prisma JSON value, JsonNull, or undefined.
+   */
   private toJsonInput(
     value: unknown,
   ): Prisma.InputJsonValue | Prisma.JsonNullValueInput | undefined {
-    if (typeof value === 'undefined') {
-      return undefined;
-    }
-
-    if (value === null) {
-      return Prisma.JsonNull;
-    }
-
-    return value as Prisma.InputJsonValue;
+    return toJsonInputValue(value);
   }
 
+  /**
+   * Parses route ids as bigint values.
+   *
+   * @param value - Raw id value.
+   * @param entityName - Entity name for error context.
+   * @returns Parsed id.
+   * @throws {BadRequestException} When parsing fails.
+   */
   private parseId(value: string, entityName: string): bigint {
-    try {
-      return BigInt(value);
-    } catch {
-      throw new BadRequestException(`${entityName} id is invalid.`);
-    }
+    return parseBigIntId(value, entityName);
   }
 
+  /**
+   * Parses authenticated user id for audit fields.
+   *
+   * @param user - Authenticated user.
+   * @returns Numeric audit user id.
+   */
+  // TODO [SECURITY]: Returning `-1` silently when `user.userId` is invalid can corrupt audit trails; throw `UnauthorizedException` instead.
   private getAuditUserId(user: JwtUser): number {
-    const userId = Number.parseInt(String(user.userId || ''), 10);
-
-    if (Number.isNaN(userId)) {
-      return -1;
-    }
-
-    return userId;
+    return getAuditUserIdOrDefault(user, -1);
   }
 }

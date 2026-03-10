@@ -4,6 +4,12 @@ import {
   ProjectSettingValueType,
 } from './create-project-setting.dto';
 
+/**
+ * Serialized project setting response DTO.
+ *
+ * `value` and `valueType` are optional in responses even though both are
+ * required on create.
+ */
 export class ProjectSettingResponseDto {
   @ApiProperty()
   id: string;

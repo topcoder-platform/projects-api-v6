@@ -1,6 +1,9 @@
 import { AttachmentType, InviteStatus, ProjectStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * DTO for serialized project member entries.
+ */
 export class ProjectMemberDto {
   @ApiProperty()
   id: string;
@@ -27,6 +30,9 @@ export class ProjectMemberDto {
   updatedAt: Date;
 }
 
+/**
+ * DTO for serialized project invite entries.
+ */
 export class ProjectInviteDto {
   @ApiProperty()
   id: string;
@@ -59,6 +65,9 @@ export class ProjectInviteDto {
   updatedAt: Date;
 }
 
+/**
+ * DTO for serialized project attachment entries.
+ */
 export class ProjectAttachmentDto {
   @ApiProperty()
   id: string;
@@ -97,6 +106,12 @@ export class ProjectAttachmentDto {
   updatedAt: Date;
 }
 
+/**
+ * DTO for serialized project entities.
+ *
+ * Uses string ids for bigint-backed columns and number values for decimal
+ * price fields.
+ */
 export class ProjectResponseDto {
   @ApiProperty()
   id: string;
@@ -115,6 +130,9 @@ export class ProjectResponseDto {
     enumName: 'ProjectStatus',
   })
   status: ProjectStatus;
+
+  @ApiPropertyOptional()
+  cancelReason?: string | null;
 
   @ApiPropertyOptional()
   billingAccountId?: string | null;
@@ -186,6 +204,9 @@ export class ProjectResponseDto {
   updatedBy: number;
 }
 
+/**
+ * DTO for project responses with optional relation collections.
+ */
 export class ProjectWithRelationsDto extends ProjectResponseDto {
   @ApiPropertyOptional({ type: () => [ProjectMemberDto] })
   members?: ProjectMemberDto[];

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ExecutionContext } from '@nestjs/common/interfaces';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../enums/userRole.enum';
@@ -131,7 +131,7 @@ describe('PermissionGuard', () => {
     );
     permissionServiceMock.hasPermission.mockReturnValue(true);
 
-    const request = {
+    const request: any = {
       user: {
         userId: '123',
         isMachine: false,
@@ -183,5 +183,116 @@ describe('PermissionGuard', () => {
 
     expect(result).toBe(true);
     expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
+  });
+
+  it('does not refetch project members when a zero-member project was already loaded', async () => {
+    const permission: Permission = {
+      projectRoles: true,
+    };
+
+    reflectorMock.getAllAndOverride.mockReturnValue([permission]);
+    permissionServiceMock.isPermissionRequireProjectMembers.mockReturnValue(
+      true,
+    );
+    permissionServiceMock.hasPermission.mockReturnValue(true);
+    prismaServiceMock.projectMember.findMany.mockResolvedValue([]);
+
+    const request: any = {
+      user: {
+        userId: '123',
+        isMachine: false,
+      },
+      params: {
+        projectId: '1001',
+      },
+    };
+
+    await guard.canActivate(createExecutionContext(request));
+    await guard.canActivate(createExecutionContext(request));
+
+    expect(prismaServiceMock.projectMember.findMany).toHaveBeenCalledTimes(1);
+    expect(request.projectContext.projectMembersLoaded).toBe(true);
+    expect(request.projectContext.projectMembers).toEqual([]);
+  });
+
+  it('loads project invites for invite-aware named permissions on first project access', async () => {
+    reflectorMock.getAllAndOverride.mockReturnValue(['VIEW_PROJECT']);
+    permissionServiceMock.isNamedPermissionRequireProjectMembers.mockReturnValue(
+      true,
+    );
+    permissionServiceMock.isNamedPermissionRequireProjectInvites.mockReturnValue(
+      true,
+    );
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaServiceMock.projectMember.findMany.mockResolvedValue([]);
+    prismaServiceMock.projectMemberInvite.findMany.mockResolvedValue([
+      {
+        id: BigInt(7),
+        projectId: BigInt(1001),
+        userId: BigInt(123),
+        email: 'user@example.com',
+        status: 'pending',
+        deletedAt: null,
+      },
+    ]);
+
+    const request: any = {
+      user: {
+        userId: '123',
+        email: 'user@example.com',
+        isMachine: false,
+      },
+      params: {
+        projectId: '1001',
+      },
+    };
+
+    const result = await guard.canActivate(createExecutionContext(request));
+
+    expect(result).toBe(true);
+    expect(
+      prismaServiceMock.projectMemberInvite.findMany,
+    ).toHaveBeenCalledTimes(1);
+    expect(permissionServiceMock.hasNamedPermission).toHaveBeenCalledWith(
+      'VIEW_PROJECT',
+      request.user,
+      [],
+      [
+        expect.objectContaining({
+          email: 'user@example.com',
+          status: 'pending',
+        }),
+      ],
+    );
+    expect(request.projectContext.projectInvitesLoaded).toBe(true);
+  });
+
+  it('throws BadRequestException when a required projectId is not numeric', async () => {
+    reflectorMock.getAllAndOverride.mockReturnValue(['VIEW_PROJECT']);
+    permissionServiceMock.isNamedPermissionRequireProjectMembers.mockReturnValue(
+      true,
+    );
+    permissionServiceMock.isNamedPermissionRequireProjectInvites.mockReturnValue(
+      false,
+    );
+
+    await expect(
+      guard.canActivate(
+        createExecutionContext({
+          user: {
+            userId: '123',
+            isMachine: false,
+          },
+          params: {
+            projectId: 'abc',
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaServiceMock.projectMember.findMany).not.toHaveBeenCalled();
+    expect(
+      prismaServiceMock.projectMemberInvite.findMany,
+    ).not.toHaveBeenCalled();
   });
 });

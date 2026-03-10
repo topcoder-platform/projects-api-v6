@@ -225,7 +225,7 @@ describe('Project Member endpoints (e2e)', () => {
     expect(projectMemberServiceMock.deleteMember).toHaveBeenCalled();
   });
 
-  it('rejects m2m token for member list without named permission match', async () => {
+  it('lists members for m2m token with project-member read scope', async () => {
     (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
       scopes: [Scope.PROJECT_MEMBERS_READ],
       isMachine: true,
@@ -238,6 +238,15 @@ describe('Project Member endpoints (e2e)', () => {
     await request(app.getHttpServer())
       .get('/v6/projects/1001/members')
       .set('Authorization', 'Bearer m2m-member-read')
-      .expect(403);
+      .expect(200);
+
+    expect(projectMemberServiceMock.listMembers).toHaveBeenCalledWith(
+      '1001',
+      expect.any(Object),
+      expect.objectContaining({
+        scopes: [Scope.PROJECT_MEMBERS_READ],
+        isMachine: true,
+      }),
+    );
   });
 });

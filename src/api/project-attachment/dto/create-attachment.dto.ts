@@ -11,30 +11,15 @@ import {
   IsString,
   ValidateIf,
 } from 'class-validator';
+import {
+  parseOptionalInteger,
+  parseOptionalIntegerArray,
+} from 'src/shared/utils/dto-transform.utils';
 
-function parseOptionalInteger(value: unknown): number | undefined {
-  if (typeof value === 'undefined' || value === null || value === '') {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-
-  return Math.trunc(parsed);
-}
-
-function parseAllowedUsers(value: unknown): number[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  return value
-    .map((entry) => parseOptionalInteger(entry))
-    .filter((entry): entry is number => typeof entry === 'number');
-}
-
+/**
+ * Create payload for project attachment endpoints:
+ * `POST /projects/:projectId/attachments`.
+ */
 export class CreateAttachmentDto {
   @ApiProperty()
   @IsString()
@@ -76,13 +61,15 @@ export class CreateAttachmentDto {
   tags?: string[];
 
   @ApiPropertyOptional({
-    description: 'Required for file attachments',
+    description:
+      'Required for file attachments. Source S3 bucket for transfer; not stored in attachment row.',
   })
   @ValidateIf(
     (value: CreateAttachmentDto) => value.type === AttachmentType.file,
   )
   @IsString()
   @IsNotEmpty()
+  // TODO [SECURITY]: Validate `s3Bucket` against an allowlist before using it as transfer source.
   s3Bucket?: string;
 
   @ApiPropertyOptional({
@@ -98,7 +85,7 @@ export class CreateAttachmentDto {
   @ApiPropertyOptional({ type: [Number] })
   @IsOptional()
   @IsArray()
-  @Transform(({ value }) => parseAllowedUsers(value))
+  @Transform(({ value }) => parseOptionalIntegerArray(value))
   @IsInt({ each: true })
   allowedUsers?: number[];
 }

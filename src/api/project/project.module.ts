@@ -10,4 +10,11 @@ import { ProjectService } from './project.service';
   providers: [ProjectService],
   exports: [ProjectService],
 })
+/**
+ * Project feature module.
+ *
+ * Registers `ProjectController` and `ProjectService`, imports `HttpModule`
+ * for billing-account HTTP integrations and `GlobalProvidersModule`, and
+ * exports `ProjectService` for reuse by other feature modules.
+ */
 export class ProjectModule {}
