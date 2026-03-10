@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Permission } from 'src/shared/constants/permissions';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { Scope } from 'src/shared/enums/scopes.enum';
+import { UserRole } from 'src/shared/enums/userRole.enum';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { ProjectService } from './project.service';
 
@@ -812,6 +813,194 @@ describe('ProjectService', () => {
     expect(prismaMock.workManagementPermission.findMany).not.toHaveBeenCalled();
     expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('100');
     expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('200');
+  });
+
+  it.each([
+    [
+      'administrator',
+      {
+        userId: '999',
+        roles: [UserRole.TOPCODER_ADMIN],
+        isMachine: false,
+      },
+    ],
+    [
+      'project manager',
+      {
+        userId: '999',
+        roles: [UserRole.PROJECT_MANAGER],
+        isMachine: false,
+      },
+    ],
+  ])(
+    'returns a per-user permission matrix for %s callers on all projects',
+    async (
+      _label: string,
+      caller: {
+        userId: string;
+        roles: string[];
+        isMachine: boolean;
+      },
+    ) => {
+      prismaMock.project.findFirst.mockResolvedValue({
+        templateId: null,
+      });
+      prismaMock.projectMember.findMany.mockResolvedValue([
+        {
+          id: BigInt(1),
+          projectId: BigInt(1001),
+          userId: BigInt(100),
+          role: 'manager',
+          isPrimary: true,
+          deletedAt: null,
+        },
+        {
+          id: BigInt(2),
+          projectId: BigInt(1001),
+          userId: BigInt(200),
+          role: 'customer',
+          isPrimary: false,
+          deletedAt: null,
+        },
+      ]);
+      permissionServiceMock.isNamedPermissionRequireProjectMembers.mockImplementation(
+        (permission: Permission) =>
+          [Permission.VIEW_PROJECT, Permission.EDIT_PROJECT].includes(
+            permission,
+          ),
+      );
+      permissionServiceMock.hasNamedPermission.mockImplementation(
+        (
+          permission: Permission,
+          _matrixUser: { userId?: string },
+          members: any[],
+        ) =>
+          permission === Permission.VIEW_PROJECT ||
+          (permission === Permission.EDIT_PROJECT &&
+            members[0]?.role === 'manager'),
+      );
+      memberServiceMock.getUserRoles.mockResolvedValue([]);
+
+      const result = await service.getProjectPermissions('1001', caller);
+
+      expect(result).toEqual({
+        '100': {
+          memberships: [
+            {
+              memberId: '1',
+              role: 'manager',
+              isPrimary: true,
+            },
+          ],
+          topcoderRoles: [],
+          projectPermissions: {
+            VIEW_PROJECT: true,
+            EDIT_PROJECT: true,
+          },
+          workManagementPolicies: {},
+        },
+        '200': {
+          memberships: [
+            {
+              memberId: '2',
+              role: 'customer',
+              isPrimary: false,
+            },
+          ],
+          topcoderRoles: [],
+          projectPermissions: {
+            VIEW_PROJECT: true,
+          },
+          workManagementPolicies: {},
+        },
+      });
+      expect(prismaMock.workManagementPermission.findMany).not.toHaveBeenCalled();
+      expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('100');
+      expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('200');
+    },
+  );
+
+  it('returns a per-user permission matrix for copilot members on the requested project', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      templateId: null,
+    });
+    prismaMock.projectMember.findMany.mockResolvedValue([
+      {
+        id: BigInt(1),
+        projectId: BigInt(1001),
+        userId: BigInt(100),
+        role: 'manager',
+        isPrimary: true,
+        deletedAt: null,
+      },
+      {
+        id: BigInt(3),
+        projectId: BigInt(1001),
+        userId: BigInt(300),
+        role: 'copilot',
+        isPrimary: false,
+        deletedAt: null,
+      },
+    ]);
+    permissionServiceMock.isNamedPermissionRequireProjectMembers.mockImplementation(
+      (permission: Permission) =>
+        [Permission.VIEW_PROJECT, Permission.EDIT_PROJECT].includes(
+          permission,
+        ),
+    );
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (
+        permission: Permission,
+        _matrixUser: { userId?: string },
+        members: any[],
+      ) =>
+        permission === Permission.VIEW_PROJECT ||
+        (permission === Permission.EDIT_PROJECT &&
+          ['manager', 'copilot'].includes(members[0]?.role)),
+    );
+    memberServiceMock.getUserRoles.mockResolvedValue([]);
+
+    const result = await service.getProjectPermissions('1001', {
+      userId: '300',
+      roles: [UserRole.TOPCODER_USER],
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      '100': {
+        memberships: [
+          {
+            memberId: '1',
+            role: 'manager',
+            isPrimary: true,
+          },
+        ],
+        topcoderRoles: [],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+          EDIT_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+      '300': {
+        memberships: [
+          {
+            memberId: '3',
+            role: 'copilot',
+            isPrimary: false,
+          },
+        ],
+        topcoderRoles: [],
+        projectPermissions: {
+          VIEW_PROJECT: true,
+          EDIT_PROJECT: true,
+        },
+        workManagementPolicies: {},
+      },
+    });
+    expect(prismaMock.workManagementPermission.findMany).not.toHaveBeenCalled();
+    expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('100');
+    expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('300');
   });
 
   it('creates projects for machine principals inferred from token claims without creating a synthetic owner member', async () => {

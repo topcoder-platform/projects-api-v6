@@ -67,6 +67,77 @@ describe('ProjectInviteController', () => {
     expect(statusMock).toHaveBeenCalledWith(201);
   });
 
+  it('keeps 201 when createInvites returns successes and failures', async () => {
+    serviceMock.createInvites.mockResolvedValue({
+      success: [{ id: '1' }],
+      failed: [
+        {
+          email: 'member@example.com',
+          message: 'Emails can only be used for customer',
+        },
+      ],
+    });
+
+    const statusMock = jest.fn();
+    const resMock = {
+      status: statusMock,
+    } as unknown as Response;
+
+    const response = await controller.createInvites(
+      '123',
+      {
+        handles: ['member'],
+        emails: ['member@example.com'],
+        role: ProjectMemberRole.observer,
+      },
+      undefined,
+      {
+        userId: '10',
+        isMachine: false,
+      },
+      resMock,
+    );
+
+    expect(response.success).toHaveLength(1);
+    expect(response.failed).toHaveLength(1);
+    expect(statusMock).toHaveBeenCalledWith(201);
+  });
+
+  it('sets 403 when createInvites only returns failures', async () => {
+    serviceMock.createInvites.mockResolvedValue({
+      success: [],
+      failed: [
+        {
+          handle: 'missing-user',
+          message: 'Unable to invite user',
+        },
+      ],
+    });
+
+    const statusMock = jest.fn();
+    const resMock = {
+      status: statusMock,
+    } as unknown as Response;
+
+    const response = await controller.createInvites(
+      '123',
+      {
+        handles: ['missing-user'],
+        role: ProjectMemberRole.customer,
+      },
+      undefined,
+      {
+        userId: '10',
+        isMachine: false,
+      },
+      resMock,
+    );
+
+    expect(response.success).toHaveLength(0);
+    expect(response.failed).toHaveLength(1);
+    expect(statusMock).toHaveBeenCalledWith(403);
+  });
+
   it('updates invite', async () => {
     serviceMock.updateInvite.mockResolvedValue({ id: '2' });
 

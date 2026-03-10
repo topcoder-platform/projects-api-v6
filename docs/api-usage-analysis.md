@@ -112,7 +112,7 @@
 | GET | `/v5/projects/:projectId/attachments` | **unused** | none | none | Attachment array (read-access filtered) |
 | GET | `/v5/projects/:projectId/phases/:phaseId/products` | **unused** | none | none | Phase product array |
 | GET | `/v5/projects/:projectId/phases/:phaseId/products/:productId` | **unused** | none | none | Single phase product |
-| GET | `/v5/projects/:projectId/permissions` | **unused** | none | none | JWT: policy map `{ [policyName]: true }` for allowed work-management actions. M2M in `/v6`: per-member permission matrix with memberships, project permissions, and template policies |
+| GET | `/v5/projects/:projectId/permissions` | **unused** | none | none | JWT: policy map `{ [policyName]: true }` for allowed work-management actions. In `/v6`, M2M/admin/project-manager/project-copilot callers receive a per-member permission matrix with memberships, project permissions, and template policies |
 | DELETE | `/v5/projects/:projectId` | **unused** | none | none | `204` |
 | GET | `/v5/projects/:projectId/phases/:phaseId` | **unused** | none | none | Phase object (includes members/approvals where present) |
 | POST | `/v5/projects/:projectId/phases` | **unused** | none | `{name,status,description?,requirements?,startDate?,endDate?,duration?,budget?,spentBudget?,progress?,details?,order?,productTemplateId?,members?}` | Created phase |

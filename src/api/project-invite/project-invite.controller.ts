@@ -45,8 +45,10 @@ import { ProjectInviteService } from './project-invite.service';
 /**
  * REST controller for `/projects/:projectId/invites`.
  *
- * `createInvites` can return HTTP 403 for partial failures while still
- * returning successful records in `InviteBulkResponseDto`.
+ * `createInvites` returns HTTP 201 whenever at least one invite is created,
+ * even if `InviteBulkResponseDto.failed` contains rejected targets.
+ * Compatibility `403` responses are reserved for bulk requests that create no
+ * invites and only report failures.
  *
  * `deleteInvite` performs a soft cancel by setting `status = canceled`.
  */
@@ -93,8 +95,10 @@ export class ProjectInviteController {
   /**
    * Creates invites by handles/emails with partial-failure semantics.
    *
-   * Full success returns HTTP 201. Partial success returns HTTP 403 with both
-   * `success` and `failed` payload sections.
+   * Full success returns HTTP 201. Mixed success/failure also returns HTTP 201
+   * with both `success` and `failed` payload sections. Compatibility `403`
+   * responses are reserved for requests that create no invites and only
+   * populate `failed`.
    *
    * @param projectId Project identifier from the route.
    * @param dto Invite creation payload.
@@ -141,7 +145,11 @@ export class ProjectInviteController {
       fields,
     );
 
-    if (response.failed && response.failed.length > 0) {
+    const createdInviteCount = Array.isArray(response.success)
+      ? response.success.length
+      : 0;
+
+    if (createdInviteCount === 0 && response.failed?.length) {
       res.status(403);
       return response;
     }

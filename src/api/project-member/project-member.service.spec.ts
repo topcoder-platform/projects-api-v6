@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ProjectMemberRole } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
@@ -175,6 +175,27 @@ describe('ProjectMemberService', () => {
         updatedBy: -1,
       },
     });
+  });
+
+  it('rejects invalid target user ids before querying the project', async () => {
+    await expect(
+      service.addMember(
+        '1001',
+        {
+          userId: 'invalid' as unknown as number,
+          role: ProjectMemberRole.customer,
+        },
+        {
+          userId: '123',
+          roles: ['Topcoder User'],
+          isMachine: false,
+        },
+        undefined,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaMock.project.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   it('updates a project member for machine principals inferred from token claims', async () => {

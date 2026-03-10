@@ -315,9 +315,10 @@ export class ProjectController {
    *
    * @param projectId Project id path parameter.
    * @param user Authenticated caller context.
-   * @returns JWT callers receive a caller policy map. M2M callers receive a
-   * per-user matrix containing memberships, Topcoder roles, named project
-   * permissions, and template work-management policies.
+   * @returns Non-privileged human callers receive a caller policy map. M2M,
+   * admins, global project managers, and project copilots on the requested
+   * project receive a per-user matrix containing memberships, Topcoder roles,
+   * named project permissions, and template work-management policies.
    * @throws BadRequestException When `projectId` is not numeric.
    * @throws UnauthorizedException When the caller is unauthenticated.
    * @throws ForbiddenException When caller cannot access the project.
@@ -332,7 +333,9 @@ export class ProjectController {
     Scope.PROJECTS_ALL,
     Scope.CONNECT_PROJECT_ADMIN,
   )
-  @RequirePermission(Permission.VIEW_PROJECT)
+  @RequirePermission(Permission.VIEW_PROJECT, {
+    topcoderRoles: [UserRole.PROJECT_MANAGER],
+  })
   @ApiOperation({ summary: 'Get user permissions for project' })
   @ApiParam({
     name: 'projectId',
@@ -341,7 +344,8 @@ export class ProjectController {
   })
   @ApiResponse({
     status: 200,
-    description: 'JWT caller policy map or M2M per-user permission matrix',
+    description:
+      'Caller policy map for regular human JWTs, or a per-user permission matrix for M2M/admin/project-manager/project-copilot callers',
     schema: {
       oneOf: [
         {
