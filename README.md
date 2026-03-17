@@ -98,6 +98,9 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 | `GET` | `/v6/projects/:projectId/billingAccounts` | JWT / M2M | All billing accounts for project |
 | `GET` | `/v6/projects/:projectId/permissions` | JWT / M2M | Regular human JWT: caller work-management policy map. M2M, admins, project managers, and project copilots on the project: per-member permission matrix with project permissions and template policies |
 
+Talent Manager note:
+- `Talent Manager` and `Topcoder Talent Manager` callers create projects as primary `manager` members and are allowed to update project `billingAccountId`.
+
 ### Members
 
 | Method | Path | Auth | Description |

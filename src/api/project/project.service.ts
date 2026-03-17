@@ -298,7 +298,9 @@ export class ProjectService {
    * @throws BadRequestException For invalid type/template/building-block keys.
    * @throws ConflictException When post-transaction re-fetch fails.
    * @security Caller permissions determine the primary member role
-   * (`manager` vs `customer`) assigned on creation.
+   * (`manager` vs `customer`) assigned on creation. Talent Manager creators
+   * satisfy `CREATE_PROJECT_AS_MANAGER`, so they are persisted as the primary
+   * `manager` member for the new project.
    * @todo Sequential `for...of` loops for estimations and template phases in
    * the transaction can be optimized with `Promise.all` for larger payloads.
    */

@@ -58,6 +58,11 @@ const ADMIN_AND_MANAGER_ROLES = [
 
 const STRICT_ADMIN_ACCESS_ROLES = [...ADMIN_ROLES];
 
+const TALENT_MANAGER_ROLES = [
+  UserRole.TALENT_MANAGER,
+  UserRole.TOPCODER_TALENT_MANAGER,
+];
+
 const PROJECT_UPDATE_TOPCODER_ROLES = [
   ...ADMIN_AND_MANAGER_ROLES,
   UserRole.TALENT_MANAGER,
@@ -70,8 +75,17 @@ const PROJECT_BILLING_TOPCODER_ROLES = [
   UserRole.PROJECT_MANAGER,
   UserRole.TASK_MANAGER,
   UserRole.TOPCODER_TASK_MANAGER,
-  UserRole.TALENT_MANAGER,
-  UserRole.TOPCODER_TALENT_MANAGER,
+  ...TALENT_MANAGER_ROLES,
+];
+
+const PROJECT_BILLING_MANAGEMENT_USER_ROLES = [
+  ...ADMIN_AND_MANAGER_ROLES,
+  ...TALENT_MANAGER_ROLES,
+];
+
+const PROJECT_CREATOR_MANAGER_USER_ROLES = [
+  ...STRICT_ADMIN_ACCESS_ROLES,
+  ...TALENT_MANAGER_ROLES,
 ];
 
 const PROJECT_MEMBER_MANAGEMENT_ROLES = [...PROJECT_MEMBER_MANAGER_ROLES];
@@ -355,6 +369,10 @@ function getNamedPermissionDocumentation(
       });
 
     case NamedPermission.MANAGE_PROJECT_BILLING_ACCOUNT_ID:
+      return createSummary({
+        userRoles: PROJECT_BILLING_MANAGEMENT_USER_ROLES,
+      });
+
     case NamedPermission.MANAGE_PROJECT_DIRECT_PROJECT_ID:
       return createSummary({
         userRoles: ADMIN_AND_MANAGER_ROLES,
@@ -389,7 +407,7 @@ function getNamedPermissionDocumentation(
 
     case NamedPermission.CREATE_PROJECT_AS_MANAGER:
       return createSummary({
-        userRoles: STRICT_ADMIN_ACCESS_ROLES,
+        userRoles: PROJECT_CREATOR_MANAGER_USER_ROLES,
       });
 
     case NamedPermission.VIEW_PROJECT_ATTACHMENT:

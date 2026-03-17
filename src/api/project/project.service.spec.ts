@@ -1092,6 +1092,96 @@ describe('ProjectService', () => {
     expect(transactionProjectHistoryCreate).toHaveBeenCalled();
   });
 
+  it('assigns Talent Manager creators the manager project role', async () => {
+    const transactionProjectCreate = jest.fn().mockResolvedValue({
+      id: BigInt(1001),
+      status: 'in_review',
+    });
+    const transactionProjectMemberCreate = jest.fn().mockResolvedValue({});
+    const transactionProjectHistoryCreate = jest.fn().mockResolvedValue({});
+
+    prismaMock.projectType.findFirst.mockResolvedValue({
+      key: 'app',
+    });
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          project: {
+            create: transactionProjectCreate,
+          },
+          projectMember: {
+            create: transactionProjectMemberCreate,
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          projectHistory: {
+            create: transactionProjectHistoryCreate,
+          },
+        }),
+    );
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      name: 'Talent Managed Project',
+      description: null,
+      type: 'app',
+      status: 'in_review',
+      billingAccountId: null,
+      directProjectId: null,
+      estimatedPrice: null,
+      actualPrice: null,
+      terms: [],
+      groups: [],
+      external: null,
+      bookmarks: null,
+      utm: null,
+      details: null,
+      challengeEligibility: null,
+      cancelReason: null,
+      templateId: null,
+      version: 'v3',
+      lastActivityAt: new Date(),
+      lastActivityUserId: '100',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: 100,
+      updatedBy: 100,
+      members: [
+        {
+          userId: BigInt(100),
+          role: 'manager',
+          deletedAt: null,
+        },
+      ],
+      invites: [],
+      attachments: [],
+      phases: [],
+    });
+    permissionServiceMock.hasNamedPermission.mockImplementation(
+      (permission: Permission): boolean =>
+        permission === Permission.CREATE_PROJECT_AS_MANAGER,
+    );
+
+    await service.createProject(
+      {
+        name: 'Talent Managed Project',
+        type: 'app',
+      },
+      {
+        userId: '100',
+        roles: [UserRole.TALENT_MANAGER],
+        isMachine: false,
+      },
+    );
+
+    expect(transactionProjectMemberCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: BigInt(100),
+        role: 'manager',
+        isPrimary: true,
+      }),
+    });
+    expect(transactionProjectHistoryCreate).toHaveBeenCalled();
+  });
+
   it('updates projects for machine principals inferred from token claims using fallback audit identity', async () => {
     const transactionUpdate = jest.fn().mockResolvedValue({
       id: BigInt(1001),

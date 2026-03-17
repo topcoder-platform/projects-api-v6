@@ -28,6 +28,12 @@ Swagger auth notes:
   - `src/shared/enums/projectMemberRole.enum.ts`
   - `src/shared/enums/scopes.enum.ts`
 
+## Talent Manager Behavior
+
+- `Talent Manager` and `Topcoder Talent Manager` satisfy `CREATE_PROJECT_AS_MANAGER`, so project creation persists them as the primary `manager` project member.
+- That primary `manager` membership then unlocks the standard manager-level project-owner paths, such as edit and delete checks that rely on project-member context.
+- The same roles also satisfy `MANAGE_PROJECT_BILLING_ACCOUNT_ID`, which allows them to set or update a project's `billingAccountId`.
+
 ## Permission Rule Shape
 
 Supported shapes:

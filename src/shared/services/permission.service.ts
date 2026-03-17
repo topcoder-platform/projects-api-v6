@@ -376,6 +376,8 @@ export class PermissionService {
 
       // Billing-account related permissions.
       case NamedPermission.MANAGE_PROJECT_BILLING_ACCOUNT_ID:
+        return isAdmin || this.hasTalentManagerRole(user);
+
       case NamedPermission.MANAGE_PROJECT_DIRECT_PROJECT_ID:
         return isAdmin;
 
@@ -417,7 +419,8 @@ export class PermissionService {
       case NamedPermission.CREATE_PROJECT_AS_MANAGER:
         return this.hasIntersection(user.roles || [], [
           ...ADMIN_ROLES,
-          UserRole.CONNECT_ADMIN,
+          UserRole.TALENT_MANAGER,
+          UserRole.TOPCODER_TALENT_MANAGER,
         ]);
 
       // Project attachment permissions.
@@ -806,6 +809,19 @@ export class PermissionService {
       UserRole.PROJECT_MANAGER,
       UserRole.TASK_MANAGER,
       UserRole.TOPCODER_TASK_MANAGER,
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
+    ]);
+  }
+
+  /**
+   * Checks whether user has one of the Talent Manager Topcoder roles.
+   *
+   * @param user authenticated JWT user context
+   * @returns `true` when user has Talent Manager access
+   */
+  private hasTalentManagerRole(user: JwtUser): boolean {
+    return this.hasIntersection(user.roles || [], [
       UserRole.TALENT_MANAGER,
       UserRole.TOPCODER_TALENT_MANAGER,
     ]);
