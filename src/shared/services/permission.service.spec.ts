@@ -346,6 +346,16 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows creating projects for Project Manager role', () => {
+    const allowed = service.hasNamedPermission(Permission.CREATE_PROJECT, {
+      userId: '555',
+      roles: [UserRole.PROJECT_MANAGER],
+      isMachine: false,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
   it('allows reading project members for machine token with project-member read scope', () => {
     const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
       scopes: [Scope.PROJECT_MEMBERS_READ],
