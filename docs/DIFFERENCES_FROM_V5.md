@@ -20,7 +20,7 @@ This document summarizes intentional differences and improvements in `project-se
 - Work management permission routes use query-parameter lookup patterns for consistency:
   - `/v6/projects/metadata/workManagementPermission?projectTemplateId=:id`
   - `/v6/projects/metadata/workManagementPermission?id=:id`
-- Invite creation uses partial-success response semantics:
+- Invite creation returns `201` when at least one invite is created and keeps partial-success response semantics:
   - `{ success: Invite[], failed: ErrorInfo[] }`
 
 ## Authorization Improvements

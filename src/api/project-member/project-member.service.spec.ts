@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ProjectMemberRole } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
@@ -151,7 +151,7 @@ describe('ProjectMemberService', () => {
     await service.addMember(
       '1001',
       {
-        userId: 456,
+        userId: '456',
         role: ProjectMemberRole.customer,
       },
       {
@@ -175,6 +175,48 @@ describe('ProjectMemberService', () => {
         updatedBy: -1,
       },
     });
+  });
+
+  it('rejects invalid target user ids before querying the project', async () => {
+    await expect(
+      service.addMember(
+        '1001',
+        {
+          userId: 'invalid' as unknown as string,
+          role: ProjectMemberRole.customer,
+        },
+        {
+          userId: '123',
+          roles: ['Topcoder User'],
+          isMachine: false,
+        },
+        undefined,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaMock.project.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects out-of-range target user ids before querying the project', async () => {
+    await expect(
+      service.addMember(
+        '1001',
+        {
+          userId: '10000000000000011111',
+          role: ProjectMemberRole.customer,
+        },
+        {
+          userId: '123',
+          roles: ['Topcoder User'],
+          isMachine: false,
+        },
+        undefined,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaMock.project.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   it('updates a project member for machine principals inferred from token claims', async () => {

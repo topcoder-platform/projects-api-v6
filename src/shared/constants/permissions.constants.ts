@@ -203,7 +203,11 @@ export const PERMISSION = {
         If user has this permission they would join project with "${PROJECT_MEMBER_ROLE.MANAGER}"
         project role, otherwise with "${PROJECT_MEMBER_ROLE.CUSTOMER}".`,
     },
-    topcoderRoles: TOPCODER_ROLES_MANAGERS_AND_ADMINS,
+    topcoderRoles: [
+      ...TOPCODER_ROLES_ADMINS,
+      USER_ROLE.TALENT_MANAGER,
+      USER_ROLE.TOPCODER_TALENT_MANAGER,
+    ],
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
@@ -369,8 +373,8 @@ export const PERMISSION = {
       group: 'Project',
       description: 'Who can set or update the "billingAccountId" property.',
     },
-    topcoderRoles: [USER_ROLE.MANAGER, USER_ROLE.TOPCODER_ADMIN],
-    scopes: SCOPES_PROJECTS_WRITE_PROJECTS_BILLING_ACCOUNTS,
+    topcoderRoles: TOPCODER_ROLES_ADMINS,
+    projectRoles: [PROJECT_MEMBER_ROLE.MANAGER],
   },
 
   /**

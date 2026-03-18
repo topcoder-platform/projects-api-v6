@@ -16,11 +16,18 @@ import { createLogger, format, Logger, transports } from 'winston';
  * Global logger service implementing NestJS LoggerService contract.
  */
 export class LoggerService implements NestLoggerService {
+  private static readonly SENSITIVE_VALUE_PATTERN =
+    /\b([A-Za-z0-9_-]*(?:api[_-]?key|client[_-]?secret|cookie|pass(?:word)?|private[_-]?key|secret|session|token)[A-Za-z0-9_-]*\b\s*[:=]\s*)([^,\s;]+)/gi;
+  private static readonly SENSITIVE_JSON_VALUE_PATTERN =
+    /("(?:[A-Za-z0-9_-]*(?:api[_-]?key|client[_-]?secret|cookie|pass(?:word)?|private[_-]?key|secret|session|token)[A-Za-z0-9_-]*)"\s*:\s*")([^"]+)(")/gi;
+  private static readonly AUTHORIZATION_HEADER_PATTERN =
+    /\b(Authorization\s*:\s*)(?:Bearer|Basic)\s+[^,\s;]+/gi;
+  private static readonly BEARER_TOKEN_PATTERN =
+    /\b(Bearer\s+)[A-Za-z0-9\-._~+/]+=*\b/gi;
   private context?: string;
   private readonly logger: Logger;
 
   // TODO (quality): Each LoggerService instance creates its own Winston logger instance. For high-throughput services, consider sharing a single Winston logger instance and passing context as metadata to reduce overhead.
-  // TODO (security): Log messages are not sanitized. Sensitive values (tokens, passwords, PII) passed as message arguments will appear in logs. Consider adding a sanitization step in serializeMessage().
   // TODO (quality): LOG_LEVEL from env is not validated against Winston's accepted levels. An invalid value will silently default to Winston's behaviour. Add validation on startup.
   /**
    * Creates a context-aware logger instance.
@@ -99,7 +106,7 @@ export class LoggerService implements NestLoggerService {
     if (trace) {
       this.printMessage(
         'error',
-        `${this.serializeMessage(message)} | trace=${trace}`,
+        `${this.serializeMessage(message)} | trace=${this.sanitizeString(trace)}`,
         context || this.context,
       );
       return;
@@ -162,22 +169,67 @@ export class LoggerService implements NestLoggerService {
   }
 
   /**
-   * Converts non-string message payloads to string form.
+   * Converts message payloads into a safe string form for logging.
    *
-   * Uses JSON serialization when possible with `String(...)` fallback.
+   * Primitive values are stringified, string content is sanitized for common
+   * secret patterns, and object/array payloads are replaced with a fixed
+   * placeholder to avoid leaking environment/configuration data to logs.
    *
    * @param {any} message Message payload.
    * @returns {string} Serialized message.
    */
   private serializeMessage(message: any): string {
     if (typeof message === 'string') {
-      return message;
+      return this.sanitizeString(message);
     }
 
-    try {
-      return JSON.stringify(message);
-    } catch {
+    if (
+      typeof message === 'number' ||
+      typeof message === 'bigint' ||
+      typeof message === 'boolean'
+    ) {
       return String(message);
     }
+
+    if (message instanceof Error) {
+      return this.serializeError(message);
+    }
+
+    if (Array.isArray(message)) {
+      return '[redacted array payload]';
+    }
+
+    if (message && typeof message === 'object') {
+      return '[redacted object payload]';
+    }
+
+    return this.sanitizeString(String(message));
+  }
+
+  /**
+   * Converts an error object into a single sanitized log string.
+   *
+   * @param {Error} error Error instance being logged.
+   * @returns {string} Sanitized error summary.
+   */
+  private serializeError(error: Error): string {
+    return `${error.name}: ${this.sanitizeString(error.message)}`;
+  }
+
+  /**
+   * Masks common secret/token formats embedded in string log messages.
+   *
+   * @param {string} value Raw string message or stack trace.
+   * @returns {string} Sanitized string with secret values redacted.
+   */
+  private sanitizeString(value: string): string {
+    return value
+      .replace(
+        LoggerService.AUTHORIZATION_HEADER_PATTERN,
+        '$1[REDACTED]',
+      )
+      .replace(LoggerService.BEARER_TOKEN_PATTERN, '$1[REDACTED]')
+      .replace(LoggerService.SENSITIVE_JSON_VALUE_PATTERN, '$1[REDACTED]$3')
+      .replace(LoggerService.SENSITIVE_VALUE_PATTERN, '$1[REDACTED]');
   }
 }

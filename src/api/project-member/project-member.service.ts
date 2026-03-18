@@ -86,6 +86,7 @@ export class ProjectMemberService {
     const parsedProjectId = this.parseId(projectId, 'Project');
     const auditUserId = this.getAuditUserId(user);
     const actorUserId = this.getActorUserId(user);
+    const targetUserId = this.resolveTargetUserId(dto.userId, actorUserId);
 
     const project = await this.prisma.project.findFirst({
       where: {
@@ -106,11 +107,6 @@ export class ProjectMemberService {
         `Project with id ${projectId} was not found.`,
       );
     }
-
-    const targetUserId =
-      typeof dto.userId === 'number' && Number.isFinite(dto.userId)
-        ? String(Math.trunc(dto.userId))
-        : actorUserId;
 
     const isOwnMember = targetUserId === actorUserId;
 
@@ -818,6 +814,45 @@ export class ProjectMemberService {
    */
   private parseId(value: string, label: string): bigint {
     return parseNumericStringId(value, `${label} id`);
+  }
+
+  /**
+   * Resolves the target project-member user id from request payload state.
+   *
+   * Defaults to the authenticated actor when `dto.userId` is omitted, and
+   * rejects provided values that are not numeric or exceed the supported
+   * signed 64-bit bigint range.
+   *
+   * @param userId Raw `CreateMemberDto.userId` payload value.
+   * @param actorUserId Authenticated caller id used as the default target.
+   * @returns Normalized target user id string.
+   * @throws {BadRequestException} If a provided `userId` is not numeric or is
+   * outside the supported bigint range.
+   */
+  private resolveTargetUserId(
+    userId: CreateMemberDto['userId'] | string | bigint | null | undefined,
+    actorUserId: string,
+  ): string {
+    if (typeof userId === 'undefined' || userId === null) {
+      return actorUserId;
+    }
+
+    if (typeof userId === 'number') {
+      if (!Number.isFinite(userId)) {
+        throw new BadRequestException('User id must be a numeric string.');
+      }
+
+      return parseNumericStringId(
+        String(Math.trunc(userId)),
+        'User id',
+      ).toString();
+    }
+
+    if (typeof userId === 'string' || typeof userId === 'bigint') {
+      return parseNumericStringId(String(userId), 'User id').toString();
+    }
+
+    throw new BadRequestException('User id must be a numeric string.');
   }
 
   /**

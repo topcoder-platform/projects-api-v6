@@ -222,10 +222,135 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows managing project billing accounts for admin role', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      {
+        userId: '555',
+        roles: [UserRole.TOPCODER_ADMIN],
+        isMachine: false,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows managing project billing accounts for manager project members', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      {
+        userId: '555',
+        roles: [UserRole.PROJECT_MANAGER],
+        isMachine: false,
+      },
+      [
+        {
+          userId: '555',
+          role: ProjectMemberRole.MANAGER,
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it.each([
+    UserRole.MANAGER,
+    UserRole.PROJECT_MANAGER,
+    UserRole.TALENT_MANAGER,
+    UserRole.TOPCODER_TALENT_MANAGER,
+  ])(
+    'blocks managing project billing accounts for %s without full-access membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(
+        Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+        [
+          {
+            userId: '555',
+            role: ProjectMemberRole.CUSTOMER,
+          },
+        ],
+      );
+
+      expect(allowed).toBe(false);
+    },
+  );
+
+  it('blocks managing project billing accounts for machine admin scope without admin user role', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      },
+      [
+        {
+          userId: '555',
+          role: ProjectMemberRole.MANAGER,
+        },
+      ],
+    );
+
+    expect(allowed).toBe(false);
+  });
+
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'allows creating projects as manager for %s Topcoder role',
+    (role) => {
+      const allowed = service.hasNamedPermission(
+        Permission.CREATE_PROJECT_AS_MANAGER,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+      );
+
+      expect(allowed).toBe(true);
+    },
+  );
+
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'allows full project-owner delete access for %s creators once they are manager members',
+    (role) => {
+      const allowed = service.hasNamedPermission(
+        Permission.DELETE_PROJECT,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+        [
+          {
+            userId: '555',
+            role: ProjectMemberRole.MANAGER,
+          },
+        ],
+      );
+
+      expect(allowed).toBe(true);
+    },
+  );
+
   it('allows viewing project for machine token with project read scope', () => {
     const allowed = service.hasNamedPermission(Permission.VIEW_PROJECT, {
       scopes: [Scope.PROJECTS_READ],
       isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows creating projects for Project Manager role', () => {
+    const allowed = service.hasNamedPermission(Permission.CREATE_PROJECT, {
+      userId: '555',
+      roles: [UserRole.PROJECT_MANAGER],
+      isMachine: false,
     });
 
     expect(allowed).toBe(true);
@@ -236,6 +361,66 @@ describe('PermissionService', () => {
       scopes: [Scope.PROJECT_MEMBERS_READ],
       isMachine: true,
     });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows creating other project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows updating project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting topcoder project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_MEMBER_TOPCODER,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting customer project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_MEMBER_CUSTOMER,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows deleting copilot project members for machine token with project-member write scope', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.DELETE_PROJECT_MEMBER_COPILOT,
+      {
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      },
+    );
 
     expect(allowed).toBe(true);
   });
@@ -401,6 +586,11 @@ describe('PermissionService', () => {
   );
 
   it('marks billing account permissions as requiring project member context', () => {
+    expect(
+      service.isNamedPermissionRequireProjectMembers(
+        Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      ),
+    ).toBe(true);
     expect(
       service.isNamedPermissionRequireProjectMembers(
         Permission.READ_AVL_PROJECT_BILLING_ACCOUNTS,

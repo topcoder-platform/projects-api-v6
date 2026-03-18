@@ -17,7 +17,7 @@ import {
 import { Permission } from 'src/shared/constants/permissions';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { Scope } from 'src/shared/enums/scopes.enum';
-import { ADMIN_ROLES } from 'src/shared/enums/userRole.enum';
+import { ADMIN_ROLES, UserRole } from 'src/shared/enums/userRole.enum';
 import {
   Permission as JsonPermission,
   PermissionRule as JsonPermissionRule,
@@ -298,7 +298,9 @@ export class ProjectService {
    * @throws BadRequestException For invalid type/template/building-block keys.
    * @throws ConflictException When post-transaction re-fetch fails.
    * @security Caller permissions determine the primary member role
-   * (`manager` vs `customer`) assigned on creation.
+   * (`manager` vs `customer`) assigned on creation. Talent Manager creators
+   * satisfy `CREATE_PROJECT_AS_MANAGER`, so they are persisted as the primary
+   * `manager` member for the new project.
    * @todo Sequential `for...of` loops for estimations and template phases in
    * the transaction can be optimized with `Promise.all` for larger payloads.
    */
@@ -875,7 +877,9 @@ export class ProjectService {
    * Returns project permissions for the caller or, for M2M, every project user.
    *
    * Human JWT callers keep the legacy v5/v6 behavior and receive the
-   * work-management policy map allowed for the authenticated caller.
+   * work-management policy map allowed for the authenticated caller unless
+   * they are an admin, a global `Project Manager`, or a `copilot` member on
+   * the requested project.
    *
    * M2M callers receive a per-user matrix built from active project members.
    * Each entry includes the user's active memberships, fetched Topcoder roles,
@@ -908,39 +912,35 @@ export class ProjectService {
       );
     }
 
-    if (this.isMachinePrincipal(user)) {
-      const workManagementPermissionsPromise: Promise<
-        WorkManagementPermissionRecord[]
-      > = project.templateId
-        ? this.prisma.workManagementPermission.findMany({
-            where: {
-              projectTemplateId: project.templateId,
-              deletedAt: null,
-            },
-            select: {
-              policy: true,
-              permission: true,
-            },
-          })
-        : Promise.resolve([]);
+    const projectMembers = await this.prisma.projectMember.findMany({
+      where: {
+        projectId: parsedProjectId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        projectId: true,
+        userId: true,
+        role: true,
+        isPrimary: true,
+        deletedAt: true,
+      },
+    });
 
-      const [projectMembers, workManagementPermissions] = await Promise.all([
-        this.prisma.projectMember.findMany({
-          where: {
-            projectId: parsedProjectId,
-            deletedAt: null,
-          },
-          select: {
-            id: true,
-            projectId: true,
-            userId: true,
-            role: true,
-            isPrimary: true,
-            deletedAt: true,
-          },
-        }),
-        workManagementPermissionsPromise,
-      ]);
+    if (this.shouldReturnProjectMemberPermissionMatrix(user, projectMembers)) {
+      const workManagementPermissions: WorkManagementPermissionRecord[] =
+        project.templateId
+          ? await this.prisma.workManagementPermission.findMany({
+              where: {
+                projectTemplateId: project.templateId,
+                deletedAt: null,
+              },
+              select: {
+                policy: true,
+                permission: true,
+              },
+            })
+          : [];
 
       return this.buildProjectMemberPermissionMatrix(
         projectMembers,
@@ -952,22 +952,8 @@ export class ProjectService {
       return {};
     }
 
-    const [projectMembers, workManagementPermissions] = await Promise.all([
-      this.prisma.projectMember.findMany({
-        where: {
-          projectId: parsedProjectId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          projectId: true,
-          userId: true,
-          role: true,
-          isPrimary: true,
-          deletedAt: true,
-        },
-      }),
-      this.prisma.workManagementPermission.findMany({
+    const workManagementPermissions =
+      await this.prisma.workManagementPermission.findMany({
         where: {
           projectTemplateId: project.templateId,
           deletedAt: null,
@@ -976,8 +962,7 @@ export class ProjectService {
           policy: true,
           permission: true,
         },
-      }),
-    ]);
+      });
 
     const policyMap: ProjectPolicyMap = {};
 
@@ -1761,6 +1746,65 @@ export class ProjectService {
     }
 
     return permissionMatrix;
+  }
+
+  /**
+   * Determines whether the caller should receive the per-user permission matrix.
+   *
+   * Matrix access is granted to:
+   * - machine principals
+   * - admins
+   * - global `Project Manager` role holders
+   * - callers who are a `copilot` member on the current project
+   *
+   * @param user Authenticated caller context.
+   * @param projectMembers Active members of the requested project.
+   * @returns `true` when the route should return the per-user matrix.
+   */
+  private shouldReturnProjectMemberPermissionMatrix(
+    user: JwtUser,
+    projectMembers: Array<Pick<ProjectMember, 'userId' | 'role'>>,
+  ): boolean {
+    if (this.isMachinePrincipal(user)) {
+      return true;
+    }
+
+    const normalizedUserRoles = new Set(
+      (user.roles || [])
+        .map((role) => String(role).trim().toLowerCase())
+        .filter((role) => role.length > 0),
+    );
+    const hasGlobalMatrixRole = [...ADMIN_ROLES, UserRole.PROJECT_MANAGER].some(
+      (role) =>
+        normalizedUserRoles.has(String(role).trim().toLowerCase()),
+    );
+
+    if (hasGlobalMatrixRole) {
+      return true;
+    }
+
+    const parsedUserId = this.parseUserIdValue(user.userId);
+
+    if (!parsedUserId) {
+      return false;
+    }
+
+    const normalizedCopilotRole = String(ProjectMemberRole.copilot)
+      .trim()
+      .toLowerCase();
+
+    return projectMembers.some((member) => {
+      const parsedMemberUserId = this.parseUserIdValue(member.userId);
+
+      if (!parsedMemberUserId) {
+        return false;
+      }
+
+      return (
+        parsedMemberUserId.toString() === parsedUserId.toString() &&
+        String(member.role).trim().toLowerCase() === normalizedCopilotRole
+      );
+    });
   }
 
   /**

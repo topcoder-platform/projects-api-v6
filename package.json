@@ -12,7 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main",
-    "lint": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\" --fix --no-error-on-unmatched-pattern",
     "test": "jest --config ./jest.config.js",
     "test:watch": "jest --config ./jest.config.js --watch",
     "test:cov": "jest --config ./jest.config.js --coverage",
@@ -104,14 +104,17 @@
   "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264",
   "pnpm": {
     "overrides": {
+      "@hono/node-server": "1.19.10",
       "ajv": "8.18.0",
       "axios": "1.13.5",
-      "fast-xml-parser": "5.3.6",
-      "hono": "4.11.10",
+      "fast-xml-parser": "5.3.8",
+      "hono": "4.12.4",
       "jws": ">=3.2.3 <4.0.0 || >=4.0.1",
       "lodash": "4.17.23",
-      "minimatch": "10.2.1",
-      "qs": "6.14.2"
+      "minimatch": "10.2.3",
+      "multer": "2.1.1",
+      "qs": "6.14.2",
+      "serialize-javascript": "7.0.3"
     },
     "patchedDependencies": {
       "@eslint/eslintrc@3.3.3": "patches/@eslint__eslintrc@3.3.3.patch",

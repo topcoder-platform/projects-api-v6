@@ -28,6 +28,17 @@ Swagger auth notes:
   - `src/shared/enums/projectMemberRole.enum.ts`
   - `src/shared/enums/scopes.enum.ts`
 
+## Talent Manager Behavior
+
+- `Talent Manager` and `Topcoder Talent Manager` satisfy `CREATE_PROJECT_AS_MANAGER`, so project creation persists them as the primary `manager` project member.
+- That primary `manager` membership then unlocks the standard manager-level project-owner paths, such as edit and delete checks that rely on project-member context.
+
+## Billing Account Editing
+
+- `MANAGE_PROJECT_BILLING_ACCOUNT_ID` is intentionally narrower than general project edit access.
+- A caller may set or update `billingAccountId` only when they are a human admin (`Connect Admin`, `administrator`, or `tgadmin`) or they are an active `manager` member on that specific project.
+- Global manager, project-manager, task-manager, talent-manager, or M2M-only access is not enough on its own to edit a project's billing account.
+
 ## Permission Rule Shape
 
 Supported shapes:

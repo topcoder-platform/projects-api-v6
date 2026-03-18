@@ -220,9 +220,40 @@ describe('Project Invite endpoints (e2e)', () => {
     );
   });
 
-  it('returns 403 for partial failures', async () => {
+  it('returns 201 when at least one invite is created', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECT_INVITES_WRITE],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECT_INVITES_WRITE,
+      },
+    });
+
     projectInviteServiceMock.createInvites.mockResolvedValueOnce({
       success: [{ id: '1' }],
+      failed: [
+        {
+          email: 'dilhanigunawardhana+1@gmail.com',
+          message: 'Emails can only be used for customer',
+        },
+      ],
+    });
+
+    await request(app.getHttpServer())
+      .post('/v6/projects/1001/invites')
+      .set('Authorization', 'Bearer m2m-invite-write')
+      .send({
+        handles: ['sdguntcqa'],
+        emails: ['dilhanigunawardhana+1@gmail.com'],
+        role: ProjectMemberRole.observer,
+      })
+      .expect(201);
+  });
+
+  it('returns 403 when no invites are created', async () => {
+    projectInviteServiceMock.createInvites.mockResolvedValueOnce({
+      success: [],
       failed: [
         {
           handle: 'missing-user',
@@ -234,7 +265,7 @@ describe('Project Invite endpoints (e2e)', () => {
     await request(app.getHttpServer())
       .post('/v6/projects/1001/invites')
       .set('Authorization', 'Bearer manager-token')
-      .send({ handles: ['member'], role: ProjectMemberRole.customer })
+      .send({ handles: ['missing-user'], role: ProjectMemberRole.customer })
       .expect(403);
   });
 

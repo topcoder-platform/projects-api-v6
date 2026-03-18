@@ -96,7 +96,11 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 | `DELETE` | `/v6/projects/:projectId` | Admin only | Soft-delete project |
 | `GET` | `/v6/projects/:projectId/billingAccount` | JWT / M2M | Default billing account (Salesforce) |
 | `GET` | `/v6/projects/:projectId/billingAccounts` | JWT / M2M | All billing accounts for project |
-| `GET` | `/v6/projects/:projectId/permissions` | JWT / M2M | JWT: caller work-management policy map. M2M: per-member permission matrix with project permissions and template policies |
+| `GET` | `/v6/projects/:projectId/permissions` | JWT / M2M | Regular human JWT: caller work-management policy map. M2M, admins, project managers, and project copilots on the project: per-member permission matrix with project permissions and template policies |
+
+Talent Manager note:
+- `Talent Manager` and `Topcoder Talent Manager` callers create projects as primary `manager` members.
+- Updating `billingAccountId` is restricted to human administrators and project members whose role on that project is `manager` (`Full Access`).
 
 ### Members
 
@@ -114,7 +118,7 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 | --- | --- | --- | --- |
 | `GET` | `/v6/projects/:projectId/invites` | JWT / M2M | List invites |
 | `GET` | `/v6/projects/:projectId/invites/:inviteId` | JWT / M2M | Get invite |
-| `POST` | `/v6/projects/:projectId/invites` | JWT / M2M | Create invite(s) - partial-success response `{ success[], failed[] }` |
+| `POST` | `/v6/projects/:projectId/invites` | JWT / M2M | Create invite(s) - returns `201` when any invite is created and includes `{ success[], failed[] }` for rejected targets |
 | `PATCH` | `/v6/projects/:projectId/invites/:inviteId` | JWT / M2M | Accept / decline invite |
 | `DELETE` | `/v6/projects/:projectId/invites/:inviteId` | JWT / M2M | Delete invite |
 
@@ -463,7 +467,7 @@ Open `TODO (quality)` findings from prior phases:
 - Elasticsearch removed; all reads use PostgreSQL via Prisma.
 - Timeline/milestone CRUD intentionally not migrated (see `docs/timeline-milestone-migration.md`).
 - Deprecated endpoints not ported (scope change requests, reports, customer payments, phase members/approvals, estimation items).
-- Invite creation uses partial-success semantics: `{ success: Invite[], failed: ErrorInfo[] }`.
+- Invite creation returns `201` when any invite is created and still uses `{ success: Invite[], failed: ErrorInfo[] }` for rejected targets.
 - Event originator changed from `tc-project-service` to `project-service-v6`.
 
 Full details: `docs/DIFFERENCES_FROM_V5.md` and `docs/MIGRATION_FROM_TC_PROJECT_SERVICE.md`.

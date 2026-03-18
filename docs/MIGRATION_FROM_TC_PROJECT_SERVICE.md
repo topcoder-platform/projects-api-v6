@@ -102,6 +102,7 @@ This document maps legacy authorization logic from Express middleware to NestJS 
 ## Consumer Migration Notes
 
 - Continue using `fields` query parameter for optional member/invite enrichment.
-- Handle `403` responses from invite create as partial-failure responses with body:
+- Invite create now returns `201` when at least one invite is created and still includes:
   - `{ success: Invite[], failed: ErrorInfo[] }`
+- Compatibility `403` responses remain possible when no invite is created and the response only contains failures.
 - If your integration relied on ES stale fields, switch to Member/Identity APIs for user metadata.
