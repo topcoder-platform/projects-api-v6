@@ -373,13 +373,8 @@ export const PERMISSION = {
       group: 'Project',
       description: 'Who can set or update the "billingAccountId" property.',
     },
-    topcoderRoles: [
-      USER_ROLE.MANAGER,
-      USER_ROLE.TOPCODER_ADMIN,
-      USER_ROLE.TALENT_MANAGER,
-      USER_ROLE.TOPCODER_TALENT_MANAGER,
-    ],
-    scopes: SCOPES_PROJECTS_WRITE_PROJECTS_BILLING_ACCOUNTS,
+    topcoderRoles: TOPCODER_ROLES_ADMINS,
+    projectRoles: [PROJECT_MEMBER_ROLE.MANAGER],
   },
 
   /**

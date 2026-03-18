@@ -222,8 +222,45 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
-  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
-    'allows managing project billing accounts for %s Topcoder role',
+  it('allows managing project billing accounts for admin role', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      {
+        userId: '555',
+        roles: [UserRole.TOPCODER_ADMIN],
+        isMachine: false,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows managing project billing accounts for manager project members', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      {
+        userId: '555',
+        roles: [UserRole.PROJECT_MANAGER],
+        isMachine: false,
+      },
+      [
+        {
+          userId: '555',
+          role: ProjectMemberRole.MANAGER,
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it.each([
+    UserRole.MANAGER,
+    UserRole.PROJECT_MANAGER,
+    UserRole.TALENT_MANAGER,
+    UserRole.TOPCODER_TALENT_MANAGER,
+  ])(
+    'blocks managing project billing accounts for %s without full-access membership',
     (role) => {
       const allowed = service.hasNamedPermission(
         Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
@@ -232,11 +269,35 @@ describe('PermissionService', () => {
           roles: [role],
           isMachine: false,
         },
+        [
+          {
+            userId: '555',
+            role: ProjectMemberRole.CUSTOMER,
+          },
+        ],
       );
 
-      expect(allowed).toBe(true);
+      expect(allowed).toBe(false);
     },
   );
+
+  it('blocks managing project billing accounts for machine admin scope without admin user role', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      },
+      [
+        {
+          userId: '555',
+          role: ProjectMemberRole.MANAGER,
+        },
+      ],
+    );
+
+    expect(allowed).toBe(false);
+  });
 
   it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
     'allows creating projects as manager for %s Topcoder role',
@@ -515,6 +576,11 @@ describe('PermissionService', () => {
   );
 
   it('marks billing account permissions as requiring project member context', () => {
+    expect(
+      service.isNamedPermissionRequireProjectMembers(
+        Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
+      ),
+    ).toBe(true);
     expect(
       service.isNamedPermissionRequireProjectMembers(
         Permission.READ_AVL_PROJECT_BILLING_ACCOUNTS,

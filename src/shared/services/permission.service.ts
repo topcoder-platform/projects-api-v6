@@ -376,7 +376,14 @@ export class PermissionService {
 
       // Billing-account related permissions.
       case NamedPermission.MANAGE_PROJECT_BILLING_ACCOUNT_ID:
-        return isAdmin || this.hasTalentManagerRole(user);
+        return (
+          this.hasIntersection(user.roles || [], ADMIN_ROLES) ||
+          Boolean(
+            member &&
+              this.normalizeRole(member.role) ===
+                this.normalizeRole(ProjectMemberRole.MANAGER),
+          )
+        );
 
       case NamedPermission.MANAGE_PROJECT_DIRECT_PROJECT_ID:
         return isAdmin;

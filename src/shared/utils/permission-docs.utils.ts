@@ -78,10 +78,7 @@ const PROJECT_BILLING_TOPCODER_ROLES = [
   ...TALENT_MANAGER_ROLES,
 ];
 
-const PROJECT_BILLING_MANAGEMENT_USER_ROLES = [
-  ...ADMIN_AND_MANAGER_ROLES,
-  ...TALENT_MANAGER_ROLES,
-];
+const PROJECT_BILLING_MANAGEMENT_USER_ROLES = [...STRICT_ADMIN_ACCESS_ROLES];
 
 const PROJECT_CREATOR_MANAGER_USER_ROLES = [
   ...STRICT_ADMIN_ACCESS_ROLES,
@@ -371,6 +368,7 @@ function getNamedPermissionDocumentation(
     case NamedPermission.MANAGE_PROJECT_BILLING_ACCOUNT_ID:
       return createSummary({
         userRoles: PROJECT_BILLING_MANAGEMENT_USER_ROLES,
+        projectRoles: [ProjectMemberRole.MANAGER],
       });
 
     case NamedPermission.MANAGE_PROJECT_DIRECT_PROJECT_ID:
