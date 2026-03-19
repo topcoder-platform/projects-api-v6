@@ -31,6 +31,7 @@ Swagger auth notes:
 ## Talent Manager Behavior
 
 - `Talent Manager` and `Topcoder Talent Manager` satisfy `CREATE_PROJECT_AS_MANAGER`, so project creation persists them as the primary `manager` project member.
+- The same Talent Manager roles also satisfy the `manager` project-role validation used by member add/update/invite flows, so they can be granted `Full Access` from Work Manager's Users tab.
 - That primary `manager` membership then unlocks the standard manager-level project-owner paths, such as edit and delete checks that rely on project-member context.
 
 ## Billing Account Editing

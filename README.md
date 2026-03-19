@@ -100,6 +100,7 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 
 Talent Manager note:
 - `Talent Manager` and `Topcoder Talent Manager` callers create projects as primary `manager` members.
+- `Talent Manager` and `Topcoder Talent Manager` users can also be assigned the `manager` (`Full Access`) project role through member add/update/invite flows.
 - Updating `billingAccountId` is restricted to human administrators and project members whose role on that project is `manager` (`Full Access`).
 
 ### Members
