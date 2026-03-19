@@ -878,8 +878,8 @@ export class ProjectService {
    *
    * Human JWT callers keep the legacy v5/v6 behavior and receive the
    * work-management policy map allowed for the authenticated caller unless
-   * they are an admin, a global `Project Manager`, or a `copilot` member on
-   * the requested project.
+   * they are an admin, a global `Project Manager`/`Talent Manager`, or a
+   * `copilot` member on the requested project.
    *
    * M2M callers receive a per-user matrix built from active project members.
    * Each entry includes the user's active memberships, fetched Topcoder roles,
@@ -1754,7 +1754,7 @@ export class ProjectService {
    * Matrix access is granted to:
    * - machine principals
    * - admins
-   * - global `Project Manager` role holders
+   * - global `Project Manager` and `Talent Manager` role holders
    * - callers who are a `copilot` member on the current project
    *
    * @param user Authenticated caller context.
@@ -1774,10 +1774,12 @@ export class ProjectService {
         .map((role) => String(role).trim().toLowerCase())
         .filter((role) => role.length > 0),
     );
-    const hasGlobalMatrixRole = [...ADMIN_ROLES, UserRole.PROJECT_MANAGER].some(
-      (role) =>
-        normalizedUserRoles.has(String(role).trim().toLowerCase()),
-    );
+    const hasGlobalMatrixRole = [
+      ...ADMIN_ROLES,
+      UserRole.PROJECT_MANAGER,
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
+    ].some((role) => normalizedUserRoles.has(String(role).trim().toLowerCase()));
 
     if (hasGlobalMatrixRole) {
       return true;

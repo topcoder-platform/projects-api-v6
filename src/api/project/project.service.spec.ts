@@ -832,6 +832,22 @@ describe('ProjectService', () => {
         isMachine: false,
       },
     ],
+    [
+      'talent manager',
+      {
+        userId: '999',
+        roles: [UserRole.TALENT_MANAGER],
+        isMachine: false,
+      },
+    ],
+    [
+      'topcoder talent manager',
+      {
+        userId: '999',
+        roles: [UserRole.TOPCODER_TALENT_MANAGER],
+        isMachine: false,
+      },
+    ],
   ])(
     'returns a per-user permission matrix for %s callers on all projects',
     async (
