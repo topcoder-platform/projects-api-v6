@@ -96,10 +96,12 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 | `DELETE` | `/v6/projects/:projectId` | Admin only | Soft-delete project |
 | `GET` | `/v6/projects/:projectId/billingAccount` | JWT / M2M | Default billing account (Salesforce) |
 | `GET` | `/v6/projects/:projectId/billingAccounts` | JWT / M2M | All billing accounts for project |
-| `GET` | `/v6/projects/:projectId/permissions` | JWT / M2M | Regular human JWT: caller work-management policy map. M2M, admins, project managers, and project copilots on the project: per-member permission matrix with project permissions and template policies |
+| `GET` | `/v6/projects/:projectId/permissions` | JWT / M2M | Regular human JWT: caller work-management policy map. M2M, admins, project managers, talent managers, and project copilots on the project: per-member permission matrix with project permissions and template policies |
 
 Talent Manager note:
 - `Talent Manager` and `Topcoder Talent Manager` callers create projects as primary `manager` members.
+- `Talent Manager` and `Topcoder Talent Manager` users can also be assigned the `manager` (`Full Access`) project role through member add/update/invite flows.
+- `Talent Manager` and `Topcoder Talent Manager` callers also receive the elevated per-member response from `GET /v6/projects/:projectId/permissions`, which is used to provision challenge-related actions in Work Manager.
 - Updating `billingAccountId` is restricted to human administrators and project members whose role on that project is `manager` (`Full Access`).
 
 ### Members

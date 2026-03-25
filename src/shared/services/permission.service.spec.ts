@@ -535,6 +535,25 @@ describe('PermissionService', () => {
     expect(allowed).toBe(false);
   });
 
+  it('allows Project Manager role to edit projects when they have full-access membership', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.EDIT_PROJECT,
+      {
+        userId: '3001',
+        roles: [UserRole.PROJECT_MANAGER],
+        isMachine: false,
+      },
+      [
+        {
+          userId: '3001',
+          role: ProjectMemberRole.MANAGER,
+        },
+      ],
+    );
+
+    expect(allowed).toBe(true);
+  });
+
   it('allows deleting project for machine token with project write scope', () => {
     const allowed = service.hasNamedPermission(Permission.DELETE_PROJECT, {
       scopes: [Scope.PROJECTS_ALL],

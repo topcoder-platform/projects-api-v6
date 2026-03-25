@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ProjectMemberRole } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
+import { UserRole } from 'src/shared/enums/userRole.enum';
 import { MemberService } from 'src/shared/services/member.service';
 import { PermissionService } from 'src/shared/services/permission.service';
 import { ProjectMemberService } from './project-member.service';
@@ -177,6 +178,73 @@ describe('ProjectMemberService', () => {
     });
   });
 
+  [UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER].forEach(
+    (topcoderRole) => {
+      it(`allows ${topcoderRole} users to be added as manager project members`, async () => {
+        prismaMock.project.findFirst.mockResolvedValue({
+          id: BigInt(1001),
+          members: [],
+        });
+
+        const txMock = {
+          projectMember: {
+            create: jest.fn().mockResolvedValue({
+              id: BigInt(3),
+              projectId: BigInt(1001),
+              userId: BigInt(456),
+              role: ProjectMemberRole.manager,
+              isPrimary: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 123,
+              updatedBy: 123,
+              deletedAt: null,
+              deletedBy: null,
+            }),
+          },
+          projectMemberInvite: {
+            updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+        };
+
+        prismaMock.$transaction.mockImplementation(
+          (callback: (tx: unknown) => Promise<unknown>) => callback(txMock),
+        );
+
+        permissionServiceMock.hasNamedPermission.mockImplementation(
+          (permission: Permission): boolean =>
+            permission === Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
+        );
+        memberServiceMock.getUserRoles.mockResolvedValue([topcoderRole]);
+        memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
+
+        await service.addMember(
+          '1001',
+          {
+            userId: '456',
+            role: ProjectMemberRole.manager,
+          },
+          {
+            userId: '123',
+            roles: [UserRole.TOPCODER_ADMIN],
+            isMachine: false,
+          },
+          undefined,
+        );
+
+        expect(txMock.projectMember.create).toHaveBeenCalledWith({
+          data: {
+            projectId: BigInt(1001),
+            userId: BigInt(456),
+            role: ProjectMemberRole.manager,
+            createdBy: 123,
+            updatedBy: 123,
+          },
+        });
+      });
+    },
+  );
+
   it('rejects invalid target user ids before querying the project', async () => {
     await expect(
       service.addMember(
@@ -296,6 +364,86 @@ describe('ProjectMemberService', () => {
       },
     });
   });
+
+  [UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER].forEach(
+    (topcoderRole) => {
+      it(`allows ${topcoderRole} users to be promoted to manager project members`, async () => {
+        prismaMock.project.findFirst.mockResolvedValue({
+          id: BigInt(1001),
+          members: [
+            {
+              id: BigInt(2),
+              projectId: BigInt(1001),
+              userId: BigInt(456),
+              role: ProjectMemberRole.customer,
+              isPrimary: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 1,
+              updatedBy: 1,
+              deletedAt: null,
+              deletedBy: null,
+            },
+          ],
+        });
+
+        const txMock = {
+          projectMember: {
+            updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+            update: jest.fn().mockResolvedValue({
+              id: BigInt(2),
+              projectId: BigInt(1001),
+              userId: BigInt(456),
+              role: ProjectMemberRole.manager,
+              isPrimary: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 1,
+              updatedBy: 123,
+              deletedAt: null,
+              deletedBy: null,
+            }),
+          },
+        };
+
+        prismaMock.$transaction.mockImplementation(
+          (callback: (tx: unknown) => Promise<unknown>) => callback(txMock),
+        );
+
+        permissionServiceMock.hasNamedPermission.mockImplementation(
+          (permission: Permission): boolean =>
+            permission === Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
+        );
+        memberServiceMock.getUserRoles.mockResolvedValue([topcoderRole]);
+        memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
+
+        await service.updateMember(
+          '1001',
+          '2',
+          {
+            role: ProjectMemberRole.manager,
+          },
+          {
+            userId: '123',
+            roles: [UserRole.TOPCODER_ADMIN],
+            isMachine: false,
+          },
+          undefined,
+        );
+
+        expect(txMock.projectMember.update).toHaveBeenCalledWith({
+          where: {
+            id: BigInt(2),
+          },
+          data: {
+            role: ProjectMemberRole.manager,
+            isPrimary: undefined,
+            updatedBy: 123,
+          },
+        });
+      });
+    },
+  );
 
   it('deletes a project member for machine principals inferred from token claims', async () => {
     prismaMock.project.findFirst.mockResolvedValue({

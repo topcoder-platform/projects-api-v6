@@ -48,8 +48,10 @@ export type ProjectInviteLike = {
 /**
  * Manager-tier Topcoder roles allowed to hold management project roles.
  *
- * @todo Duplicates `MANAGER_ROLES` from `userRole.enum.ts`. Import the shared
- * constant instead of maintaining a local copy.
+ * This intentionally overlaps with, but is not identical to,
+ * `MANAGER_ROLES` from `userRole.enum.ts`: Talent Manager roles may hold
+ * management project memberships without broadening unrelated global
+ * manager-only route access.
  */
 const MANAGER_TOPCODER_ROLES: string[] = [
   UserRole.TOPCODER_ADMIN,
@@ -62,6 +64,8 @@ const MANAGER_TOPCODER_ROLES: string[] = [
   UserRole.PROGRAM_MANAGER,
   UserRole.SOLUTION_ARCHITECT,
   UserRole.PROJECT_MANAGER,
+  UserRole.TALENT_MANAGER,
+  UserRole.TOPCODER_TALENT_MANAGER,
   UserRole.COPILOT_MANAGER,
 ];
 
@@ -182,7 +186,9 @@ export function getDefaultProjectRole(
 /**
  * Validates that user Topcoder roles permit the requested project role.
  *
- * `customer` and `observer` are unrestricted by design.
+ * `customer` and `observer` are unrestricted by design. Full-access
+ * `manager` membership accepts the same manager-tier Topcoder roles used for
+ * project creation, including Talent Manager variants.
  */
 export function validateUserHasProjectRole(
   role: ProjectMemberRole,
