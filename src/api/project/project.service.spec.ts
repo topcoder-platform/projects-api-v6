@@ -521,6 +521,32 @@ describe('ProjectService', () => {
     });
   });
 
+  it('returns project billing account markup for machine principals inferred from token claims', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: BigInt(12),
+    });
+    billingAccountServiceMock.getDefaultBillingAccount.mockResolvedValue({
+      tcBillingAccountId: '12',
+      markup: 0.58,
+      active: true,
+    });
+
+    const result = await service.getProjectBillingAccount('1001', {
+      isMachine: false,
+      scopes: [],
+      tokenPayload: {
+        gty: 'client-credentials',
+      },
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '12',
+      markup: 0.58,
+      active: true,
+    });
+  });
+
   it('falls back to project billingAccountId when Salesforce billing lookup is empty', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),

@@ -1067,7 +1067,7 @@ export class ProjectService {
           tcBillingAccountId: projectBillingAccountId,
         };
 
-    if (user.isMachine) {
+    if (this.isMachinePrincipal(user)) {
       return billingAccount;
     }
 
