@@ -1,21 +1,25 @@
-
 # TopCoder Projects API
 
 ## Configuration
 
-Please check `.env.sample` to see configuration values and details.
+Please check `.env.example` to see configuration values and details.
 
-Before running application, you should run:
+Before running the application, copy the example file:
+
 ```bash
-cp .env.sample .env
+cp .env.example .env
 ```
 
-You can edit values in `.env` to make it work.
+Then edit `.env` so it matches your local setup.
 
+If you want project billing-account lookups to resolve markup from the
+billing-accounts service before falling back to Salesforce, set
+`BILLING_ACCOUNTS_API_URL` in `.env`.
 
 ## Database Setup
 
-Please install Postgresql or start with docker like:
+Please install PostgreSQL or start it with Docker like this:
+
 ```bash
 docker run -d --name projectdb -p 5432:5432 \
   -e POSTGRES_USER=johndoe -e POSTGRES_DB=projectdb \
@@ -23,18 +27,19 @@ docker run -d --name projectdb -p 5432:5432 \
   postgres:16
 ```
 
-Then you need to set environment variables for db. Please use:
+Then set the database environment variables:
+
 ```bash
 export DB_SCHEMA="projects"
 export DATABASE_URL="postgresql://johndoe:mypassword@localhost:5432/projectdb?schema=$DB_SCHEMA"
 ```
 
-
 ## Scripts
 
-To help you setup db and test this API, there are some scripts:
+To help you set up the database and test this API, there are some scripts:
+
 ```bash
-# Make sure run this command first
+# Make sure you run this command first
 pnpm install
 
 # init db
@@ -55,9 +60,11 @@ node mock/mock-api.js
 
 ## Local Deployment
 
-Please make sure you have setup database and environment variables correctly.
+Please make sure you have set up the database and environment variables
+correctly.
 
 After that, you can run:
+
 ```bash
 pnpm install
 
@@ -76,20 +83,24 @@ pnpm run start
 
 ## Verify
 
-We use `Postman` to test all apis.
-Please import `doc/tc-projects-api.postman_collection.json`, `Local Dev Environment.postman_environment.json`
+We use `Postman` to test all APIs.
+Please import `doc/tc-projects-api.postman_collection.json` and
+`doc/Local Dev Environment.postman_environment.json`.
 
-Then generate token
-`pnpm exec ts-node mock/jwt.ts`
+Then generate tokens:
 
-Then set `Admin Token` to `accessToken` in Postman environment
-Then set `User Token` to `accessTokenUser` in Postman environment
+```bash
+pnpm exec ts-node mock/jwt.ts
+```
 
-Then you can test all postman apis.
+Then set `Admin Token` to `accessToken` in the Postman environment and
+`User Token` to `accessTokenUser`.
+
+Then you can test all Postman APIs.
 
 I also provide a demo video here: https://youtu.be/vcoiKmbasOI
 
 ## Swagger
 
-After starting application, swagger docs will be hosted on `http://localhost:3000/api-docs`
-
+After starting the application, Swagger docs will be hosted at
+`http://localhost:3000/v6/projects/api-docs`.
