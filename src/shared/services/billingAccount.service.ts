@@ -3,7 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { createPrivateKey, KeyObject } from 'crypto';
 import { firstValueFrom } from 'rxjs';
 import * as jwt from 'jsonwebtoken';
+import { SERVICE_ENDPOINTS } from 'src/shared/config/service-endpoints.config';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
+import { M2MService } from 'src/shared/modules/global/m2m.service';
 
 export interface BillingAccount {
   tcBillingAccountId?: string;
@@ -29,6 +31,8 @@ export interface BillingAccount {
 @Injectable()
 export class BillingAccountService {
   private readonly logger = LoggerService.forRoot('BillingAccountService');
+  private readonly billingAccountsApiUrl =
+    SERVICE_ENDPOINTS.billingAccountsApiUrl.replace(/\/+$/, '');
   private readonly salesforceAudience =
     process.env.SALESFORCE_CLIENT_AUDIENCE ||
     process.env.SALESFORCE_AUDIENCE ||
@@ -47,7 +51,10 @@ export class BillingAccountService {
   private readonly sfdcBillingAccountActiveField =
     process.env.SFDC_BILLING_ACCOUNT_ACTIVE_FIELD || 'Active__c';
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly m2mService: M2MService,
+  ) {}
 
   /**
    * Returns billing accounts available to the current project user.
@@ -123,8 +130,9 @@ export class BillingAccountService {
   /**
    * Returns the default billing-account record by Topcoder billing-account id.
    *
-   * Queries `Topcoder_Billing_Account__c` by
-   * `TopCoder_Billing_Account_Id__c`.
+   * Resolves the billing account from the Billing Accounts API first, then
+   * falls back to Salesforce `Topcoder_Billing_Account__c` when that lookup is
+   * unavailable or does not return a usable record.
    *
    * @param billingAccountId Topcoder billing-account id
    * @returns billing-account details, or `null` when not found/invalid
@@ -132,11 +140,6 @@ export class BillingAccountService {
   async getDefaultBillingAccount(
     billingAccountId: string,
   ): Promise<BillingAccount | null> {
-    if (!this.isSalesforceConfigured()) {
-      this.logger.warn('Salesforce integration is not configured.');
-      return null;
-    }
-
     try {
       const normalizedBillingAccountId =
         this.parseIntStrictly(billingAccountId);
@@ -144,6 +147,19 @@ export class BillingAccountService {
         this.logger.warn(
           `Invalid billingAccountId received while fetching default billing account: ${billingAccountId}`,
         );
+        return null;
+      }
+
+      const billingAccountFromApi =
+        await this.getBillingAccountFromBillingAccountsApi(
+          normalizedBillingAccountId,
+        );
+      if (billingAccountFromApi) {
+        return billingAccountFromApi;
+      }
+
+      if (!this.isSalesforceConfigured()) {
+        this.logger.warn('Salesforce integration is not configured.');
         return null;
       }
 
@@ -179,6 +195,66 @@ export class BillingAccountService {
     } catch (error) {
       this.logger.warn(
         `Unable to fetch default billing account for billingAccountId=${billingAccountId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Resolves a billing-account record from the Billing Accounts API.
+   *
+   * Uses an M2M token and maps the response into the legacy billing-account
+   * shape returned by Projects API.
+   *
+   * @param billingAccountId normalized Topcoder billing-account id
+   * @returns billing-account details or `null` when lookup fails
+   */
+  private async getBillingAccountFromBillingAccountsApi(
+    billingAccountId: string,
+  ): Promise<BillingAccount | null> {
+    if (!this.billingAccountsApiUrl) {
+      return null;
+    }
+
+    try {
+      const token = await this.m2mService.getM2MToken();
+      const response = await firstValueFrom(
+        this.httpService.get(`${this.billingAccountsApiUrl}/${billingAccountId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 5000,
+        }),
+      );
+
+      const payload =
+        response?.data && typeof response.data === 'object'
+          ? (response.data as Record<string, unknown>)
+          : undefined;
+      const normalizedBillingAccountId =
+        this.readAsIdString(payload?.tcBillingAccountId) ||
+        this.readAsIdString(payload?.id);
+
+      if (!normalizedBillingAccountId) {
+        return null;
+      }
+
+      return {
+        tcBillingAccountId: normalizedBillingAccountId,
+        name: this.readAsString(payload?.name),
+        startDate: this.readAsString(payload?.startDate),
+        endDate: this.readAsString(payload?.endDate),
+        active:
+          this.readAsBoolean(payload?.active) ??
+          this.readActiveFlagFromStatus(payload?.status),
+        markup: this.readAsNumber(payload?.markup),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Unable to fetch default billing account from Billing Accounts API for billingAccountId=${billingAccountId}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -410,6 +486,28 @@ export class BillingAccountService {
   }
 
   /**
+   * Coerces an API id field to a normalized integer string.
+   *
+   * @param value raw id value
+   * @returns normalized id or `undefined`
+   */
+  private readAsIdString(value: unknown): string | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return this.parseIntStrictly(String(value));
+    }
+
+    if (typeof value === 'bigint') {
+      return this.parseIntStrictly(value.toString());
+    }
+
+    if (typeof value === 'string') {
+      return this.parseIntStrictly(value.trim());
+    }
+
+    return undefined;
+  }
+
+  /**
    * Coerces a Salesforce field value to a finite number.
    *
    * @param value raw field value
@@ -450,6 +548,30 @@ export class BillingAccountService {
       if (normalized === 'false') {
         return false;
       }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Maps common status values to an active boolean.
+   *
+   * @param value raw status value
+   * @returns active flag when a known status is supplied
+   */
+  private readActiveFlagFromStatus(value: unknown): boolean | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === 'active') {
+      return true;
+    }
+
+    if (normalized === 'inactive') {
+      return false;
     }
 
     return undefined;

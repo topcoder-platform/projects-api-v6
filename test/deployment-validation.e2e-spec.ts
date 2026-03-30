@@ -175,7 +175,8 @@ describe('Deployment validation', () => {
     const targets = [
       process.env.IDENTITY_API_URL,
       process.env.MEMBER_API_URL,
-      process.env.BILLING_ACCOUNT_SERVICE_URL,
+      process.env.BILLING_ACCOUNTS_API_URL ||
+        process.env.BILLING_ACCOUNT_SERVICE_URL,
     ].filter((value): value is string => Boolean(value));
 
     for (const endpoint of targets) {

@@ -94,7 +94,7 @@ For the full v5 -> v6 mapping table, see `docs/api-usage-analysis.md`.
 | `GET` | `/v6/projects/:projectId` | JWT / M2M | Get project by ID (includes `members`, `invites`) |
 | `PATCH` | `/v6/projects/:projectId` | JWT / M2M | Update project |
 | `DELETE` | `/v6/projects/:projectId` | Admin only | Soft-delete project |
-| `GET` | `/v6/projects/:projectId/billingAccount` | JWT / M2M | Default billing account (Salesforce) |
+| `GET` | `/v6/projects/:projectId/billingAccount` | JWT / M2M | Default billing account (Billing Accounts API with Salesforce fallback) |
 | `GET` | `/v6/projects/:projectId/billingAccounts` | JWT / M2M | All billing accounts for project |
 | `GET` | `/v6/projects/:projectId/permissions` | JWT / M2M | Regular human JWT: caller work-management policy map. M2M, admins, project managers, talent managers, and project copilots on the project: per-member permission matrix with project permissions and template policies |
 
@@ -321,6 +321,7 @@ Reference source: `.env.example`.
 | `ENABLE_FILE_UPLOAD` | - | `true` | Toggle S3 file upload |
 | `MEMBER_API_URL` | ✅ | - | Member API base URL |
 | `IDENTITY_API_URL` | ✅ | - | Identity API base URL |
+| `BILLING_ACCOUNTS_API_URL` | - | - | Billing Accounts API base URL used for default billing-account lookup before Salesforce fallback |
 | `SALESFORCE_CLIENT_ID` | ✅ | - | Salesforce JWT client ID |
 | `SALESFORCE_CLIENT_AUDIENCE` | ✅ | `https://login.salesforce.com` | Salesforce audience |
 | `SALESFORCE_SUBJECT` | ✅ | - | Salesforce JWT subject |
