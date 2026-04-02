@@ -225,6 +225,86 @@ describe('Project Member endpoints (e2e)', () => {
     expect(projectMemberServiceMock.deleteMember).toHaveBeenCalled();
   });
 
+  it('creates members for m2m token with project-member write scope', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECT_MEMBERS_WRITE],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECT_MEMBERS_WRITE,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/v6/projects/1001/members')
+      .set('Authorization', 'Bearer m2m-member-write')
+      .send({ userId: '101125', role: 'observer' })
+      .expect(201);
+
+    expect(projectMemberServiceMock.addMember).toHaveBeenCalledWith(
+      '1001',
+      expect.objectContaining({ userId: '101125', role: 'observer' }),
+      expect.objectContaining({
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      }),
+      undefined,
+    );
+  });
+
+  it('updates members for m2m token with project-member write scope', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECT_MEMBERS_WRITE],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECT_MEMBERS_WRITE,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .patch('/v6/projects/1001/members/11')
+      .set('Authorization', 'Bearer m2m-member-write')
+      .send({ role: 'observer' })
+      .expect(200);
+
+    expect(projectMemberServiceMock.updateMember).toHaveBeenCalledWith(
+      '1001',
+      '11',
+      expect.objectContaining({ role: 'observer' }),
+      expect.objectContaining({
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      }),
+      undefined,
+    );
+  });
+
+  it('deletes members for m2m token with project-member write scope', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
+      scopes: [Scope.PROJECT_MEMBERS_WRITE],
+      isMachine: true,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECT_MEMBERS_WRITE,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .delete('/v6/projects/1001/members/11')
+      .set('Authorization', 'Bearer m2m-member-write')
+      .expect(204);
+
+    expect(projectMemberServiceMock.deleteMember).toHaveBeenCalledWith(
+      '1001',
+      '11',
+      expect.objectContaining({
+        scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        isMachine: true,
+      }),
+    );
+  });
+
   it('lists members for m2m token with project-member read scope', async () => {
     (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce({
       scopes: [Scope.PROJECT_MEMBERS_READ],
