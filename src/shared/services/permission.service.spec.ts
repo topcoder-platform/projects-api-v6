@@ -346,6 +346,33 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it.each([
+    UserRole.PROJECT_MANAGER,
+    UserRole.TASK_MANAGER,
+    UserRole.TOPCODER_TASK_MANAGER,
+    UserRole.TALENT_MANAGER,
+    UserRole.TOPCODER_TALENT_MANAGER,
+  ])(
+    'allows %s to view projects without membership',
+    (role) => {
+      expect(
+        service.hasNamedPermission(Permission.VIEW_PROJECT, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+
+      expect(
+        service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+    },
+  );
+
   it('allows creating projects for Project Manager role', () => {
     const allowed = service.hasNamedPermission(Permission.CREATE_PROJECT, {
       userId: '555',
@@ -361,6 +388,42 @@ describe('PermissionService', () => {
       scopes: [Scope.PROJECT_MEMBERS_READ],
       isMachine: true,
     });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows manager-tier roles to read project members without membership', () => {
+    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
+      userId: '555',
+      roles: [UserRole.PROGRAM_MANAGER],
+      isMachine: false,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows manager-tier roles to read project invites without membership', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.READ_PROJECT_INVITE_NOT_OWN,
+      {
+        userId: '555',
+        roles: [UserRole.PROGRAM_MANAGER],
+        isMachine: false,
+      },
+    );
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows manager-tier roles to view project attachments without membership', () => {
+    const allowed = service.hasNamedPermission(
+      Permission.VIEW_PROJECT_ATTACHMENT,
+      {
+        userId: '555',
+        roles: [UserRole.PROGRAM_MANAGER],
+        isMachine: false,
+      },
+    );
 
     expect(allowed).toBe(true);
   });
