@@ -6,7 +6,7 @@ import {
   PROJECT_MEMBER_MANAGER_ROLES,
 } from '../enums/projectMemberRole.enum';
 import { Scope } from '../enums/scopes.enum';
-import { ADMIN_ROLES, UserRole } from '../enums/userRole.enum';
+import { ADMIN_ROLES, MANAGER_ROLES, UserRole } from '../enums/userRole.enum';
 import {
   Permission,
   PermissionRule,
@@ -166,6 +166,8 @@ export class PermissionService {
       UserRole.MANAGER,
       'topcoder_manager',
     ]);
+    const hasProjectReadTopcoderRole = this.hasProjectReadTopcoderRole(user);
+    const hasManagerTopcoderRole = this.hasManagerTopcoderRole(user);
     const hasStrictAdminAccess =
       this.hasIntersection(user.roles || [], ADMIN_ROLES) ||
       this.m2mService.hasRequiredScopes(effectiveScopes, [
@@ -253,11 +255,11 @@ export class PermissionService {
     switch (permission) {
       // Project read/write lifecycle permissions.
       case NamedPermission.READ_PROJECT_ANY:
-        return isAdmin;
+        return hasProjectReadTopcoderRole;
 
       case NamedPermission.VIEW_PROJECT:
         return (
-          isAdmin ||
+          hasProjectReadTopcoderRole ||
           hasProjectMembership ||
           hasPendingInvite ||
           hasProjectReadScope
@@ -288,7 +290,11 @@ export class PermissionService {
 
       // Project member management permissions.
       case NamedPermission.READ_PROJECT_MEMBER:
-        return isAdmin || hasProjectMembership || hasProjectMemberReadScope;
+        return (
+          hasManagerTopcoderRole ||
+          hasProjectMembership ||
+          hasProjectMemberReadScope
+        );
 
       case NamedPermission.CREATE_PROJECT_MEMBER_OWN:
         return isAuthenticated;
@@ -320,7 +326,11 @@ export class PermissionService {
         return isAuthenticated;
 
       case NamedPermission.READ_PROJECT_INVITE_NOT_OWN:
-        return isAdmin || hasProjectMembership || hasProjectInviteReadScope;
+        return (
+          hasManagerTopcoderRole ||
+          hasProjectMembership ||
+          hasProjectInviteReadScope
+        );
 
       case NamedPermission.CREATE_PROJECT_INVITE_TOPCODER:
         return isAdmin || isManagementMember || hasProjectInviteWriteScope;
@@ -432,7 +442,7 @@ export class PermissionService {
 
       // Project attachment permissions.
       case NamedPermission.VIEW_PROJECT_ATTACHMENT:
-        return isAdmin || hasProjectMembership;
+        return hasManagerTopcoderRole || hasProjectMembership;
 
       case NamedPermission.CREATE_PROJECT_ATTACHMENT:
       case NamedPermission.EDIT_PROJECT_ATTACHMENT:
@@ -802,6 +812,43 @@ export class PermissionService {
    */
   private hasCopilotManagerRole(user: JwtUser): boolean {
     return this.hasIntersection(user.roles || [], [UserRole.COPILOT_MANAGER]);
+  }
+
+  /**
+   * Checks Topcoder roles allowed to view project records without membership.
+   *
+   * Mirrors the legacy `tc-project-service` `READ_PROJECT` /
+   * `READ_PROJECT_ANY` role allowlist used by Work Manager and other
+   * project-management consumers.
+   *
+   * @param user authenticated JWT user context
+   * @returns `true` when user has a project-read legacy Topcoder role
+   */
+  private hasProjectReadTopcoderRole(user: JwtUser): boolean {
+    return this.hasIntersection(user.roles || [], [
+      ...ADMIN_ROLES,
+      UserRole.MANAGER,
+      UserRole.PROJECT_MANAGER,
+      UserRole.TASK_MANAGER,
+      UserRole.TOPCODER_TASK_MANAGER,
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
+      'topcoder_manager',
+    ]);
+  }
+
+  /**
+   * Checks manager-tier Topcoder roles that retain legacy read access to
+   * project members, invites, and attachments.
+   *
+   * @param user authenticated JWT user context
+   * @returns `true` when user has one of the manager-tier roles
+   */
+  private hasManagerTopcoderRole(user: JwtUser): boolean {
+    return this.hasIntersection(user.roles || [], [
+      ...MANAGER_ROLES,
+      'topcoder_manager',
+    ]);
   }
 
   /**
