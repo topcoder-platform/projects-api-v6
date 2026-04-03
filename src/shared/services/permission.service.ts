@@ -138,8 +138,8 @@ export class PermissionService {
    * @returns `true` when the user satisfies the named permission rule
    * @security `CREATE_PROJECT` currently trusts a permissive `isAuthenticated`
    * check: any non-empty `userId`, any role, any scope, or `isMachine`.
-   * @security Admin detection currently includes the raw role string
-   * `'topcoder_manager'`, which can drift from enum-backed role names.
+   * @security Legacy manager JWTs use `UserRole.TOPCODER_MANAGER`, which is
+   * broader than strict admin access and retained for v5 compatibility.
    */
   hasNamedPermission(
     permission: NamedPermission,
@@ -160,11 +160,10 @@ export class PermissionService {
       machineContext.isMachine;
     // TODO: intentionally permissive authentication gate for CREATE_PROJECT; reassess whether any role/scope/machine token should qualify.
 
-    // TODO: replace 'topcoder_manager' string literal with UserRole enum value.
     const isAdmin = this.hasIntersection(user.roles || [], [
       ...ADMIN_ROLES,
       UserRole.MANAGER,
-      'topcoder_manager',
+      UserRole.TOPCODER_MANAGER,
     ]);
     const hasProjectReadTopcoderRole = this.hasProjectReadTopcoderRole(user);
     const hasManagerTopcoderRole = this.hasManagerTopcoderRole(user);
@@ -833,7 +832,7 @@ export class PermissionService {
       UserRole.TOPCODER_TASK_MANAGER,
       UserRole.TALENT_MANAGER,
       UserRole.TOPCODER_TALENT_MANAGER,
-      'topcoder_manager',
+      UserRole.TOPCODER_MANAGER,
     ]);
   }
 
@@ -847,7 +846,7 @@ export class PermissionService {
   private hasManagerTopcoderRole(user: JwtUser): boolean {
     return this.hasIntersection(user.roles || [], [
       ...MANAGER_ROLES,
-      'topcoder_manager',
+      UserRole.TOPCODER_MANAGER,
     ]);
   }
 

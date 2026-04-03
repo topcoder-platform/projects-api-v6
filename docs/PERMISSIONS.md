@@ -39,6 +39,7 @@ Swagger auth notes:
 
 - `Project Manager`, `Task Manager`, `Topcoder Task Manager`, `Talent Manager`, and `Topcoder Talent Manager` retain the legacy v5 ability to view projects without being explicit project members.
 - Manager-tier platform roles also retain legacy read access to project members, invites, and attachments on those projects.
+- The legacy JWT role `topcoder_manager` is accepted end-to-end by both route-level role guards and `PermissionService`, so those users are not blocked before the PM-3764 read-parity checks run.
 
 ## Billing Account Editing
 
