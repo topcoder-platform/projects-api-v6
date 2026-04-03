@@ -633,6 +633,11 @@ export class PermissionService {
    * Resolves machine-token status and effective scopes from the normalized user
    * and the raw token payload so guard and permission checks stay aligned.
    *
+   * Merges both scope sources because upstream auth middleware can populate
+   * `user.scopes` differently from the raw token payload used by
+   * `TokenRolesGuard`. Keeping the union here avoids false 403s when one source
+   * is stale or incomplete but the other still carries the granted M2M scopes.
+   *
    * @param user authenticated JWT user context
    * @returns machine classification and the scopes to evaluate
    */
@@ -643,13 +648,18 @@ export class PermissionService {
     const payloadMachineContext = this.m2mService.validateMachineToken(
       user.tokenPayload,
     );
+    const userScopes = Array.isArray(user.scopes)
+      ? user.scopes
+          .map((scope) => String(scope).trim())
+          .filter((scope) => scope.length > 0)
+      : [];
+    const mergedScopes = Array.from(
+      new Set([...userScopes, ...payloadMachineContext.scopes]),
+    );
 
     return {
       isMachine: Boolean(user.isMachine || payloadMachineContext.isMachine),
-      scopes:
-        Array.isArray(user.scopes) && user.scopes.length > 0
-          ? user.scopes
-          : payloadMachineContext.scopes,
+      scopes: mergedScopes,
     };
   }
 
