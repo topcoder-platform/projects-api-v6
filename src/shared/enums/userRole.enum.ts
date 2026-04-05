@@ -11,6 +11,10 @@ export enum UserRole {
    */
   MANAGER = 'Connect Manager',
   /**
+   * Legacy manager role still emitted by some JWTs.
+   */
+  TOPCODER_MANAGER = 'topcoder_manager',
+  /**
    * Connect account manager role.
    */
   TOPCODER_ACCOUNT_MANAGER = 'Connect Account Manager',

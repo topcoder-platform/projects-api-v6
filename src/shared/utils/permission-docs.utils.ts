@@ -48,12 +48,10 @@ export interface PermissionDocumentationSummary {
   scopes: string[];
 }
 
-const LEGACY_TOPCODER_MANAGER_ROLE = 'topcoder_manager';
-
 const ADMIN_AND_MANAGER_ROLES = [
   ...ADMIN_ROLES,
   UserRole.MANAGER,
-  LEGACY_TOPCODER_MANAGER_ROLE,
+  UserRole.TOPCODER_MANAGER,
 ];
 
 const STRICT_ADMIN_ACCESS_ROLES = [...ADMIN_ROLES];

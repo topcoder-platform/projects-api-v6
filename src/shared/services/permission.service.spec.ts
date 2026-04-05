@@ -347,6 +347,7 @@ describe('PermissionService', () => {
   });
 
   it.each([
+    UserRole.TOPCODER_MANAGER,
     UserRole.PROJECT_MANAGER,
     UserRole.TASK_MANAGER,
     UserRole.TOPCODER_TASK_MANAGER,
@@ -392,41 +393,50 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
-  it('allows manager-tier roles to read project members without membership', () => {
-    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
-      userId: '555',
-      roles: [UserRole.PROGRAM_MANAGER],
-      isMachine: false,
-    });
-
-    expect(allowed).toBe(true);
-  });
-
-  it('allows manager-tier roles to read project invites without membership', () => {
-    const allowed = service.hasNamedPermission(
-      Permission.READ_PROJECT_INVITE_NOT_OWN,
-      {
+  it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
+    'allows manager-tier role %s to read project members without membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
         userId: '555',
-        roles: [UserRole.PROGRAM_MANAGER],
+        roles: [role],
         isMachine: false,
-      },
-    );
+      });
 
-    expect(allowed).toBe(true);
-  });
+      expect(allowed).toBe(true);
+    },
+  );
 
-  it('allows manager-tier roles to view project attachments without membership', () => {
-    const allowed = service.hasNamedPermission(
-      Permission.VIEW_PROJECT_ATTACHMENT,
-      {
-        userId: '555',
-        roles: [UserRole.PROGRAM_MANAGER],
-        isMachine: false,
-      },
-    );
+  it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
+    'allows manager-tier role %s to read project invites without membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(
+        Permission.READ_PROJECT_INVITE_NOT_OWN,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+      );
 
-    expect(allowed).toBe(true);
-  });
+      expect(allowed).toBe(true);
+    },
+  );
+
+  it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
+    'allows manager-tier role %s to view project attachments without membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(
+        Permission.VIEW_PROJECT_ATTACHMENT,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+      );
+
+      expect(allowed).toBe(true);
+    },
+  );
 
   it('allows creating other project members for machine token with project-member write scope', () => {
     const allowed = service.hasNamedPermission(
