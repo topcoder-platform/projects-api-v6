@@ -488,6 +488,27 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it.each([
+    Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
+    Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
+    Permission.DELETE_PROJECT_MEMBER_TOPCODER,
+  ])(
+    'allows %s when raw M2M token scopes are broader than user.scopes',
+    (permission) => {
+      const allowed = service.hasNamedPermission(permission, {
+        scopes: [Scope.PROJECTS_READ],
+        isMachine: false,
+        tokenPayload: {
+          gty: 'client-credentials',
+          scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
+          sub: 'svc-projects@clients',
+        },
+      });
+
+      expect(allowed).toBe(true);
+    },
+  );
+
   it('allows reading other users project invites for machine token with invite read scope', () => {
     const allowed = service.hasNamedPermission(
       Permission.READ_PROJECT_INVITE_NOT_OWN,
