@@ -1,14 +1,10 @@
 import { UserRole } from 'src/shared/enums/userRole.enum';
 
 /**
- * Roles allowed for workstream/work/workitem endpoints.
+ * Coarse auth pass-through for workstream/work/workitem endpoints.
+ *
+ * Fine-grained access is still enforced by `PermissionGuard`, which needs to
+ * see all authenticated human roles so project-member and manager-tier
+ * read-parity checks can run.
  */
-export const WORK_LAYER_ALLOWED_ROLES = [
-  UserRole.TOPCODER_ADMIN,
-  UserRole.CONNECT_ADMIN,
-  UserRole.TG_ADMIN,
-  UserRole.MANAGER,
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-  UserRole.COPILOT_MANAGER,
-] as const;
+export const WORK_LAYER_ALLOWED_ROLES = Object.values(UserRole);

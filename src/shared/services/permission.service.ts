@@ -474,7 +474,11 @@ export class PermissionService {
       case NamedPermission.WORKSTREAM_VIEW:
       case NamedPermission.WORK_VIEW:
       case NamedPermission.WORKITEM_VIEW:
-        return isAdmin || hasProjectMembership;
+        return (
+          hasManagerTopcoderRole ||
+          hasProjectMembership ||
+          hasStrictAdminAccess
+        );
 
       case NamedPermission.WORKSTREAM_DELETE:
       case NamedPermission.WORK_DELETE:
