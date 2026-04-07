@@ -1,4 +1,5 @@
 import * as jwt from 'jsonwebtoken';
+import { Scope } from 'src/shared/enums/scopes.enum';
 import { JwtService } from './jwt.service';
 
 function signToken(payload: Record<string, unknown>): string {
@@ -42,6 +43,33 @@ describe('JwtService', () => {
     const user = await service.validateToken(token);
 
     expect(user.userId).toBe('auth0|abcd');
+  });
+
+  it('extracts Auth0 client-credentials scopes for machine subjects', async () => {
+    const token = signToken({
+      sub: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+      azp: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8',
+      gty: 'client-credentials',
+      scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
+    });
+
+    const user = await service.validateToken(token);
+
+    expect(user).toEqual(
+      expect.objectContaining({
+        userId: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+        isMachine: true,
+        scopes: expect.arrayContaining([
+          Scope.PROJECTS_READ,
+          Scope.PROJECT_MEMBERS_WRITE,
+        ]),
+        tokenPayload: expect.objectContaining({
+          sub: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+          azp: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8',
+          gty: 'client-credentials',
+        }),
+      }),
+    );
   });
 
   it('extracts lower-cased email from namespaced email claim', async () => {

@@ -38,6 +38,20 @@ const tokenUsers: Record<string, JwtUser> = {
   },
 };
 
+function createAuth0MachineMemberWriteUser(): JwtUser {
+  return {
+    userId: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+    scopes: [Scope.PROJECTS_READ],
+    isMachine: true,
+    tokenPayload: {
+      sub: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+      azp: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8',
+      gty: 'client-credentials',
+      scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
+    },
+  };
+}
+
 @Controller('/projects/project-member-test')
 class ProjectMemberTestController {
   @Get('/health')
@@ -301,6 +315,86 @@ describe('Project Member endpoints (e2e)', () => {
       expect.objectContaining({
         scopes: [Scope.PROJECT_MEMBERS_WRITE],
         isMachine: true,
+      }),
+    );
+  });
+
+  it('creates members for Auth0-shaped m2m token when tokenPayload scope is broader than user.scopes', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce(
+      createAuth0MachineMemberWriteUser(),
+    );
+
+    await request(app.getHttpServer())
+      .post('/v6/projects/1001/members')
+      .set('Authorization', 'Bearer m2m-member-write-auth0-shape')
+      .send({ userId: '101125', role: 'observer' })
+      .expect(201);
+
+    expect(projectMemberServiceMock.addMember).toHaveBeenCalledWith(
+      '1001',
+      expect.objectContaining({ userId: '101125', role: 'observer' }),
+      expect.objectContaining({
+        userId: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+        scopes: [Scope.PROJECTS_READ],
+        isMachine: true,
+        tokenPayload: expect.objectContaining({
+          gty: 'client-credentials',
+          scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
+        }),
+      }),
+      undefined,
+    );
+  });
+
+  it('updates members for Auth0-shaped m2m token when tokenPayload scope is broader than user.scopes', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce(
+      createAuth0MachineMemberWriteUser(),
+    );
+
+    await request(app.getHttpServer())
+      .patch('/v6/projects/1001/members/11')
+      .set('Authorization', 'Bearer m2m-member-write-auth0-shape')
+      .send({ role: 'observer' })
+      .expect(200);
+
+    expect(projectMemberServiceMock.updateMember).toHaveBeenCalledWith(
+      '1001',
+      '11',
+      expect.objectContaining({ role: 'observer' }),
+      expect.objectContaining({
+        userId: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+        scopes: [Scope.PROJECTS_READ],
+        isMachine: true,
+        tokenPayload: expect.objectContaining({
+          gty: 'client-credentials',
+          scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
+        }),
+      }),
+      undefined,
+    );
+  });
+
+  it('deletes members for Auth0-shaped m2m token when tokenPayload scope is broader than user.scopes', async () => {
+    (jwtServiceMock.validateToken as jest.Mock).mockResolvedValueOnce(
+      createAuth0MachineMemberWriteUser(),
+    );
+
+    await request(app.getHttpServer())
+      .delete('/v6/projects/1001/members/11')
+      .set('Authorization', 'Bearer m2m-member-write-auth0-shape')
+      .expect(204);
+
+    expect(projectMemberServiceMock.deleteMember).toHaveBeenCalledWith(
+      '1001',
+      '11',
+      expect.objectContaining({
+        userId: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
+        scopes: [Scope.PROJECTS_READ],
+        isMachine: true,
+        tokenPayload: expect.objectContaining({
+          gty: 'client-credentials',
+          scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
+        }),
       }),
     );
   });
