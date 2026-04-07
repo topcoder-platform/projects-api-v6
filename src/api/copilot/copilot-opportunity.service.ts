@@ -85,12 +85,12 @@ export class CopilotOpportunityService {
    * Admin/manager responses also include minimal project metadata for v5 compatibility.
    *
    * @param query Pagination, sort, and noGrouping parameters.
-   * @param user Authenticated JWT user.
+   * @param user Authenticated JWT user, or undefined for anonymous `@Public()` callers.
    * @returns Paginated opportunity response payload.
    */
   async listOpportunities(
     query: ListOpportunitiesQueryDto,
-    user: JwtUser,
+    user: JwtUser | undefined,
   ): Promise<PaginatedOpportunityResponse> {
     // TODO [SECURITY]: No permission check is applied here; this is intentional for authenticated browsing and should remain explicitly documented.
     const [sortField, sortDirection] = parseSortExpression(
@@ -160,14 +160,14 @@ export class CopilotOpportunityService {
    * Admin/manager responses also include minimal project metadata for v5 compatibility.
    *
    * @param opportunityId Opportunity id path value.
-   * @param user Authenticated JWT user.
+   * @param user Authenticated JWT user, or undefined for anonymous `@Public()` callers.
    * @returns One formatted opportunity response.
    * @throws BadRequestException If id is non-numeric.
    * @throws NotFoundException If opportunity does not exist.
    */
   async getOpportunity(
     opportunityId: string,
-    user: JwtUser,
+    user: JwtUser | undefined,
   ): Promise<CopilotOpportunityResponseDto> {
     // TODO [SECURITY]: No permission check is applied; any authenticated user can access any opportunity by id.
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
@@ -208,7 +208,7 @@ export class CopilotOpportunityService {
     );
 
     const canApplyAsCopilot =
-      user.userId && user.userId.trim().length > 0
+      user?.userId && user.userId.trim().length > 0
         ? !members.includes(user.userId)
         : true;
 
@@ -622,9 +622,9 @@ export class CopilotOpportunityService {
    */
   private async getMembershipProjectIds(
     opportunities: CopilotOpportunity[],
-    user: JwtUser,
+    user: JwtUser | undefined,
   ): Promise<Set<string>> {
-    if (!user.userId || !/^\d+$/.test(user.userId)) {
+    if (!user?.userId || !/^\d+$/.test(user.userId)) {
       return new Set<string>();
     }
 
