@@ -10,7 +10,7 @@ import {
   PROJECT_MEMBER_MANAGER_ROLES,
 } from '../enums/projectMemberRole.enum';
 import { Scope } from '../enums/scopes.enum';
-import { ADMIN_ROLES, UserRole } from '../enums/userRole.enum';
+import { ADMIN_ROLES, MANAGER_ROLES, UserRole } from '../enums/userRole.enum';
 import {
   Permission as PermissionPolicy,
   PermissionRule,
@@ -82,6 +82,8 @@ const PROJECT_CREATOR_MANAGER_USER_ROLES = [
   ...STRICT_ADMIN_ACCESS_ROLES,
   ...TALENT_MANAGER_ROLES,
 ];
+
+const PROJECT_VIEW_USER_ROLES = [...MANAGER_ROLES, UserRole.TOPCODER_MANAGER];
 
 const PROJECT_MEMBER_MANAGEMENT_ROLES = [...PROJECT_MEMBER_MANAGER_ROLES];
 
@@ -446,8 +448,9 @@ function getNamedPermissionDocumentation(
     case NamedPermission.WORK_VIEW:
     case NamedPermission.WORKITEM_VIEW:
       return createSummary({
-        userRoles: ADMIN_AND_MANAGER_ROLES,
+        userRoles: PROJECT_VIEW_USER_ROLES,
         allowAnyProjectMember: true,
+        scopes: STRICT_ADMIN_SCOPES,
       });
 
     case NamedPermission.WORKSTREAM_DELETE:

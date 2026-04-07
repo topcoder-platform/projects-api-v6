@@ -422,6 +422,58 @@ describe('PermissionService', () => {
     },
   );
 
+  it.each([UserRole.PROJECT_MANAGER, UserRole.PROGRAM_MANAGER])(
+    'allows manager-tier role %s to view work-layer resources without membership',
+    (role) => {
+      expect(
+        service.hasNamedPermission(Permission.WORKSTREAM_VIEW, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+
+      expect(
+        service.hasNamedPermission(Permission.WORK_VIEW, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+
+      expect(
+        service.hasNamedPermission(Permission.WORKITEM_VIEW, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it('allows machine admin scope to view work-layer resources', () => {
+    expect(
+      service.hasNamedPermission(Permission.WORKSTREAM_VIEW, {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      service.hasNamedPermission(Permission.WORK_VIEW, {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      service.hasNamedPermission(Permission.WORKITEM_VIEW, {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      }),
+    ).toBe(true);
+  });
+
   it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
     'allows manager-tier role %s to view project attachments without membership',
     (role) => {

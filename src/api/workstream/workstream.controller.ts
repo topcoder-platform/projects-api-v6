@@ -42,8 +42,10 @@ import { WorkStreamService } from './workstream.service';
 /**
  * REST controller for work streams under `/projects/:projectId/workstreams`.
  * Work streams are containers for works (project phases) linked via the
- * `phase_work_streams` join table. Access is restricted to
- * admin/manager/copilot roles. Used by the platform-ui Work app.
+ * `phase_work_streams` join table. Route-level auth accepts any known human
+ * role and defers the final allow/deny decision to `PermissionGuard`, which
+ * preserves legacy project-view access for project members and manager-tier
+ * roles. Used by the platform-ui Work app.
  */
 export class WorkStreamController {
   constructor(private readonly service: WorkStreamService) {}
