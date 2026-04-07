@@ -84,7 +84,7 @@ export class CopilotOpportunityController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Query() query: ListOpportunitiesQueryDto,
-    @CurrentUser() user: JwtUser,
+    @CurrentUser() user: JwtUser | undefined,
   ): Promise<CopilotOpportunityResponseDto[]> {
     const result = await this.service.listOpportunities(query, user);
 
@@ -131,7 +131,7 @@ export class CopilotOpportunityController {
   @ApiResponse({ status: 404, description: 'Not found' })
   async getOpportunity(
     @Param('id') id: string,
-    @CurrentUser() user: JwtUser,
+    @CurrentUser() user: JwtUser | undefined,
   ): Promise<CopilotOpportunityResponseDto> {
     return this.service.getOpportunity(id, user);
   }

@@ -81,10 +81,13 @@ export function getCopilotTypeLabel(type: CopilotOpportunityType): string {
 /**
  * Returns true if user is admin, project manager, or manager.
  *
- * @param user Authenticated JWT user.
+ * @param user Authenticated JWT user (undefined on anonymous `@Public()` routes).
  * @returns Whether the user is admin-or-manager scoped.
  */
-export function isAdminOrManager(user: JwtUser): boolean {
+export function isAdminOrManager(user: JwtUser | undefined): boolean {
+  if (!user) {
+    return false;
+  }
   const userRoles = user.roles || [];
 
   return [
@@ -98,10 +101,13 @@ export function isAdminOrManager(user: JwtUser): boolean {
 /**
  * Returns true if user is admin or project manager.
  *
- * @param user Authenticated JWT user.
+ * @param user Authenticated JWT user (undefined on anonymous `@Public()` routes).
  * @returns Whether the user is admin-or-pm scoped.
  */
-export function isAdminOrPm(user: JwtUser): boolean {
+export function isAdminOrPm(user: JwtUser | undefined): boolean {
+  if (!user) {
+    return false;
+  }
   const userRoles = user.roles || [];
 
   return [
