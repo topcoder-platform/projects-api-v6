@@ -236,6 +236,7 @@ function getNamedPermissionDocumentation(
     case NamedPermission.READ_PROJECT_ANY:
       return createSummary({
         userRoles: ADMIN_AND_MANAGER_ROLES,
+        scopes: PROJECT_READ_SCOPES,
       });
 
     case NamedPermission.VIEW_PROJECT:
