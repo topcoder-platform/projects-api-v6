@@ -137,12 +137,13 @@ export class ProjectService {
     const perPage = criteria.perPage || 20;
     const skip = (page - 1) * perPage;
 
-    const isAdmin = this.permissionService.hasNamedPermission(
-      Permission.READ_PROJECT_ANY,
-      user,
-    );
+    const hasGlobalProjectReadAccess = this.hasGlobalProjectReadAccess(user);
 
-    const where = buildProjectWhereClause(criteria, user, isAdmin);
+    const where = buildProjectWhereClause(
+      criteria,
+      user,
+      hasGlobalProjectReadAccess,
+    );
     const requestedFields = this.resolveListFields(criteria.fields);
     const includeFields = this.resolveListIncludeFields(requestedFields);
     const include = buildProjectIncludeClause(includeFields);
@@ -171,7 +172,7 @@ export class ProjectService {
       const filteredProject = this.filterProjectRelations(
         project,
         user,
-        isAdmin,
+        hasGlobalProjectReadAccess,
       );
       const projectWithRequestedFields = this.filterProjectFields(
         filteredProject,
@@ -200,14 +201,17 @@ export class ProjectService {
    *
    * Members and invites are always loaded for permission evaluation regardless
    * of requested `fields`, then relation visibility is filtered by caller
-   * permissions before response serialization.
+   * permissions before response serialization. Human PM/TM-style callers must
+   * still be a project member or pending invitee; only admins, legacy manager
+   * roles, and authorized machine principals bypass membership scoping.
    *
    * @param projectId Project id path parameter.
    * @param fieldsParam Optional CSV list of relation fields.
    * @param user Authenticated caller context.
    * @returns Project response DTO.
    * @throws NotFoundException When the project does not exist.
-   * @throws ForbiddenException When caller lacks `VIEW_PROJECT`.
+   * @throws ForbiddenException When caller lacks `VIEW_PROJECT` or does not
+   * have member/invite visibility for the requested project.
    */
   async getProject(
     projectId: string,
@@ -239,6 +243,10 @@ export class ProjectService {
     const [projectWithMemberHandles] =
       await this.enrichProjectsWithMemberHandles([project]);
     const projectWithRelations = projectWithMemberHandles || project;
+    const hasGlobalProjectReadAccess = this.hasGlobalProjectReadAccess(
+      user,
+      projectWithRelations.members || [],
+    );
 
     const canViewProject = this.permissionService.hasNamedPermission(
       Permission.VIEW_PROJECT,
@@ -254,16 +262,21 @@ export class ProjectService {
       throw new ForbiddenException('Insufficient permissions');
     }
 
-    const isAdmin = this.permissionService.hasNamedPermission(
-      Permission.READ_PROJECT_ANY,
-      user,
-      projectWithRelations.members || [],
-    );
+    if (
+      !hasGlobalProjectReadAccess &&
+      !this.hasProjectScopedVisibility(
+        user,
+        projectWithRelations.members || [],
+        projectWithRelations.invites || [],
+      )
+    ) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
 
     const filteredProject = this.filterProjectRelations(
       projectWithRelations,
       user,
-      isAdmin,
+      hasGlobalProjectReadAccess,
     );
     const projectWithRequestedFields = this.filterProjectFields(
       filteredProject,
@@ -784,14 +797,17 @@ export class ProjectService {
       await this.enrichProjectsWithMemberHandles([project]);
     const projectWithRelations = projectWithMemberHandles || project;
 
-    const isAdmin = this.permissionService.hasNamedPermission(
-      Permission.READ_PROJECT_ANY,
+    const hasGlobalProjectReadAccess = this.hasGlobalProjectReadAccess(
       user,
       projectWithRelations.members || [],
     );
 
     const response = this.toDto(
-      this.filterProjectRelations(projectWithRelations, user, isAdmin),
+      this.filterProjectRelations(
+        projectWithRelations,
+        user,
+        hasGlobalProjectReadAccess,
+      ),
     );
 
     this.publishEvent(KAFKA_TOPIC.PROJECT_UPDATED, response);
@@ -1411,6 +1427,99 @@ export class ProjectService {
     }
 
     return undefined;
+  }
+
+  /**
+   * Returns whether the caller may bypass project membership visibility checks.
+   *
+   * Human callers only retain global access for admin or legacy manager roles.
+   * Machine principals continue to rely on the named permission so scoped
+   * service tokens can read any project when authorized.
+   *
+   * @param user Authenticated caller context.
+   * @param projectMembers Optional project members for permission evaluation.
+   * @returns `true` when the caller can read projects without membership.
+   */
+  private hasGlobalProjectReadAccess(
+    user: JwtUser,
+    projectMembers: ProjectMember[] = [],
+  ): boolean {
+    if (this.isMachinePrincipal(user)) {
+      return this.permissionService.hasNamedPermission(
+        Permission.READ_PROJECT_ANY,
+        user,
+        projectMembers,
+      );
+    }
+
+    return this.permissionService.hasIntersection(user.roles || [], [
+      ...ADMIN_ROLES,
+      UserRole.MANAGER,
+      UserRole.TOPCODER_MANAGER,
+    ]);
+  }
+
+  /**
+   * Returns whether the caller can see a project through membership or invite.
+   *
+   * @param user Authenticated caller context.
+   * @param projectMembers Active project members.
+   * @param projectInvites Pending or historical project invites.
+   * @returns `true` when the caller is a member or has a pending invite.
+   */
+  private hasProjectScopedVisibility(
+    user: JwtUser,
+    projectMembers: ProjectMember[],
+    projectInvites: ProjectMemberInvite[],
+  ): boolean {
+    const parsedUserId = this.parseUserIdValue(user.userId);
+
+    if (
+      parsedUserId &&
+      projectMembers.some((member) => {
+        const parsedMemberUserId = this.parseUserIdValue(member.userId);
+
+        return Boolean(
+          parsedMemberUserId &&
+            parsedMemberUserId === parsedUserId &&
+            member.deletedAt === null,
+        );
+      })
+    ) {
+      return true;
+    }
+
+    const normalizedEmail = String(user.email || '')
+      .trim()
+      .toLowerCase();
+
+    return projectInvites.some((invite) => {
+      if (
+        invite.deletedAt !== null ||
+        String(invite.status || '').trim().toLowerCase() !== 'pending'
+      ) {
+        return false;
+      }
+
+      const parsedInviteUserId = this.parseUserIdValue(invite.userId);
+
+      if (
+        parsedUserId &&
+        parsedInviteUserId &&
+        parsedInviteUserId === parsedUserId
+      ) {
+        return true;
+      }
+
+      if (!normalizedEmail) {
+        return false;
+      }
+
+      return (
+        typeof invite.email === 'string' &&
+        invite.email.trim().toLowerCase() === normalizedEmail
+      );
+    });
   }
 
   /**
