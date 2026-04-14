@@ -35,6 +35,13 @@ Swagger auth notes:
 - That primary `manager` membership then unlocks the standard manager-level project-owner paths, such as edit and delete checks that rely on project-member context.
 - `Talent Manager` and `Topcoder Talent Manager` also qualify for the elevated `GET /v6/projects/:projectId/permissions` response, which keeps Work Manager's challenge-provisioning matrix aligned with project-manager access.
 
+## Legacy Read Access
+
+- `Project Manager`, `Task Manager`, `Topcoder Task Manager`, `Talent Manager`, and `Topcoder Talent Manager` retain the legacy v5 ability to view projects without being explicit project members.
+- Manager-tier platform roles also retain legacy read access to project members, invites, and attachments on those projects.
+- Work streams, works, and work items now follow the same legacy project-view read path: manager-tier roles can read them without membership, and any current project member can reach those endpoints because the work-layer route guard no longer blocks non-manager human roles before `PermissionGuard` runs.
+- The legacy JWT role `topcoder_manager` is accepted end-to-end by both route-level role guards and `PermissionService`, so those users are not blocked before the PM-3764 read-parity checks run.
+
 ## Billing Account Editing
 
 - `MANAGE_PROJECT_BILLING_ACCOUNT_ID` is intentionally narrower than general project edit access.

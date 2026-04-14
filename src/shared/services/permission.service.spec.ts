@@ -346,6 +346,56 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows reading any project for machine token with project read scope', () => {
+    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
+      scopes: [Scope.PROJECTS_READ],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows reading any project when machine scope is inferred from token claims', () => {
+    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
+      scopes: [],
+      isMachine: false,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECTS_READ,
+      },
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it.each([
+    UserRole.TOPCODER_MANAGER,
+    UserRole.PROJECT_MANAGER,
+    UserRole.TASK_MANAGER,
+    UserRole.TOPCODER_TASK_MANAGER,
+    UserRole.TALENT_MANAGER,
+    UserRole.TOPCODER_TALENT_MANAGER,
+  ])(
+    'allows %s to view projects without membership',
+    (role) => {
+      expect(
+        service.hasNamedPermission(Permission.VIEW_PROJECT, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+
+      expect(
+        service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+    },
+  );
+
   it('allows creating projects for Project Manager role', () => {
     const allowed = service.hasNamedPermission(Permission.CREATE_PROJECT, {
       userId: '555',
@@ -364,6 +414,103 @@ describe('PermissionService', () => {
 
     expect(allowed).toBe(true);
   });
+
+  it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
+    'allows manager-tier role %s to read project members without membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
+        userId: '555',
+        roles: [role],
+        isMachine: false,
+      });
+
+      expect(allowed).toBe(true);
+    },
+  );
+
+  it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
+    'allows manager-tier role %s to read project invites without membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(
+        Permission.READ_PROJECT_INVITE_NOT_OWN,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+      );
+
+      expect(allowed).toBe(true);
+    },
+  );
+
+  it.each([UserRole.PROJECT_MANAGER, UserRole.PROGRAM_MANAGER])(
+    'allows manager-tier role %s to view work-layer resources without membership',
+    (role) => {
+      expect(
+        service.hasNamedPermission(Permission.WORKSTREAM_VIEW, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+
+      expect(
+        service.hasNamedPermission(Permission.WORK_VIEW, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+
+      expect(
+        service.hasNamedPermission(Permission.WORKITEM_VIEW, {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it('allows machine admin scope to view work-layer resources', () => {
+    expect(
+      service.hasNamedPermission(Permission.WORKSTREAM_VIEW, {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      service.hasNamedPermission(Permission.WORK_VIEW, {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      service.hasNamedPermission(Permission.WORKITEM_VIEW, {
+        scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        isMachine: true,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
+    'allows manager-tier role %s to view project attachments without membership',
+    (role) => {
+      const allowed = service.hasNamedPermission(
+        Permission.VIEW_PROJECT_ATTACHMENT,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+      );
+
+      expect(allowed).toBe(true);
+    },
+  );
 
   it('allows creating other project members for machine token with project-member write scope', () => {
     const allowed = service.hasNamedPermission(
@@ -424,6 +571,27 @@ describe('PermissionService', () => {
 
     expect(allowed).toBe(true);
   });
+
+  it.each([
+    Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
+    Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
+    Permission.DELETE_PROJECT_MEMBER_TOPCODER,
+  ])(
+    'allows %s when raw M2M token scopes are broader than user.scopes',
+    (permission) => {
+      const allowed = service.hasNamedPermission(permission, {
+        scopes: [Scope.PROJECTS_READ],
+        isMachine: false,
+        tokenPayload: {
+          gty: 'client-credentials',
+          scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
+          sub: 'svc-projects@clients',
+        },
+      });
+
+      expect(allowed).toBe(true);
+    },
+  );
 
   it('allows reading other users project invites for machine token with invite read scope', () => {
     const allowed = service.hasNamedPermission(

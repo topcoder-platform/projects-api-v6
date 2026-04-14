@@ -65,6 +65,16 @@ describe('ProjectService', () => {
     prismaMock.$queryRaw.mockResolvedValue([]);
     memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
     memberServiceMock.getUserRoles.mockResolvedValue([]);
+    permissionServiceMock.hasIntersection.mockImplementation(
+      (userRoles: string[] = [], allowedRoles: string[] = []) =>
+        userRoles.some((userRole) =>
+          allowedRoles.some(
+            (allowedRole) =>
+              String(userRole).trim().toLowerCase() ===
+              String(allowedRole).trim().toLowerCase(),
+          ),
+        ),
+    );
     service = new ProjectService(
       prismaMock as any,
       permissionServiceMock as unknown as PermissionService,
@@ -259,6 +269,66 @@ describe('ProjectService', () => {
       'JMGasper+devtest140@gmail.com',
     );
   });
+
+  it.each([
+    ['project manager', UserRole.PROJECT_MANAGER],
+    ['talent manager', UserRole.TALENT_MANAGER],
+  ])(
+    'scopes %s project listings to project membership',
+    async (_label: string, role: UserRole) => {
+      permissionServiceMock.hasNamedPermission.mockImplementation(
+        (permission: Permission): boolean =>
+          permission === Permission.READ_PROJECT_ANY ||
+          permission === Permission.READ_PROJECT_MEMBER,
+      );
+      permissionServiceMock.hasIntersection.mockReturnValue(false);
+
+      prismaMock.project.count.mockResolvedValue(0);
+      prismaMock.project.findMany.mockResolvedValue([]);
+
+      await service.listProjects(
+        {
+          page: 1,
+          perPage: 20,
+        },
+        {
+          userId: '999',
+          roles: [role],
+          isMachine: false,
+        },
+      );
+
+      expect(prismaMock.project.count).toHaveBeenCalledWith({
+        where: {
+          deletedAt: null,
+          AND: [
+            {
+              OR: [
+                {
+                  members: {
+                    some: {
+                      userId: BigInt(999),
+                      deletedAt: null,
+                    },
+                  },
+                },
+                {
+                  invites: {
+                    some: {
+                      userId: BigInt(999),
+                      status: 'pending',
+                      deletedAt: null,
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      });
+    },
+  );
+
   it('does not load relation payloads by default in project listing', async () => {
     permissionServiceMock.hasNamedPermission.mockImplementation(
       (permission: Permission): boolean =>
@@ -450,6 +520,67 @@ describe('ProjectService', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it.each([
+    ['project manager', UserRole.PROJECT_MANAGER],
+    ['talent manager', UserRole.TALENT_MANAGER],
+  ])(
+    'rejects direct project access for %s callers who are not on the project',
+    async (_label: string, role: UserRole) => {
+      const now = new Date();
+
+      prismaMock.project.findFirst.mockResolvedValue({
+        id: BigInt(1001),
+        name: 'Demo',
+        description: null,
+        type: 'app',
+        status: 'active',
+        billingAccountId: null,
+        directProjectId: null,
+        estimatedPrice: null,
+        actualPrice: null,
+        terms: [],
+        groups: [],
+        external: null,
+        bookmarks: null,
+        utm: null,
+        details: null,
+        challengeEligibility: null,
+        cancelReason: null,
+        templateId: null,
+        version: 'v3',
+        lastActivityAt: now,
+        lastActivityUserId: '100',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: 100,
+        updatedBy: 100,
+        members: [
+          {
+            userId: BigInt(100),
+            role: 'manager',
+            deletedAt: null,
+          },
+        ],
+        invites: [],
+        attachments: [],
+      });
+      permissionServiceMock.hasNamedPermission.mockImplementation(
+        (permission: Permission): boolean =>
+          permission === Permission.VIEW_PROJECT ||
+          permission === Permission.READ_PROJECT_ANY,
+      );
+      permissionServiceMock.hasIntersection.mockReturnValue(false);
+
+      await expect(
+        service.getProject('1001', undefined, {
+          userId: '999',
+          roles: [role],
+          isMachine: false,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    },
+  );
 
   it('lists billing accounts for project id', async () => {
     billingAccountServiceMock.getBillingAccountsForProject.mockResolvedValue([

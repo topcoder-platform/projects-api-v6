@@ -6,6 +6,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { SCOPES_KEY } from '../decorators/scopes.decorator';
+import { UserRole } from '../enums/userRole.enum';
+import { WORK_LAYER_ALLOWED_ROLES } from '../constants/roles';
 import { JwtService } from '../modules/global/jwt.service';
 import { M2MService } from '../modules/global/m2m.service';
 import { ADMIN_ONLY_KEY } from './auth-metadata.constants';
@@ -217,6 +219,92 @@ describe('TokenRolesGuard', () => {
 
     expect(result).toBe(true);
     expect(request.user).toEqual(user);
+  });
+
+  it('allows legacy topcoder_manager human tokens on routes that accept all known user roles', async () => {
+    const request: Record<string, any> = {
+      headers: {
+        authorization: 'Bearer human-token',
+      },
+    };
+
+    reflectorMock.getAllAndOverride.mockImplementation((key: string) => {
+      if (key === IS_PUBLIC_KEY) {
+        return false;
+      }
+      if (key === ROLES_KEY) {
+        return Object.values(UserRole);
+      }
+      if (key === SCOPES_KEY) {
+        return [];
+      }
+      return undefined;
+    });
+
+    jwtServiceMock.validateToken.mockResolvedValue({
+      roles: [UserRole.TOPCODER_MANAGER],
+      scopes: [],
+      isMachine: false,
+      tokenPayload: {
+        sub: '123',
+      },
+    });
+    m2mServiceMock.validateMachineToken.mockReturnValue({
+      isMachine: false,
+      scopes: [],
+    });
+
+    const result = await guard.canActivate(createExecutionContext(request));
+
+    expect(result).toBe(true);
+    expect(request.user).toEqual(
+      expect.objectContaining({
+        roles: [UserRole.TOPCODER_MANAGER],
+      }),
+    );
+  });
+
+  it('allows Topcoder User tokens on work-layer routes so project-member permissions run downstream', async () => {
+    const request: Record<string, any> = {
+      headers: {
+        authorization: 'Bearer human-token',
+      },
+    };
+
+    reflectorMock.getAllAndOverride.mockImplementation((key: string) => {
+      if (key === IS_PUBLIC_KEY) {
+        return false;
+      }
+      if (key === ROLES_KEY) {
+        return WORK_LAYER_ALLOWED_ROLES;
+      }
+      if (key === SCOPES_KEY) {
+        return [];
+      }
+      return undefined;
+    });
+
+    jwtServiceMock.validateToken.mockResolvedValue({
+      roles: [UserRole.TOPCODER_USER],
+      scopes: [],
+      isMachine: false,
+      tokenPayload: {
+        sub: '123',
+      },
+    });
+    m2mServiceMock.validateMachineToken.mockReturnValue({
+      isMachine: false,
+      scopes: [],
+    });
+
+    const result = await guard.canActivate(createExecutionContext(request));
+
+    expect(result).toBe(true);
+    expect(request.user).toEqual(
+      expect.objectContaining({
+        roles: [UserRole.TOPCODER_USER],
+      }),
+    );
   });
 
   it('allows human token when required scope is present', async () => {

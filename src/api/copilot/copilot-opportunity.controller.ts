@@ -23,6 +23,7 @@ import {
 import { Request, Response } from 'express';
 import { Permission } from 'src/shared/constants/permissions';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
+import { Public } from 'src/shared/decorators/public.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
 import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
@@ -59,6 +60,7 @@ export class CopilotOpportunityController {
    * @returns Opportunity page data.
    */
   @Get('copilots/opportunities')
+  @Public()
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECTS_READ,
@@ -82,7 +84,7 @@ export class CopilotOpportunityController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Query() query: ListOpportunitiesQueryDto,
-    @CurrentUser() user: JwtUser,
+    @CurrentUser() user: JwtUser | undefined,
   ): Promise<CopilotOpportunityResponseDto[]> {
     const result = await this.service.listOpportunities(query, user);
 
@@ -108,6 +110,7 @@ export class CopilotOpportunityController {
    */
   @Get('copilot/opportunity/:id')
   @Get('copilots/opportunity/:id')
+  @Public()
   // TODO [QUALITY]: Two route decorators (singular/plural) map to the same handler for legacy compatibility; document which route is canonical.
   @Roles(...Object.values(UserRole))
   @Scopes(
@@ -128,7 +131,7 @@ export class CopilotOpportunityController {
   @ApiResponse({ status: 404, description: 'Not found' })
   async getOpportunity(
     @Param('id') id: string,
-    @CurrentUser() user: JwtUser,
+    @CurrentUser() user: JwtUser | undefined,
   ): Promise<CopilotOpportunityResponseDto> {
     return this.service.getOpportunity(id, user);
   }

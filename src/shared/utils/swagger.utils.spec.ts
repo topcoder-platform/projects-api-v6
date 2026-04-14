@@ -76,6 +76,27 @@ describe('enrichSwaggerAuthDocumentation', () => {
     );
   });
 
+  it('documents project-read machine scopes for global project access routes', () => {
+    const document = createDocument({
+      description: 'List projects.',
+      [SWAGGER_REQUIRED_ROLES_KEY]: Object.values(UserRole),
+      [SWAGGER_REQUIRED_SCOPES_KEY]: [
+        Scope.PROJECTS_READ,
+        Scope.PROJECTS_WRITE,
+        Scope.PROJECTS_ALL,
+      ],
+      [SWAGGER_REQUIRED_PERMISSIONS_KEY]: [Permission.READ_PROJECT_ANY],
+    });
+
+    enrichSwaggerAuthDocumentation(document);
+
+    const description = document.paths['/test'].get?.description;
+
+    expect(description).toContain(
+      'Policy allows token scopes (any): all:connect_project, all:projects, read:projects, write:projects',
+    );
+  });
+
   it('documents permission-specific machine scopes when policy narrows route access', () => {
     const document = createDocument({
       description: 'Get project billing account details.',
