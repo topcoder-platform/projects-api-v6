@@ -346,6 +346,28 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
+  it('allows reading any project for machine token with project read scope', () => {
+    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
+      scopes: [Scope.PROJECTS_READ],
+      isMachine: true,
+    });
+
+    expect(allowed).toBe(true);
+  });
+
+  it('allows reading any project when machine scope is inferred from token claims', () => {
+    const allowed = service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
+      scopes: [],
+      isMachine: false,
+      tokenPayload: {
+        gty: 'client-credentials',
+        scope: Scope.PROJECTS_READ,
+      },
+    });
+
+    expect(allowed).toBe(true);
+  });
+
   it.each([
     UserRole.TOPCODER_MANAGER,
     UserRole.PROJECT_MANAGER,

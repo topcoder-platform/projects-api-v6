@@ -254,7 +254,7 @@ export class PermissionService {
     switch (permission) {
       // Project read/write lifecycle permissions.
       case NamedPermission.READ_PROJECT_ANY:
-        return hasProjectReadTopcoderRole;
+        return hasProjectReadTopcoderRole || hasProjectReadScope;
 
       case NamedPermission.VIEW_PROJECT:
         return (
