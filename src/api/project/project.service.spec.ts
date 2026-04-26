@@ -604,7 +604,7 @@ describe('ProjectService', () => {
     ).toHaveBeenCalledWith('1001', '123');
   });
 
-  it('returns project billing account and strips markup for user tokens', async () => {
+  it('returns project billing account and strips markup for copilot-only user tokens', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       billingAccountId: BigInt(12),
@@ -617,6 +617,7 @@ describe('ProjectService', () => {
 
     const result = await service.getProjectBillingAccount('1001', {
       userId: '123',
+      roles: [UserRole.TC_COPILOT],
       isMachine: false,
     });
 
@@ -627,6 +628,30 @@ describe('ProjectService', () => {
     expect(
       billingAccountServiceMock.getDefaultBillingAccount,
     ).toHaveBeenCalledWith('12');
+  });
+
+  it('returns project billing account markup for Project Manager tokens', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: BigInt(1001),
+      billingAccountId: BigInt(12),
+    });
+    billingAccountServiceMock.getDefaultBillingAccount.mockResolvedValue({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
+
+    const result = await service.getProjectBillingAccount('1001', {
+      userId: '123',
+      roles: [UserRole.PROJECT_MANAGER],
+      isMachine: false,
+    });
+
+    expect(result).toEqual({
+      tcBillingAccountId: '12',
+      markup: 50,
+      active: true,
+    });
   });
 
   it('returns project billing account markup for m2m tokens', async () => {

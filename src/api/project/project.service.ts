@@ -49,6 +49,24 @@ import { ProjectWithRelationsDto } from './dto/project-response.dto';
 import { UpgradeProjectDto } from './dto/upgrade-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
+const BILLING_MARKUP_COPILOT_ROLES = [
+  UserRole.COPILOT,
+  UserRole.TC_COPILOT,
+];
+
+const BILLING_MARKUP_VISIBLE_HUMAN_ROLES = [
+  ...ADMIN_ROLES,
+  UserRole.MANAGER,
+  UserRole.TOPCODER_MANAGER,
+  UserRole.TOPCODER_ACCOUNT_MANAGER,
+  UserRole.COPILOT_MANAGER,
+  UserRole.PROJECT_MANAGER,
+  UserRole.TASK_MANAGER,
+  UserRole.TOPCODER_TASK_MANAGER,
+  UserRole.TALENT_MANAGER,
+  UserRole.TOPCODER_TALENT_MANAGER,
+];
+
 interface PaginatedProjectResponse {
   data: ProjectWithRelationsDto[];
   page: number;
@@ -1038,8 +1056,9 @@ export class ProjectService {
    * @param user Authenticated caller context.
    * @returns Default billing account details.
    * @throws NotFoundException When project or billing account is missing.
-   * @security Removes `markup` for non-machine callers to avoid exposing
-   * markup details to interactive users.
+   * @security Removes `markup` for copilot-only callers while preserving the
+   * existing response shape for M2M, Project Manager, Talent Manager, and
+   * administrator callers.
    */
   async getProjectBillingAccount(
     projectId: string,
@@ -1083,7 +1102,7 @@ export class ProjectService {
           tcBillingAccountId: projectBillingAccountId,
         };
 
-    if (this.isMachinePrincipal(user)) {
+    if (!this.shouldHideBillingAccountMarkupForCopilot(user)) {
       return billingAccount;
     }
 
@@ -2173,6 +2192,37 @@ export class ProjectService {
     }
 
     return false;
+  }
+
+  /**
+   * Determines whether project billing-account markup must be hidden.
+   *
+   * Copilot-only human callers should not receive raw billing-account markup.
+   * Manager, Talent Manager, and administrator roles retain the existing
+   * response shape even when the same token also carries a copilot role.
+   *
+   * @param user Authenticated caller context.
+   * @returns `true` when billing-account markup should be removed.
+   */
+  private shouldHideBillingAccountMarkupForCopilot(user: JwtUser): boolean {
+    if (this.isMachinePrincipal(user)) {
+      return false;
+    }
+
+    const roles = user.roles || [];
+    const hasCopilotRole = this.permissionService.hasIntersection(
+      roles,
+      BILLING_MARKUP_COPILOT_ROLES,
+    );
+
+    if (!hasCopilotRole) {
+      return false;
+    }
+
+    return !this.permissionService.hasIntersection(
+      roles,
+      BILLING_MARKUP_VISIBLE_HUMAN_ROLES,
+    );
   }
 
   /**

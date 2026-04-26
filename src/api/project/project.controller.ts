@@ -273,7 +273,7 @@ export class ProjectController {
    * @throws UnauthorizedException When the caller is unauthenticated.
    * @throws ForbiddenException When the caller lacks required permissions.
    * @throws NotFoundException When project or billing account is missing.
-   * @security The service strips `markup` for non-machine callers before
+   * @security The service strips `markup` for copilot-only callers before
    * returning the response payload.
    */
   @Get(':projectId/billingAccount')
