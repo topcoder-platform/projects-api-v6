@@ -1646,8 +1646,8 @@ describe('ProjectService', () => {
     await service.updateProject(
       '1001',
       {
-        clearBillingAccountId: true,
-      } as any,
+        billingAccountId: null,
+      },
       {
         userId: '100',
         isMachine: false,
