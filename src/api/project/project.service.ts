@@ -666,8 +666,10 @@ export class ProjectService {
       throw new ForbiddenException('Insufficient permissions');
     }
 
+    const shouldClearBillingAccountId =
+      dto.clearBillingAccountId === true || dto.billingAccountId === null;
     const requestedBillingAccountId =
-      dto.clearBillingAccountId === true
+      shouldClearBillingAccountId
         ? null
         : typeof dto.billingAccountId === 'number'
           ? String(dto.billingAccountId)
@@ -726,7 +728,7 @@ export class ProjectService {
           cancelReason:
             typeof dto.cancelReason === 'string' ? dto.cancelReason : undefined,
           billingAccountId:
-            dto.clearBillingAccountId === true
+            shouldClearBillingAccountId
               ? null
               : typeof dto.billingAccountId === 'number'
                 ? BigInt(dto.billingAccountId)
