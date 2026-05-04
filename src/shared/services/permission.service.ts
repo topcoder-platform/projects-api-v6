@@ -271,7 +271,6 @@ export class PermissionService {
         return (
           isAdmin ||
           isManagementMember ||
-          this.isCopilot(member?.role) ||
           this.hasProjectUpdateTopcoderRole(user) ||
           hasMachineProjectWriteScope
         );

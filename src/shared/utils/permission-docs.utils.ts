@@ -255,7 +255,7 @@ function getNamedPermissionDocumentation(
     case NamedPermission.EDIT_PROJECT:
       return createSummary({
         userRoles: PROJECT_UPDATE_TOPCODER_ROLES,
-        projectRoles: PROJECT_MEMBER_MANAGEMENT_AND_COPILOT_ROLES,
+        projectRoles: PROJECT_MEMBER_MANAGEMENT_ROLES,
         scopes: PROJECT_WRITE_SCOPES,
       });
 

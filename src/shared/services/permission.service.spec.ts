@@ -2,6 +2,7 @@ import { ProjectMemberRole } from '../enums/projectMemberRole.enum';
 import { Scope } from '../enums/scopes.enum';
 import { UserRole } from '../enums/userRole.enum';
 import { Permission } from '../constants/permissions';
+import { PERMISSION } from '../constants/permissions.constants';
 import { PermissionService } from './permission.service';
 
 describe('PermissionService', () => {
@@ -720,6 +721,31 @@ describe('PermissionService', () => {
     );
 
     expect(allowed).toBe(true);
+  });
+
+  it('blocks project copilots from editing project details', () => {
+    const user = {
+      userId: '3001',
+      roles: [UserRole.TC_COPILOT],
+      isMachine: false,
+    };
+    const projectMembers = [
+      {
+        userId: '3001',
+        role: ProjectMemberRole.COPILOT,
+      },
+    ];
+
+    expect(
+      service.hasNamedPermission(
+        Permission.EDIT_PROJECT,
+        user,
+        projectMembers,
+      ),
+    ).toBe(false);
+    expect(
+      service.matchPermissionRule(PERMISSION.UPDATE_PROJECT, user, projectMembers),
+    ).toBe(false);
   });
 
   it('allows deleting project for machine token with project write scope', () => {
