@@ -265,11 +265,7 @@ export const PERMISSION = {
         'There are additional limitations on editing some parts of the project.',
     },
     topcoderRoles: TOPCODER_ROLES_MANAGERS_AND_ADMINS,
-    projectRoles: [
-      ...PROJECT_ROLES_MANAGEMENT,
-      PROJECT_MEMBER_ROLE.COPILOT,
-      PROJECT_MEMBER_ROLE.CUSTOMER,
-    ],
+    projectRoles: PROJECT_ROLES_MANAGEMENT,
     scopes: SCOPES_PROJECTS_WRITE,
   },
 
