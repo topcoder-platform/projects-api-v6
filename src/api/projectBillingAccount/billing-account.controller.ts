@@ -1,10 +1,12 @@
-import { Controller, Get, HttpStatus, Param } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Param, Req } from '@nestjs/common';
 import {
   BillingAccountResponseDto,
   ListBillingAccountItem,
 } from './billing-account.dto';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BillingAccountService } from './billing-account.service';
+import { Request } from 'express';
+import { JwtUser } from '../../auth/auth.dto';
 
 /**
  * Controller for handling project billing account operations.
@@ -41,6 +43,7 @@ export class BillingAccountController {
   /**
    * Endpoint to list all billing accounts associated with a project.
    * @param projectId - The ID of the project to retrieve billing accounts for
+   * @param req - The HTTP request containing the authenticated user, when available
    * @returns An array of billing account items
    */
   @Get('/:projectId/billingAccounts')
@@ -61,7 +64,10 @@ export class BillingAccountController {
   })
   async listAccounts(
     @Param('projectId') projectId: string,
+    @Req() req: Request,
   ): Promise<ListBillingAccountItem[]> {
-    return this.service.listAccounts(projectId);
+    const authUser = req['authUser'] as JwtUser | undefined;
+
+    return this.service.listAccounts(projectId, authUser?.userId?.toString());
   }
 }

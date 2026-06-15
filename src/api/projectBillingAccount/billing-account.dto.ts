@@ -5,7 +5,7 @@ export class BillingAccountResponseDto {
     name: 'tcBillingAccountId',
     description: 'TopCoder billing account id',
   })
-  tcBillingAccountId: number | null;
+  tcBillingAccountId: string | null;
   @ApiProperty({ name: 'markup', description: 'Billing account markup' })
   markup: number | null;
   @ApiProperty({ name: 'active', description: 'Billing account status' })
@@ -26,9 +26,9 @@ export class ListBillingAccountItem {
     name: 'tcBillingAccountId',
     description: 'TopCoder billing account id',
   })
-  tcBillingAccountId: number | null;
+  tcBillingAccountId: string | null;
   @ApiProperty({ name: 'name', description: 'Billing account name' })
-  name: number | null;
+  name: string | null;
   @ApiProperty({ name: 'startDate', description: 'Billing account start date' })
   startDate: string | null;
   @ApiProperty({ name: 'endDate', description: 'Billing account end date' })
