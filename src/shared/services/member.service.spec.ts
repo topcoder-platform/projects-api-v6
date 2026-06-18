@@ -88,6 +88,65 @@ describe('MemberService', () => {
     );
   });
 
+  it('returns subjects from legacy wrapped Identity role responses', async () => {
+    httpServiceMock.get.mockImplementation(
+      (url: string, options: { params?: { filter?: string } }) => {
+        if (
+          url === 'https://identity.test/roles' &&
+          options.params?.filter === 'roleName=Project Manager'
+        ) {
+          return of({
+            data: {
+              result: {
+                content: [{ id: '201', roleName: 'Project Manager' }],
+              },
+            },
+          });
+        }
+
+        if (url === 'https://identity.test/roles/201') {
+          return of({
+            data: {
+              result: {
+                content: {
+                  subjects: [
+                    {
+                      subjectId: 5001,
+                      handle: 'pm-one',
+                      email: 'PM.One@Topcoder.com',
+                    },
+                  ],
+                },
+              },
+            },
+          });
+        }
+
+        return of({ data: {} });
+      },
+    );
+
+    const result = await service.getRoleSubjects('Project Manager');
+
+    expect(result).toEqual([
+      {
+        userId: 5001,
+        handle: 'pm-one',
+        email: 'pm.one@topcoder.com',
+      },
+    ]);
+    expect(httpServiceMock.get).toHaveBeenCalledWith(
+      'https://identity.test/roles/201',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          fields: 'subjects',
+          selector: 'subjects',
+          perPage: 200,
+        }),
+      }),
+    );
+  });
+
   it('returns empty list when role list lookup fails', async () => {
     httpServiceMock.get.mockImplementation((url: string) => {
       if (url === 'https://identity.test/roles') {
