@@ -218,6 +218,19 @@ BEGIN
     SELECT 1
     FROM pg_type t
     JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'projects' AND t.typname = 'ProjectShowcasePostStatus'
+  ) THEN
+    CREATE TYPE projects."ProjectShowcasePostStatus" AS ENUM (
+      'draft',
+      'published',
+      'archived'
+    );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
     WHERE n.nspname = 'projects' AND t.typname = 'PhaseApprovalDecision'
   ) THEN
     CREATE TYPE projects."PhaseApprovalDecision" AS ENUM ('approve', 'reject');
