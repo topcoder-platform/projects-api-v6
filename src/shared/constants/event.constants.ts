@@ -28,6 +28,10 @@ export const PROJECT_METADATA_RESOURCE = {
   MILESTONE_TEMPLATE: 'milestone.template',
   /** Work-management permission metadata updates from work settings module. */
   WORK_MANAGEMENT_PERMISSION: 'project.workManagementPermission',
+  /** Project showcase post industry metadata updates from the project showcase post industry module. */
+  PROJECT_POST_INDUSTRY: 'project.postIndustry',
+  /** Project showcase post category metadata updates from the project showcase post category module. */
+  PROJECT_POST_CATEGORY: 'project.postCategory',
 } as const;
 
 /**

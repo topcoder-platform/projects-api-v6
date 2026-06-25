@@ -11,6 +11,8 @@ import { ProductTemplateModule } from './product-template/product-template.modul
 import { ProjectTemplateModule } from './project-template/project-template.module';
 import { ProjectTypeModule } from './project-type/project-type.module';
 import { WorkManagementPermissionModule } from './work-management-permission/work-management-permission.module';
+import { ProjectPostIndustryModule } from './project-post-industry/project-post-industry.module';
+import { ProjectPostCategoryModule } from './project-post-category/project-post-category.module';
 
 /**
  * Aggregates all metadata sub-modules used by the projects API.
@@ -26,6 +28,8 @@ import { WorkManagementPermissionModule } from './work-management-permission/wor
  * - `PlanConfigModule`: versioned plan configuration definitions.
  * - `PriceConfigModule`: versioned pricing configuration definitions.
  * - `WorkManagementPermissionModule`: permission policy records by template.
+ * - `ProjectPostIndustryModule`: project showcase post industry taxonomy.
+ * - `ProjectPostCategoryModule`: project showcase post category taxonomy.
  *
  * It also registers `MetadataListController` and `MetadataListService` for the
  * consolidated metadata list endpoint.
@@ -42,6 +46,8 @@ import { WorkManagementPermissionModule } from './work-management-permission/wor
     PlanConfigModule,
     PriceConfigModule,
     WorkManagementPermissionModule,
+    ProjectPostIndustryModule,
+    ProjectPostCategoryModule,
   ],
   controllers: [MetadataListController],
   providers: [MetadataListService],

@@ -512,7 +512,6 @@ export async function seedDatabaseFixtures(
       data: {
         projectId: project.id,
         status,
-        createdBy: FIXTURE_AUDIT_USER_ID,
         updatedBy: FIXTURE_AUDIT_USER_ID,
       },
     });
