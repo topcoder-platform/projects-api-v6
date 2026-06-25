@@ -1,12 +1,12 @@
 -- Create enum for project showcase post status
-CREATE TYPE projects."ProjectShowcasePostStatus" AS ENUM ('draft', 'published', 'archived');
+CREATE TYPE projects."ProjectShowcasePostStatus" AS ENUM ('DRAFT', 'PUBLISHED', 'ARCHIVED');
 
 -- Create project showcase posts table
 CREATE TABLE projects."project_showcase_posts" (
   "id" BIGSERIAL PRIMARY KEY,
   "title" VARCHAR(255) NOT NULL,
   "content" TEXT NOT NULL,
-  "status" projects."ProjectShowcasePostStatus" NOT NULL DEFAULT 'draft',
+  "status" projects."ProjectShowcasePostStatus" NOT NULL DEFAULT 'DRAFT',
   "projectId" BIGINT NOT NULL,
   "challengeIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
   "createdById" INTEGER NOT NULL,

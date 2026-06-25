@@ -1054,9 +1054,9 @@ model CustomerPayment {
 
 /// Project showcase post lifecycle status.
 enum ProjectShowcasePostStatus {
-  draft
-  published
-  archived
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 /// Showcase content posts linked to a project.
@@ -1064,7 +1064,7 @@ model ProjectShowcasePost {
   id             BigInt                    @id @default(autoincrement())
   title          String
   content        String                    @db.Text
-  status         ProjectShowcasePostStatus @default(draft)
+  status         ProjectShowcasePostStatus @default(DRAFT)
   projectId      BigInt
   challengeIds   String[]                  @default([])
   createdById    Int

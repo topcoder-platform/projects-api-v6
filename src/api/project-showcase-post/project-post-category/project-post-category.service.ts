@@ -4,60 +4,60 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectPostIndustry } from '@prisma/client';
+import { Prisma, ProjectPostCategory } from '@prisma/client';
 import { PrismaErrorService } from 'src/shared/modules/global/prisma-error.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { EventBusService } from 'src/shared/modules/global/eventBus.service';
 import {
   PROJECT_METADATA_RESOURCE,
   publishMetadataEvent,
-} from '../utils/metadata-event.utils';
-import { toSerializable } from '../utils/metadata-utils';
-import { CreateProjectPostIndustryDto } from './dto/create-project-post-industry.dto';
-import { ProjectPostIndustryResponseDto } from './dto/project-post-industry-response.dto';
-import { UpdateProjectPostIndustryDto } from './dto/update-project-post-industry.dto';
+} from 'src/api/metadata/utils/metadata-event.utils';
+import { toSerializable } from 'src/api/metadata/utils/metadata-utils';
+import { CreateProjectPostCategoryDto } from './dto/create-project-post-category.dto';
+import { ProjectPostCategoryResponseDto } from './dto/project-post-category-response.dto';
+import { UpdateProjectPostCategoryDto } from './dto/update-project-post-category.dto';
 
 @Injectable()
-export class ProjectPostIndustryService {
+export class ProjectPostCategoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly prismaErrorService: PrismaErrorService,
     private readonly eventBusService: EventBusService,
   ) {}
 
-  async findAll(): Promise<ProjectPostIndustryResponseDto[]> {
-    const records = await this.prisma.projectPostIndustry.findMany({
+  async findAll(): Promise<ProjectPostCategoryResponseDto[]> {
+    const records = await this.prisma.projectPostCategory.findMany({
       orderBy: [{ id: 'asc' }],
     });
 
     return records.map((record) => this.toDto(record));
   }
 
-  async findById(id: string): Promise<ProjectPostIndustryResponseDto> {
+  async findById(id: string): Promise<ProjectPostCategoryResponseDto> {
     const parsedId = parseInt(id, 10);
     if (Number.isNaN(parsedId)) {
-      throw new NotFoundException(`Industry not found for id ${id}.`);
+      throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
-    const record = await this.prisma.projectPostIndustry.findFirst({
+    const record = await this.prisma.projectPostCategory.findFirst({
       where: {
         id: BigInt(parsedId),
       },
     });
 
     if (!record) {
-      throw new NotFoundException(`Industry not found for id ${id}.`);
+      throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
     return this.toDto(record);
   }
 
   async create(
-    dto: CreateProjectPostIndustryDto,
+    dto: CreateProjectPostCategoryDto,
     userId: number,
-  ): Promise<ProjectPostIndustryResponseDto> {
+  ): Promise<ProjectPostCategoryResponseDto> {
     try {
-      const existing = await this.prisma.projectPostIndustry.findFirst({
+      const existing = await this.prisma.projectPostCategory.findFirst({
         where: {
           name: dto.name,
         },
@@ -65,11 +65,11 @@ export class ProjectPostIndustryService {
 
       if (existing) {
         throw new ConflictException(
-          `Project showcase post industry already exists for name ${dto.name}.`,
+          `Project showcase post category already exists for name ${dto.name}.`,
         );
       }
 
-      const created = await this.prisma.projectPostIndustry.create({
+      const created = await this.prisma.projectPostCategory.create({
         data: {
           name: dto.name,
         },
@@ -78,7 +78,7 @@ export class ProjectPostIndustryService {
       await publishMetadataEvent(
         this.eventBusService,
         'PROJECT_METADATA_CREATE',
-        PROJECT_METADATA_RESOURCE.PROJECT_POST_INDUSTRY,
+        PROJECT_METADATA_RESOURCE.PROJECT_POST_CATEGORY,
         String(created.id),
         created,
         userId,
@@ -86,31 +86,31 @@ export class ProjectPostIndustryService {
 
       return this.toDto(created);
     } catch (error) {
-      this.handleError(error, `create project showcase post industry ${dto.name}`);
+      this.handleError(error, `create project showcase post category ${dto.name}`);
     }
   }
 
   async update(
     id: string,
-    dto: UpdateProjectPostIndustryDto,
+    dto: UpdateProjectPostCategoryDto,
     userId: number,
-  ): Promise<ProjectPostIndustryResponseDto> {
+  ): Promise<ProjectPostCategoryResponseDto> {
     const parsedId = parseInt(id, 10);
     if (Number.isNaN(parsedId)) {
-      throw new NotFoundException(`Industry not found for id ${id}.`);
+      throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
-    const existing = await this.prisma.projectPostIndustry.findFirst({
+    const existing = await this.prisma.projectPostCategory.findFirst({
       where: {
         id: BigInt(parsedId),
       },
     });
 
     if (!existing) {
-      throw new NotFoundException(`Industry not found for id ${id}.`);
+      throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
-    const updated = await this.prisma.projectPostIndustry.update({
+    const updated = await this.prisma.projectPostCategory.update({
       where: { id: BigInt(parsedId) },
       data: {
         ...(typeof dto.name === 'undefined' ? {} : { name: dto.name }),
@@ -120,7 +120,7 @@ export class ProjectPostIndustryService {
     await publishMetadataEvent(
       this.eventBusService,
       'PROJECT_METADATA_UPDATE',
-      PROJECT_METADATA_RESOURCE.PROJECT_POST_INDUSTRY,
+      PROJECT_METADATA_RESOURCE.PROJECT_POST_CATEGORY,
       String(updated.id),
       updated,
       userId,
@@ -132,10 +132,10 @@ export class ProjectPostIndustryService {
   async delete(id: string, userId: number): Promise<void> {
     const parsedId = parseInt(id, 10);
     if (Number.isNaN(parsedId)) {
-      throw new NotFoundException(`Industry not found for id ${id}.`);
+      throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
-    const existing = await this.prisma.projectPostIndustry.findFirst({
+    const existing = await this.prisma.projectPostCategory.findFirst({
       where: {
         id: BigInt(parsedId),
       },
@@ -143,24 +143,24 @@ export class ProjectPostIndustryService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`Industry not found for id ${id}.`);
+      throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
-    await this.prisma.projectPostIndustry.delete({
+    await this.prisma.projectPostCategory.delete({
       where: { id: BigInt(parsedId) },
     });
 
     await publishMetadataEvent(
       this.eventBusService,
       'PROJECT_METADATA_DELETE',
-      PROJECT_METADATA_RESOURCE.PROJECT_POST_INDUSTRY,
+      PROJECT_METADATA_RESOURCE.PROJECT_POST_CATEGORY,
       String(parsedId),
       { id: parsedId },
       userId,
     );
   }
 
-  private toDto(record: ProjectPostIndustry): ProjectPostIndustryResponseDto {
+  private toDto(record: ProjectPostCategory): ProjectPostCategoryResponseDto {
     return {
       id: String(record.id),
       name: record.name,

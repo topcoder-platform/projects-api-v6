@@ -1,9 +1,9 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma, ProjectShowcasePost, ProjectShowcasePostStatus } from '@prisma/client';
+  Prisma,
+  ProjectShowcasePost,
+  ProjectShowcasePostStatus,
+} from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
@@ -12,20 +12,12 @@ import {
   getAuditUserId,
   loadProjectPermissionContextBase,
   parseNumericStringId,
-  parseOptionalNumericStringId,
 } from 'src/shared/utils/service.utils';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { CreateProjectShowcasePostDto } from './dto/create-project-showcase-post.dto';
 import { ProjectShowcasePostListQueryDto } from './dto/project-showcase-post-list-query.dto';
 import { ProjectShowcasePostResponseDto } from './dto/project-showcase-post-response.dto';
 import { UpdateProjectShowcasePostDto } from './dto/update-project-showcase-post.dto';
-
-interface PaginatedPostResponse {
-  data: ProjectShowcasePostResponseDto[];
-  page: number;
-  perPage: number;
-  total: number;
-}
 
 @Injectable()
 export class ProjectShowcasePostService {
@@ -36,7 +28,6 @@ export class ProjectShowcasePostService {
 
   async listPosts(
     criteria: ProjectShowcasePostListQueryDto,
-    user: JwtUser,
   ): Promise<ProjectShowcasePostResponseDto[]> {
     const page = criteria.page || 1;
     const perPage = criteria.perPage || 20;
@@ -169,25 +160,19 @@ export class ProjectShowcasePostService {
       data: {
         title: dto.title,
         content: dto.content,
-        status: dto.status ?? 'draft',
+        status: dto.status ?? 'DRAFT',
         projectId: parsedProjectId,
         challengeIds: dto.challengeIds || [],
         createdById: auditUserId,
         updatedById: auditUserId,
         industries: {
           create: (dto.industryIds || []).map((industryId) => ({
-            industryId: parseNumericStringId(
-              String(industryId),
-              'Industry id',
-            ),
+            industryId: parseNumericStringId(String(industryId), 'Industry id'),
           })),
         },
         categories: {
           create: (dto.categoryIds || []).map((categoryId) => ({
-            categoryId: parseNumericStringId(
-              String(categoryId),
-              'Category id',
-            ),
+            categoryId: parseNumericStringId(String(categoryId), 'Category id'),
           })),
         },
       },
@@ -251,10 +236,7 @@ export class ProjectShowcasePostService {
       updateData.industries = {
         deleteMany: {},
         create: dto.industryIds.map((industryId) => ({
-          industryId: parseNumericStringId(
-            String(industryId),
-            'Industry id',
-          ),
+          industryId: parseNumericStringId(String(industryId), 'Industry id'),
         })),
       };
     }
@@ -263,10 +245,7 @@ export class ProjectShowcasePostService {
       updateData.categories = {
         deleteMany: {},
         create: dto.categoryIds.map((categoryId) => ({
-          categoryId: parseNumericStringId(
-            String(categoryId),
-            'Category id',
-          ),
+          categoryId: parseNumericStringId(String(categoryId), 'Category id'),
         })),
       };
     }
@@ -345,7 +324,9 @@ export class ProjectShowcasePostService {
       }
     }
 
-    const status = this.toStringListFilter(criteria.status) as ProjectShowcasePostStatus[];
+    const status = this.toStringListFilter(
+      criteria.status,
+    ) as ProjectShowcasePostStatus[];
     if (status.length === 1) {
       where.status = status[0];
     } else if (status.length > 1) {
@@ -391,7 +372,10 @@ export class ProjectShowcasePostService {
       return [{ updatedAt: 'desc' }];
     }
 
-    const [field, direction = 'desc'] = sort.trim().split(/\s+/gi).filter(Boolean);
+    const [field, direction = 'desc'] = sort
+      .trim()
+      .split(/\s+/gi)
+      .filter(Boolean);
     const normalizedDirection = direction.toLowerCase().includes('asc')
       ? 'asc'
       : 'desc';
@@ -446,10 +430,13 @@ export class ProjectShowcasePostService {
       typeof value === 'string'
         ? [value]
         : Array.isArray(value)
-        ? value.map((entry) => String(entry))
-        : value && typeof value === 'object' && 'in' in value && Array.isArray(value.in)
-        ? value.in.map((entry) => String(entry))
-        : [];
+          ? value.map((entry) => String(entry))
+          : value &&
+              typeof value === 'object' &&
+              'in' in value &&
+              Array.isArray(value.in)
+            ? value.in.map((entry) => String(entry))
+            : [];
 
     return values
       .map((entry) => {
@@ -477,7 +464,12 @@ export class ProjectShowcasePostService {
       return value.map((entry) => String(entry));
     }
 
-    if (value && typeof value === 'object' && 'in' in value && Array.isArray(value.in)) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      'in' in value &&
+      Array.isArray(value.in)
+    ) {
       return value.in.map((entry) => String(entry));
     }
 

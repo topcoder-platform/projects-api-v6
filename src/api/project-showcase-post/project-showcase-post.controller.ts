@@ -61,9 +61,8 @@ export class ProjectShowcasePostController {
   })
   async searchPosts(
     @Query() query: ProjectShowcasePostListQueryDto,
-    @CurrentUser() user: JwtUser,
   ): Promise<ProjectShowcasePostResponseDto[]> {
-    return this.service.listPosts(query, user);
+    return this.service.listPosts(query);
   }
 
   @Get(':projectId/posts')

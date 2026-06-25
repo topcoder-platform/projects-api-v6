@@ -19,16 +19,16 @@ import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
 import { AnyAuthenticated } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { getAuditUserIdNumber } from '../utils/metadata-utils';
+import { getAuditUserIdNumber } from 'src/api/metadata/utils/metadata-utils';
 import { CreateProjectPostCategoryDto } from './dto/create-project-post-category.dto';
 import { ProjectPostCategoryResponseDto } from './dto/project-post-category-response.dto';
 import { UpdateProjectPostCategoryDto } from './dto/update-project-post-category.dto';
 import { ProjectPostCategoryService } from './project-post-category.service';
 
-@ApiTags('Metadata - Project Post Categories')
+@ApiTags('Project Showcase Post Categories')
 @ApiBearerAuth()
 @AnyAuthenticated()
-@Controller('/projects/metadata/projectPostCategories')
+@Controller('/projects/posts/categories')
 export class ProjectPostCategoryController {
   constructor(
     private readonly service: ProjectPostCategoryService,

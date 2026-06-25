@@ -19,16 +19,16 @@ import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
 import { AnyAuthenticated } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { getAuditUserIdNumber } from '../utils/metadata-utils';
+import { getAuditUserIdNumber } from 'src/api/metadata/utils/metadata-utils';
 import { CreateProjectPostIndustryDto } from './dto/create-project-post-industry.dto';
 import { ProjectPostIndustryResponseDto } from './dto/project-post-industry-response.dto';
 import { UpdateProjectPostIndustryDto } from './dto/update-project-post-industry.dto';
 import { ProjectPostIndustryService } from './project-post-industry.service';
 
-@ApiTags('Metadata - Project Post Industries')
+@ApiTags('Project Showcase Post Industries')
 @ApiBearerAuth()
 @AnyAuthenticated()
-@Controller('/projects/metadata/projectPostIndustries')
+@Controller('/projects/posts/industries')
 export class ProjectPostIndustryController {
   constructor(
     private readonly service: ProjectPostIndustryService,
