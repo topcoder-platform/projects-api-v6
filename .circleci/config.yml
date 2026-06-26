@@ -30,7 +30,22 @@ builddeploy_steps: &builddeploy_steps
   - setup_remote_docker
   - run: *install_dependency
   - run: *install_deploysuite
-  - run: docker buildx build --no-cache=true --build-arg RESET_DB_ARG=<<pipeline.parameters.reset-db>> --build-arg SEED_DATA_ARG=${DEPLOYMENT_ENVIRONMENT} -t ${APPNAME}:latest .
+  - run:
+      name: Build Docker Image
+      command: |
+        docker buildx build --load --no-cache=true --build-arg RESET_DB_ARG=<<pipeline.parameters.reset-db>> --build-arg SEED_DATA_ARG=${DEPLOYMENT_ENVIRONMENT} -t ${APPNAME}:latest .
+  - run:
+      name: Run Prisma migrate deploy
+      command: |
+        ./awsconfiguration.sh $DEPLOY_ENV
+        source awsenvconf
+        ./psvar-processor.sh -t appenv -p /config/${APPNAME}/deployvar
+        source deployvar_env
+        if [ -z "$DATABASE_URL" ]; then
+          echo "DATABASE_URL is not set. Prisma migration cannot run."
+          exit 1
+        fi
+        docker run --rm -e DATABASE_URL="$DATABASE_URL" -e NODE_ENV=production ${APPNAME}:latest npx prisma migrate deploy --schema prisma/schema.prisma
   - run:
       name: Running MasterScript.
       command: |
