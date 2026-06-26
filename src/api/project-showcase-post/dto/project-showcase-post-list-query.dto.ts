@@ -30,27 +30,37 @@ function parseFilterInput(
 }
 
 export class ProjectShowcasePostListQueryDto extends PaginationDto {
-  @ApiPropertyOptional({ description: 'Sort expression. Example: "updatedAt desc"' })
+  @ApiPropertyOptional({
+    description: 'Sort expression. Example: "updatedAt desc"',
+  })
   @IsOptional()
   @IsString()
   sort?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by post status (draft, published, archived)' })
+  @ApiPropertyOptional({
+    description: 'Filter by post status (DRAFT, PUBLISHED, ARCHIVED)',
+  })
   @IsOptional()
   @Transform(({ value }) => parseFilterInput(value))
   status?: string | string[] | Record<string, unknown>;
 
-  @ApiPropertyOptional({ description: 'Filter by project id (exact or $in pattern)' })
+  @ApiPropertyOptional({
+    description: 'Filter by project id (exact or $in pattern)',
+  })
   @IsOptional()
   @Transform(({ value }) => parseFilterInput(value))
   projectId?: string | string[] | Record<string, unknown>;
 
-  @ApiPropertyOptional({ description: 'Filter by industry id (exact or $in pattern)' })
+  @ApiPropertyOptional({
+    description: 'Filter by industry id (exact or $in pattern)',
+  })
   @IsOptional()
   @Transform(({ value }) => parseFilterInput(value))
   industryId?: string | string[] | Record<string, unknown>;
 
-  @ApiPropertyOptional({ description: 'Filter by category id (exact or $in pattern)' })
+  @ApiPropertyOptional({
+    description: 'Filter by category id (exact or $in pattern)',
+  })
   @IsOptional()
   @Transform(({ value }) => parseFilterInput(value))
   categoryId?: string | string[] | Record<string, unknown>;

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ProjectShowcasePostStatus } from '@prisma/client';
 
 export class ProjectShowcasePostResponseDto {
   @ApiProperty()
@@ -10,8 +11,8 @@ export class ProjectShowcasePostResponseDto {
   @ApiProperty()
   content: string;
 
-  @ApiProperty()
-  status: string;
+  @ApiProperty({ enum: ProjectShowcasePostStatus })
+  status: ProjectShowcasePostStatus;
 
   @ApiProperty()
   projectId: string;

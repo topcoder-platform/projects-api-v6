@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectPostIndustry } from '@prisma/client';
+import { ProjectPostIndustry } from '@prisma/client';
 import { PrismaErrorService } from 'src/shared/modules/global/prisma-error.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { EventBusService } from 'src/shared/modules/global/eventBus.service';
@@ -12,7 +12,6 @@ import {
   PROJECT_METADATA_RESOURCE,
   publishMetadataEvent,
 } from 'src/api/metadata/utils/metadata-event.utils';
-import { toSerializable } from 'src/api/metadata/utils/metadata-utils';
 import { CreateProjectPostIndustryDto } from './dto/create-project-post-industry.dto';
 import { ProjectPostIndustryResponseDto } from './dto/project-post-industry-response.dto';
 import { UpdateProjectPostIndustryDto } from './dto/update-project-post-industry.dto';
@@ -34,14 +33,14 @@ export class ProjectPostIndustryService {
   }
 
   async findById(id: string): Promise<ProjectPostIndustryResponseDto> {
-    const parsedId = parseInt(id, 10);
-    if (Number.isNaN(parsedId)) {
+    const normalizedId = String(id ?? '').trim();
+    if (!/^\d+$/.test(normalizedId)) {
       throw new NotFoundException(`Industry not found for id ${id}.`);
     }
 
     const record = await this.prisma.projectPostIndustry.findFirst({
       where: {
-        id: BigInt(parsedId),
+        id: BigInt(normalizedId),
       },
     });
 
@@ -86,7 +85,10 @@ export class ProjectPostIndustryService {
 
       return this.toDto(created);
     } catch (error) {
-      this.handleError(error, `create project showcase post industry ${dto.name}`);
+      this.handleError(
+        error,
+        `create project showcase post industry ${dto.name}`,
+      );
     }
   }
 
@@ -95,14 +97,15 @@ export class ProjectPostIndustryService {
     dto: UpdateProjectPostIndustryDto,
     userId: number,
   ): Promise<ProjectPostIndustryResponseDto> {
-    const parsedId = parseInt(id, 10);
-    if (Number.isNaN(parsedId)) {
+    const normalizedId = String(id ?? '').trim();
+    if (!/^\d+$/.test(normalizedId)) {
       throw new NotFoundException(`Industry not found for id ${id}.`);
     }
 
+    const parsedId = BigInt(normalizedId);
     const existing = await this.prisma.projectPostIndustry.findFirst({
       where: {
-        id: BigInt(parsedId),
+        id: parsedId,
       },
     });
 
@@ -111,7 +114,7 @@ export class ProjectPostIndustryService {
     }
 
     const updated = await this.prisma.projectPostIndustry.update({
-      where: { id: BigInt(parsedId) },
+      where: { id: parsedId },
       data: {
         ...(typeof dto.name === 'undefined' ? {} : { name: dto.name }),
       },
@@ -130,11 +133,12 @@ export class ProjectPostIndustryService {
   }
 
   async delete(id: string, userId: number): Promise<void> {
-    const parsedId = parseInt(id, 10);
-    if (Number.isNaN(parsedId)) {
+    const normalizedId = String(id ?? '').trim();
+    if (!/^\d+$/.test(normalizedId)) {
       throw new NotFoundException(`Industry not found for id ${id}.`);
     }
 
+    const parsedId = BigInt(normalizedId);
     const existing = await this.prisma.projectPostIndustry.findFirst({
       where: {
         id: BigInt(parsedId),

@@ -26,8 +26,6 @@ import { WorkManagementPermissionModule } from './work-management-permission/wor
  * - `PlanConfigModule`: versioned plan configuration definitions.
  * - `PriceConfigModule`: versioned pricing configuration definitions.
  * - `WorkManagementPermissionModule`: permission policy records by template.
- * - `ProjectPostIndustryModule`: project showcase post industry taxonomy.
- * - `ProjectPostCategoryModule`: project showcase post category taxonomy.
  *
  * It also registers `MetadataListController` and `MetadataListService` for the
  * consolidated metadata list endpoint.

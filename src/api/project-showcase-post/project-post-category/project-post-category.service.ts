@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectPostCategory } from '@prisma/client';
+import { ProjectPostCategory } from '@prisma/client';
 import { PrismaErrorService } from 'src/shared/modules/global/prisma-error.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { EventBusService } from 'src/shared/modules/global/eventBus.service';
@@ -12,7 +12,6 @@ import {
   PROJECT_METADATA_RESOURCE,
   publishMetadataEvent,
 } from 'src/api/metadata/utils/metadata-event.utils';
-import { toSerializable } from 'src/api/metadata/utils/metadata-utils';
 import { CreateProjectPostCategoryDto } from './dto/create-project-post-category.dto';
 import { ProjectPostCategoryResponseDto } from './dto/project-post-category-response.dto';
 import { UpdateProjectPostCategoryDto } from './dto/update-project-post-category.dto';
@@ -34,14 +33,14 @@ export class ProjectPostCategoryService {
   }
 
   async findById(id: string): Promise<ProjectPostCategoryResponseDto> {
-    const parsedId = parseInt(id, 10);
-    if (Number.isNaN(parsedId)) {
+    const normalizedId = String(id ?? '').trim();
+    if (!/^\d+$/.test(normalizedId)) {
       throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
     const record = await this.prisma.projectPostCategory.findFirst({
       where: {
-        id: BigInt(parsedId),
+        id: BigInt(normalizedId),
       },
     });
 
@@ -86,7 +85,10 @@ export class ProjectPostCategoryService {
 
       return this.toDto(created);
     } catch (error) {
-      this.handleError(error, `create project showcase post category ${dto.name}`);
+      this.handleError(
+        error,
+        `create project showcase post category ${dto.name}`,
+      );
     }
   }
 
@@ -95,14 +97,14 @@ export class ProjectPostCategoryService {
     dto: UpdateProjectPostCategoryDto,
     userId: number,
   ): Promise<ProjectPostCategoryResponseDto> {
-    const parsedId = parseInt(id, 10);
-    if (Number.isNaN(parsedId)) {
+    const normalizedId = String(id ?? '').trim();
+    if (!/^\d+$/.test(normalizedId)) {
       throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
     const existing = await this.prisma.projectPostCategory.findFirst({
       where: {
-        id: BigInt(parsedId),
+        id: BigInt(normalizedId),
       },
     });
 
@@ -111,7 +113,7 @@ export class ProjectPostCategoryService {
     }
 
     const updated = await this.prisma.projectPostCategory.update({
-      where: { id: BigInt(parsedId) },
+      where: { id: BigInt(normalizedId) },
       data: {
         ...(typeof dto.name === 'undefined' ? {} : { name: dto.name }),
       },
@@ -130,14 +132,14 @@ export class ProjectPostCategoryService {
   }
 
   async delete(id: string, userId: number): Promise<void> {
-    const parsedId = parseInt(id, 10);
-    if (Number.isNaN(parsedId)) {
+    const normalizedId = String(id ?? '').trim();
+    if (!/^\d+$/.test(normalizedId)) {
       throw new NotFoundException(`Category not found for id ${id}.`);
     }
 
     const existing = await this.prisma.projectPostCategory.findFirst({
       where: {
-        id: BigInt(parsedId),
+        id: BigInt(normalizedId),
       },
       select: { id: true },
     });
@@ -147,15 +149,15 @@ export class ProjectPostCategoryService {
     }
 
     await this.prisma.projectPostCategory.delete({
-      where: { id: BigInt(parsedId) },
+      where: { id: BigInt(normalizedId) },
     });
 
     await publishMetadataEvent(
       this.eventBusService,
       'PROJECT_METADATA_DELETE',
       PROJECT_METADATA_RESOURCE.PROJECT_POST_CATEGORY,
-      String(parsedId),
-      { id: parsedId },
+      String(normalizedId),
+      { id: normalizedId },
       userId,
     );
   }

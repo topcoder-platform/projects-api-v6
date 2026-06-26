@@ -324,8 +324,8 @@ export class ProjectShowcasePostService {
       }
     }
 
-    const status = this.toStringListFilter(
-      criteria.status,
+    const status = this.toStringListFilter(criteria.status).map((entry) =>
+      String(entry).trim().toUpperCase(),
     ) as ProjectShowcasePostStatus[];
     if (status.length === 1) {
       where.status = status[0];

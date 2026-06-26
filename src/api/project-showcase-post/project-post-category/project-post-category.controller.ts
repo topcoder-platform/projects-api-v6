@@ -30,9 +30,7 @@ import { ProjectPostCategoryService } from './project-post-category.service';
 @AnyAuthenticated()
 @Controller('/projects/posts/categories')
 export class ProjectPostCategoryController {
-  constructor(
-    private readonly service: ProjectPostCategoryService,
-  ) {}
+  constructor(private readonly service: ProjectPostCategoryService) {}
 
   @Get()
   @ApiOperation({ summary: 'List project showcase post categories' })
@@ -82,7 +80,7 @@ export class ProjectPostCategoryController {
   @Delete(':id')
   @HttpCode(204)
   @AdminOnly()
-  @ApiOperation({ summary: 'Delete project showcase post category (soft delete)' })
+  @ApiOperation({ summary: 'Delete project showcase post category' })
   @ApiParam({ name: 'id', description: 'Category id' })
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })

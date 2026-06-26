@@ -221,9 +221,9 @@ BEGIN
     WHERE n.nspname = 'projects' AND t.typname = 'ProjectShowcasePostStatus'
   ) THEN
     CREATE TYPE projects."ProjectShowcasePostStatus" AS ENUM (
-      'draft',
-      'published',
-      'archived'
+      'DRAFT',
+      'PUBLISHED',
+      'ARCHIVED'
     );
   END IF;
 

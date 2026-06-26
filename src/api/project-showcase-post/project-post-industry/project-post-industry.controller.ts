@@ -30,9 +30,7 @@ import { ProjectPostIndustryService } from './project-post-industry.service';
 @AnyAuthenticated()
 @Controller('/projects/posts/industries')
 export class ProjectPostIndustryController {
-  constructor(
-    private readonly service: ProjectPostIndustryService,
-  ) {}
+  constructor(private readonly service: ProjectPostIndustryService) {}
 
   @Get()
   @ApiOperation({ summary: 'List project showcase post industries' })
@@ -82,7 +80,7 @@ export class ProjectPostIndustryController {
   @Delete(':id')
   @HttpCode(204)
   @AdminOnly()
-  @ApiOperation({ summary: 'Delete project showcase post industry (soft delete)' })
+  @ApiOperation({ summary: 'Delete project showcase post industry' })
   @ApiParam({ name: 'id', description: 'Industry id' })
   @ApiResponse({ status: 204, description: 'Deleted' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
