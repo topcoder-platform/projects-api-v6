@@ -8,6 +8,8 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,6 +20,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { Permission } from 'src/shared/constants/permissions';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
 import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
@@ -27,6 +30,7 @@ import { UserRole } from 'src/shared/enums/userRole.enum';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
 import { Roles } from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { setProjectPaginationHeaders } from 'src/shared/utils/pagination.utils';
 import { ProjectShowcasePostResponseDto } from './dto/project-showcase-post-response.dto';
 import { ProjectShowcasePostListQueryDto } from './dto/project-showcase-post-list-query.dto';
 import { CreateProjectShowcasePostDto } from './dto/create-project-showcase-post.dto';
@@ -60,9 +64,22 @@ export class ProjectShowcasePostController {
     type: [ProjectShowcasePostResponseDto],
   })
   async searchPosts(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Query() query: ProjectShowcasePostListQueryDto,
   ): Promise<ProjectShowcasePostResponseDto[]> {
-    return this.service.listPosts(query);
+    const posts = await this.service.listPosts(query)
+    const total = await this.service.countPosts(query)
+
+    setProjectPaginationHeaders(
+      req,
+      res,
+      query.page || 1,
+      query.perPage || 20,
+      total,
+    )
+
+    return posts;
   }
 
   @Get(':projectId/posts')
@@ -91,11 +108,24 @@ export class ProjectShowcasePostController {
     type: [ProjectShowcasePostResponseDto],
   })
   async listProjectPosts(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
     @Param('projectId') projectId: string,
     @Query() query: ProjectShowcasePostListQueryDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ProjectShowcasePostResponseDto[]> {
-    return this.service.listProjectPosts(projectId, query, user);
+    const posts = await this.service.listProjectPosts(projectId, query, user)
+    const total = await this.service.countProjectPosts(projectId, query, user)
+
+    setProjectPaginationHeaders(
+      req,
+      res,
+      query.page || 1,
+      query.perPage || 20,
+      total,
+    )
+
+    return posts;
   }
 
   @Get(':projectId/posts/:id')

@@ -53,6 +53,13 @@ export class ProjectShowcasePostService {
     return posts.map((post) => this.toDto(post));
   }
 
+  async countPosts(
+    criteria: ProjectShowcasePostListQueryDto,
+  ): Promise<number> {
+    const where = this.buildWhere(criteria);
+    return this.prisma.projectShowcasePost.count({ where });
+  }
+
   async listProjectPosts(
     projectId: string,
     criteria: ProjectShowcasePostListQueryDto,
@@ -92,6 +99,27 @@ export class ProjectShowcasePostService {
     });
 
     return posts.map((post) => this.toDto(post));
+  }
+
+  async countProjectPosts(
+    projectId: string,
+    criteria: ProjectShowcasePostListQueryDto,
+    user: JwtUser,
+  ): Promise<number> {
+    const parsedProjectId = parseNumericStringId(projectId, 'Project id');
+    const project = await loadProjectPermissionContextBase(
+      this.prisma,
+      parsedProjectId,
+    );
+    ensureProjectNamedPermission(
+      this.permissionService,
+      Permission.VIEW_PROJECT,
+      user,
+      project.members,
+    );
+
+    const where = this.buildWhere(criteria, parsedProjectId);
+    return this.prisma.projectShowcasePost.count({ where });
   }
 
   async getPost(

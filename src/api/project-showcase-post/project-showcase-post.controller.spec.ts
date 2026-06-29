@@ -3,7 +3,9 @@ import { ProjectShowcasePostController } from './project-showcase-post.controlle
 describe('ProjectShowcasePostController', () => {
   const serviceMock = {
     listPosts: jest.fn(),
+    countPosts: jest.fn(),
     listProjectPosts: jest.fn(),
+    countProjectPosts: jest.fn(),
     getPost: jest.fn(),
     createPost: jest.fn(),
     updatePost: jest.fn(),
@@ -12,6 +14,16 @@ describe('ProjectShowcasePostController', () => {
 
   let controller: ProjectShowcasePostController;
   const user = { userId: '42', isMachine: false, tokenPayload: {} } as any;
+  const mockReq = {
+    protocol: 'http',
+    get: jest.fn().mockReturnValue('localhost'),
+    baseUrl: '',
+    path: '/projects/posts',
+  } as any;
+  const mockRes = {
+    header: jest.fn(),
+    getHeader: jest.fn().mockReturnValue(undefined),
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -22,17 +34,26 @@ describe('ProjectShowcasePostController', () => {
 
   it('searches posts', async () => {
     serviceMock.listPosts.mockResolvedValue([{ id: '1' }]);
+    serviceMock.countPosts = jest.fn().mockResolvedValue(1);
 
-    const response = await controller.searchPosts({});
+    const response = await controller.searchPosts(
+      mockReq,
+      mockRes,
+      {},
+    );
 
     expect(response).toEqual([{ id: '1' }]);
     expect(serviceMock.listPosts).toHaveBeenCalledWith({});
+    expect(serviceMock.countPosts).toHaveBeenCalledWith({});
   });
 
   it('lists project-specific posts', async () => {
     serviceMock.listProjectPosts.mockResolvedValue([{ id: '2' }]);
+    serviceMock.countProjectPosts = jest.fn().mockResolvedValue(1);
 
     const response = await controller.listProjectPosts(
+      mockReq,
+      mockRes,
       '1001',
       { status: 'DRAFT' },
       user,
@@ -40,6 +61,11 @@ describe('ProjectShowcasePostController', () => {
 
     expect(response).toEqual([{ id: '2' }]);
     expect(serviceMock.listProjectPosts).toHaveBeenCalledWith(
+      '1001',
+      expect.objectContaining({ status: 'DRAFT' }),
+      user,
+    );
+    expect(serviceMock.countProjectPosts).toHaveBeenCalledWith(
       '1001',
       expect.objectContaining({ status: 'DRAFT' }),
       user,
