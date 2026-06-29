@@ -53,9 +53,7 @@ export class ProjectShowcasePostService {
     return posts.map((post) => this.toDto(post));
   }
 
-  async countPosts(
-    criteria: ProjectShowcasePostListQueryDto,
-  ): Promise<number> {
+  async countPosts(criteria: ProjectShowcasePostListQueryDto): Promise<number> {
     const where = this.buildWhere(criteria);
     return this.prisma.projectShowcasePost.count({ where });
   }
@@ -183,38 +181,44 @@ export class ProjectShowcasePostService {
     );
 
     const auditUserId = getAuditUserId(user);
+    const industryIds = (dto.industryIds || []).map((industryId) =>
+      parseNumericStringId(String(industryId), 'Industry id'),
+    );
+    const categoryIds = (dto.categoryIds || []).map((categoryId) =>
+      parseNumericStringId(String(categoryId), 'Category id'),
+    );
 
-    const created = await this.prisma.projectShowcasePost.create({
-      data: {
-        title: dto.title,
-        content: dto.content,
-        status: dto.status ?? 'DRAFT',
-        projectId: parsedProjectId,
-        challengeIds: dto.challengeIds || [],
-        createdById: auditUserId,
-        updatedById: auditUserId,
-        industries: {
-          create: (dto.industryIds || []).map((industryId) => ({
-            industryId: parseNumericStringId(String(industryId), 'Industry id'),
-          })),
+    try {
+      const created = await this.prisma.projectShowcasePost.create({
+        data: {
+          title: dto.title,
+          content: dto.content,
+          status: dto.status ?? 'DRAFT',
+          projectId: parsedProjectId,
+          challengeIds: dto.challengeIds || [],
+          createdById: auditUserId,
+          updatedById: auditUserId,
+          industries: {
+            create: industryIds.map((industryId) => ({ industryId })),
+          },
+          categories: {
+            create: categoryIds.map((categoryId) => ({ categoryId })),
+          },
         },
-        categories: {
-          create: (dto.categoryIds || []).map((categoryId) => ({
-            categoryId: parseNumericStringId(String(categoryId), 'Category id'),
-          })),
+        include: {
+          industries: {
+            include: { industry: true },
+          },
+          categories: {
+            include: { category: true },
+          },
         },
-      },
-      include: {
-        industries: {
-          include: { industry: true },
-        },
-        categories: {
-          include: { category: true },
-        },
-      },
-    });
+      });
 
-    return this.toDto(created);
+      return this.toDto(created);
+    } catch (error) {
+      this.handlePrismaForeignKeyError(error, 'create project showcase post');
+    }
   }
 
   async updatePost(
@@ -261,39 +265,47 @@ export class ProjectShowcasePostService {
     };
 
     if (typeof dto.industryIds !== 'undefined') {
+      const industryIds = dto.industryIds.map((industryId) =>
+        parseNumericStringId(String(industryId), 'Industry id'),
+      );
+
       updateData.industries = {
         deleteMany: {},
-        create: dto.industryIds.map((industryId) => ({
-          industryId: parseNumericStringId(String(industryId), 'Industry id'),
-        })),
+        create: industryIds.map((industryId) => ({ industryId })),
       };
     }
 
     if (typeof dto.categoryIds !== 'undefined') {
+      const categoryIds = dto.categoryIds.map((categoryId) =>
+        parseNumericStringId(String(categoryId), 'Category id'),
+      );
+
       updateData.categories = {
         deleteMany: {},
-        create: dto.categoryIds.map((categoryId) => ({
-          categoryId: parseNumericStringId(String(categoryId), 'Category id'),
-        })),
+        create: categoryIds.map((categoryId) => ({ categoryId })),
       };
     }
 
-    const updated = await this.prisma.projectShowcasePost.update({
-      where: {
-        id: parsedId,
-      },
-      data: updateData,
-      include: {
-        industries: {
-          include: { industry: true },
+    try {
+      const updated = await this.prisma.projectShowcasePost.update({
+        where: {
+          id: parsedId,
         },
-        categories: {
-          include: { category: true },
+        data: updateData,
+        include: {
+          industries: {
+            include: { industry: true },
+          },
+          categories: {
+            include: { category: true },
+          },
         },
-      },
-    });
+      });
 
-    return this.toDto(updated);
+      return this.toDto(updated);
+    } catch (error) {
+      this.handlePrismaForeignKeyError(error, 'update project showcase post');
+    }
   }
 
   async deletePost(
@@ -445,6 +457,42 @@ export class ProjectShowcasePostService {
         name: entry.category.name,
       })),
     };
+  }
+
+  private handlePrismaForeignKeyError(
+    error: unknown,
+    operation: string,
+  ): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2003'
+    ) {
+      const meta = error.meta ?? {};
+      let constraint = String(meta.constraint ?? '').trim();
+
+      if (!constraint) {
+        const match = /constraint:\s*`([^`]*)`/.exec(error.message);
+        if (match) {
+          constraint = match[1];
+        }
+      }
+
+      if (
+        constraint.includes('project_showcase_post_industries_industry_fkey') ||
+        /project_showcase_post_industries.*industry/i.test(constraint)
+      ) {
+        throw new NotFoundException('Industry not found for provided id.');
+      }
+
+      if (
+        constraint.includes('project_showcase_post_categories_category_fkey') ||
+        /project_showcase_post_categories.*category/i.test(constraint)
+      ) {
+        throw new NotFoundException('Category not found for provided id.');
+      }
+    }
+
+    throw error;
   }
 
   private toBigIntFilter(

@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ProjectShowcasePostService } from './project-showcase-post.service';
 
 describe('ProjectShowcasePostService', () => {
@@ -193,6 +194,61 @@ describe('ProjectShowcasePostService', () => {
     expect(response.status).toBe('DRAFT');
   });
 
+  it('throws NotFoundException when create hits an industry foreign key constraint', async () => {
+    const error = Object.create(
+      Prisma.PrismaClientKnownRequestError.prototype,
+    );
+    Object.assign(error, {
+      message:
+        'Foreign key constraint violated on the constraint: `project_showcase_post_industries_industry_fkey`',
+      code: 'P2003',
+      meta: { constraint: 'project_showcase_post_industries_industry_fkey' },
+    });
+
+    prismaMock.projectShowcasePost.create.mockRejectedValue(error);
+
+    await expect(
+      service.createPost(
+        '1001',
+        {
+          title: 'New post',
+          content: 'New content',
+          industryIds: ['5'],
+          categoryIds: ['7'],
+        },
+        user,
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws NotFoundException when create hits a category foreign key constraint', async () => {
+    const error = Object.create(
+      Prisma.PrismaClientKnownRequestError.prototype,
+    );
+    Object.assign(error, {
+      message:
+        'Foreign key constraint violated on the constraint: `project_showcase_post_categories_category_fkey`',
+      code: 'P2003',
+      meta: { constraint: 'project_showcase_post_categories_category_fkey' },
+    });
+
+    prismaMock.projectShowcasePost.create.mockRejectedValue(error);
+
+    await expect(
+      service.createPost(
+        '1001',
+        {
+          title: 'New post',
+          content: 'New content',
+          industryIds: ['5'],
+          categoryIds: ['7'],
+        },
+        user,
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+
   it('throws NotFoundException when updating a missing post', async () => {
     prismaMock.projectShowcasePost.findFirst.mockResolvedValue(undefined);
 
@@ -242,6 +298,62 @@ describe('ProjectShowcasePostService', () => {
       }),
     );
     expect(response.title).toBe('Updated title');
+  });
+
+  it('throws NotFoundException when update hits an industry foreign key constraint', async () => {
+    prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+      buildPostRecord(),
+    );
+    const error = Object.create(
+      Prisma.PrismaClientKnownRequestError.prototype,
+    );
+    Object.assign(error, {
+      message:
+        'Foreign key constraint violated on the constraint: `project_showcase_post_industries_industry_fkey`',
+      code: 'P2003',
+      meta: { constraint: 'project_showcase_post_industries_industry_fkey' },
+    });
+
+    prismaMock.projectShowcasePost.update.mockRejectedValue(error);
+
+    await expect(
+      service.updatePost(
+        '1001',
+        '10',
+        {
+          industryIds: ['11'],
+        },
+        user,
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws NotFoundException when update hits a category foreign key constraint', async () => {
+    prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+      buildPostRecord(),
+    );
+    const error = Object.create(
+      Prisma.PrismaClientKnownRequestError.prototype,
+    );
+    Object.assign(error, {
+      message:
+        'Foreign key constraint violated on the constraint: `project_showcase_post_categories_category_fkey`',
+      code: 'P2003',
+      meta: { constraint: 'project_showcase_post_categories_category_fkey' },
+    });
+
+    prismaMock.projectShowcasePost.update.mockRejectedValue(error);
+
+    await expect(
+      service.updatePost(
+        '1001',
+        '10',
+        {
+          categoryIds: ['12'],
+        },
+        user,
+      ),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('throws NotFoundException when deleting a missing post', async () => {
