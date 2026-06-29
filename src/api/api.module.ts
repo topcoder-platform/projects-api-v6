@@ -12,6 +12,7 @@ import { ProjectInviteModule } from './project-invite/project-invite.module';
 import { ProjectMemberModule } from './project-member/project-member.module';
 import { ProjectPhaseModule } from './project-phase/project-phase.module';
 import { ProjectSettingModule } from './project-setting/project-setting.module';
+import { ProjectShowcasePostModule } from './project-showcase-post/project-showcase-post.module';
 import { ProjectModule } from './project/project.module';
 
 /**
@@ -39,6 +40,7 @@ import { ProjectModule } from './project/project.module';
     GlobalProvidersModule,
     CopilotModule,
     MetadataModule,
+    ProjectShowcasePostModule,
     ProjectModule,
     ProjectMemberModule,
     ProjectInviteModule,

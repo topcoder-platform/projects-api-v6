@@ -275,6 +275,15 @@ export class PermissionService {
           hasMachineProjectWriteScope
         );
 
+      case NamedPermission.MANAGE_PROJECT_SHOWCASE_POST:
+        return (
+          isAdmin ||
+          isManagementMember ||
+          this.isCopilot(member?.role) ||
+          this.hasProjectUpdateTopcoderRole(user) ||
+          hasMachineProjectWriteScope
+        );
+
       case NamedPermission.DELETE_PROJECT:
         return (
           isAdmin ||
@@ -532,6 +541,7 @@ export class PermissionService {
     return [
       NamedPermission.VIEW_PROJECT,
       NamedPermission.EDIT_PROJECT,
+      NamedPermission.MANAGE_PROJECT_SHOWCASE_POST,
       NamedPermission.DELETE_PROJECT,
       NamedPermission.READ_PROJECT_MEMBER,
       NamedPermission.READ_PROJECT_INVITE_NOT_OWN,

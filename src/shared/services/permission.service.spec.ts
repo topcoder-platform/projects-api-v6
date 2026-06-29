@@ -748,6 +748,27 @@ describe('PermissionService', () => {
     ).toBe(false);
   });
 
+  it('allows project copilots to manage showcase posts', () => {
+    const user = {
+      userId: '3001',
+      roles: [UserRole.TC_COPILOT],
+      isMachine: false,
+    };
+    const projectMembers = [
+      {
+        userId: '3001',
+        role: ProjectMemberRole.COPILOT,
+      },
+    ];
+
+    expect(
+      service.hasNamedPermission(
+        Permission.MANAGE_PROJECT_SHOWCASE_POST,
+        user,
+        projectMembers,
+      ),
+    ).toBe(true);
+  });
   it('allows deleting project for machine token with project write scope', () => {
     const allowed = service.hasNamedPermission(Permission.DELETE_PROJECT, {
       scopes: [Scope.PROJECTS_ALL],

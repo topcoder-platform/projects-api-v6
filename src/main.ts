@@ -33,6 +33,7 @@ import { WorkStreamModule } from './api/workstream/workstream.module';
 import { AppModule } from './app.module';
 import { enrichSwaggerAuthDocumentation } from './shared/utils/swagger.utils';
 import { LoggerService } from './shared/modules/global/logger.service';
+import { MetadataModule } from './api/metadata/metadata.module';
 
 // TODO (quality): Move serializeBigInt to src/shared/utils/serialization.utils.ts
 /**
@@ -255,7 +256,7 @@ curl --request POST \\
   // Swagger setup.
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig, {
     // TODO (quality): WorkStreamModule is included in the Swagger document but is not imported in ApiModule. Either add WorkStreamModule to ApiModule's imports array, or remove it from the Swagger include list to avoid documentation drift.
-    include: [ApiModule, WorkStreamModule],
+    include: [ApiModule, WorkStreamModule, MetadataModule],
     deepScanRoutes: true,
     extraModels: [...EVENT_SWAGGER_MODELS],
   });

@@ -259,6 +259,13 @@ function getNamedPermissionDocumentation(
         scopes: PROJECT_WRITE_SCOPES,
       });
 
+    case NamedPermission.MANAGE_PROJECT_SHOWCASE_POST:
+      return createSummary({
+        userRoles: PROJECT_UPDATE_TOPCODER_ROLES,
+        projectRoles: PROJECT_MEMBER_MANAGEMENT_AND_COPILOT_ROLES,
+        scopes: PROJECT_WRITE_SCOPES,
+      });
+
     case NamedPermission.DELETE_PROJECT:
       return createSummary({
         userRoles: ADMIN_AND_MANAGER_ROLES,
