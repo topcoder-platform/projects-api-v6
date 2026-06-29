@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import { ProjectShowcasePostStatus } from '@prisma/client';
+import { ProjectShowcasePostMediaInputDto } from './project-showcase-post-media-input.dto';
 
 export class CreateProjectShowcasePostDto {
   @ApiProperty({ description: 'Post title.' })
@@ -35,4 +45,11 @@ export class CreateProjectShowcasePostDto {
   @IsArray()
   @IsUUID('4', { each: true })
   challengeIds?: string[];
+
+  @ApiPropertyOptional({ type: [Object] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProjectShowcasePostMediaInputDto)
+  media?: ProjectShowcasePostMediaInputDto[];
 }

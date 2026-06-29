@@ -1075,6 +1075,7 @@ model ProjectShowcasePost {
   project        Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   industries     ProjectShowcasePostIndustry[]
   categories     ProjectShowcasePostCategory[]
+  media          ProjectShowcasePostMedia[]
 
   @@index([status])
   @@index([projectId])
@@ -1129,4 +1130,19 @@ model ProjectShowcasePostCategory {
   @@index([projectShowcasePostId])
   @@index([categoryId])
   @@map("project_showcase_post_categories")
+}
+
+/// Media assets attached to project showcase posts.
+model ProjectShowcasePostMedia {
+  id                    BigInt                    @id @default(autoincrement())
+  projectShowcasePostId BigInt
+  type                  String
+  url                   String
+  createdAt             DateTime                  @default(now())
+  createdBy             BigInt
+
+  projectShowcasePost    ProjectShowcasePost    @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
+
+  @@index([projectShowcasePostId])
+  @@map("project_showcase_post_media")
 }
