@@ -149,7 +149,7 @@ export class ProjectShowcasePostService {
     );
     ensureProjectNamedPermission(
       this.permissionService,
-      Permission.EDIT_PROJECT,
+      Permission.MANAGE_PROJECT_SHOWCASE_POST,
       user,
       project.members,
     );
@@ -204,7 +204,7 @@ export class ProjectShowcasePostService {
     );
     ensureProjectNamedPermission(
       this.permissionService,
-      Permission.EDIT_PROJECT,
+      Permission.MANAGE_PROJECT_SHOWCASE_POST,
       user,
       project.members,
     );
@@ -282,7 +282,7 @@ export class ProjectShowcasePostService {
     );
     ensureProjectNamedPermission(
       this.permissionService,
-      Permission.EDIT_PROJECT,
+      Permission.MANAGE_PROJECT_SHOWCASE_POST,
       user,
       project.members,
     );
