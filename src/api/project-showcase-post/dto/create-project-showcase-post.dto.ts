@@ -46,7 +46,7 @@ export class CreateProjectShowcasePostDto {
   @IsUUID('4', { each: true })
   challengeIds?: string[];
 
-  @ApiPropertyOptional({ type: [Object] })
+  @ApiPropertyOptional({ type: [ProjectShowcasePostMediaInputDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

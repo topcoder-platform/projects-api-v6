@@ -211,7 +211,7 @@ export class ProjectShowcasePostService {
             create: (dto.media || []).map((asset) => ({
               type: asset.type,
               url: asset.url,
-              createdBy: auditUserId,
+              createdBy: BigInt(auditUserId),
             })),
           },
         },
@@ -297,13 +297,14 @@ export class ProjectShowcasePostService {
       };
     }
 
-    if (typeof dto.media !== 'undefined') {
+    if (typeof dto.media !== 'undefined' && Array.isArray(dto.media)) {
+      const auditUserId = BigInt(getAuditUserId(user));
       updateData.media = {
         deleteMany: {},
         create: dto.media.map((mediaItem) => ({
           type: mediaItem.type,
           url: mediaItem.url,
-          createdBy: getAuditUserId(user),
+          createdBy: auditUserId,
         })),
       };
     }
@@ -458,7 +459,13 @@ export class ProjectShowcasePostService {
     post: ProjectShowcasePost & {
       industries: { industry: { id: bigint; name: string } }[];
       categories: { category: { id: bigint; name: string } }[];
-      media: { id: bigint; type: string; url: string; createdAt: Date; createdBy: bigint }[];
+      media: {
+        id: bigint;
+        type: string;
+        url: string;
+        createdAt: Date;
+        createdBy: bigint;
+      }[];
     },
   ): ProjectShowcasePostResponseDto {
     return {
