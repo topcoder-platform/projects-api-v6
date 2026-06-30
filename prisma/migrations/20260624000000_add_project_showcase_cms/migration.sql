@@ -51,6 +51,17 @@ CREATE TABLE projects."project_showcase_post_categories" (
     UNIQUE ("projectShowcasePostId", "categoryId")
 );
 
+CREATE TABLE projects."project_showcase_post_media" (
+  "id" BIGSERIAL PRIMARY KEY,
+  "projectShowcasePostId" BIGINT NOT NULL,
+  "type" VARCHAR(255) NOT NULL,
+  "url" VARCHAR(2048) NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT now(),
+  "createdBy" BIGINT NOT NULL,
+  CONSTRAINT "project_showcase_post_media_project_showcase_post_fkey"
+    FOREIGN KEY ("projectShowcasePostId") REFERENCES projects."project_showcase_posts"("id") ON DELETE CASCADE
+);
+
 -- Indexes for query performance
 CREATE INDEX "project_showcase_posts_status_idx" ON projects."project_showcase_posts"("status");
 CREATE INDEX "project_showcase_posts_project_id_idx" ON projects."project_showcase_posts"("projectId");

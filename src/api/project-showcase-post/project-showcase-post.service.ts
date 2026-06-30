@@ -44,6 +44,7 @@ export class ProjectShowcasePostService {
         categories: {
           include: { category: true },
         },
+        media: true,
       },
       orderBy,
       skip,
@@ -90,6 +91,7 @@ export class ProjectShowcasePostService {
         categories: {
           include: { category: true },
         },
+        media: true,
       },
       orderBy,
       skip,
@@ -151,6 +153,7 @@ export class ProjectShowcasePostService {
         categories: {
           include: { category: true },
         },
+        media: true,
       },
     });
 
@@ -204,6 +207,13 @@ export class ProjectShowcasePostService {
           categories: {
             create: categoryIds.map((categoryId) => ({ categoryId })),
           },
+          media: {
+            create: (dto.media || []).map((asset) => ({
+              type: asset.type,
+              url: asset.url,
+              createdBy: BigInt(auditUserId),
+            })),
+          },
         },
         include: {
           industries: {
@@ -212,6 +222,7 @@ export class ProjectShowcasePostService {
           categories: {
             include: { category: true },
           },
+          media: true,
         },
       });
 
@@ -286,6 +297,18 @@ export class ProjectShowcasePostService {
       };
     }
 
+    if (typeof dto.media !== 'undefined' && Array.isArray(dto.media)) {
+      const auditUserId = BigInt(getAuditUserId(user));
+      updateData.media = {
+        deleteMany: {},
+        create: dto.media.map((mediaItem) => ({
+          type: mediaItem.type,
+          url: mediaItem.url,
+          createdBy: auditUserId,
+        })),
+      };
+    }
+
     try {
       const updated = await this.prisma.projectShowcasePost.update({
         where: {
@@ -299,6 +322,7 @@ export class ProjectShowcasePostService {
           categories: {
             include: { category: true },
           },
+          media: true,
         },
       });
 
@@ -435,6 +459,13 @@ export class ProjectShowcasePostService {
     post: ProjectShowcasePost & {
       industries: { industry: { id: bigint; name: string } }[];
       categories: { category: { id: bigint; name: string } }[];
+      media: {
+        id: bigint;
+        type: string;
+        url: string;
+        createdAt: Date;
+        createdBy: bigint;
+      }[];
     },
   ): ProjectShowcasePostResponseDto {
     return {
@@ -455,6 +486,13 @@ export class ProjectShowcasePostService {
       categories: post.categories.map((entry) => ({
         id: String(entry.category.id),
         name: entry.category.name,
+      })),
+      media: post.media.map((entry) => ({
+        id: String(entry.id),
+        type: entry.type,
+        url: entry.url,
+        createdAt: entry.createdAt,
+        createdBy: String(entry.createdBy),
       })),
     };
   }

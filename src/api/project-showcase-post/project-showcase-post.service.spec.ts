@@ -55,6 +55,15 @@ describe('ProjectShowcasePostService', () => {
           },
         },
       ],
+      media: [
+        {
+          id: BigInt(101),
+          type: 'image/png',
+          url: 'https://example.com/image.png',
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+          createdBy: BigInt(42),
+        },
+      ],
       ...overrides,
     } as const;
   }
@@ -188,10 +197,70 @@ describe('ProjectShowcasePostService', () => {
           categories: {
             create: [{ categoryId: BigInt(7) }],
           },
+          media: {
+            create: [],
+          },
         }),
       }),
     );
     expect(response.status).toBe('DRAFT');
+  });
+
+  it('creates a new project showcase post with media assets', async () => {
+    prismaMock.projectShowcasePost.create.mockResolvedValue(
+      buildPostRecord({
+        status: 'DRAFT',
+        media: [
+          {
+            id: BigInt(101),
+            type: 'image/png',
+            url: 'https://example.com/image.png',
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            createdBy: BigInt(42),
+          },
+        ],
+      }),
+    );
+
+    const response = await service.createPost(
+      '1001',
+      {
+        title: 'New post',
+        content: 'New content',
+        industryIds: ['5'],
+        categoryIds: ['7'],
+        media: [
+          {
+            type: 'image/png',
+            url: 'https://example.com/image.png',
+          },
+        ],
+      },
+      user,
+    );
+
+    expect(prismaMock.projectShowcasePost.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          media: {
+            create: [
+              {
+                type: 'image/png',
+                url: 'https://example.com/image.png',
+                createdBy: 42,
+              },
+            ],
+          },
+        }),
+      }),
+    );
+    expect(response.media).toEqual([
+      expect.objectContaining({
+        id: '101',
+        type: 'image/png',
+        url: 'https://example.com/image.png',
+      }),
+    ]);
   });
 
   it('throws NotFoundException when create hits an industry foreign key constraint', async () => {
@@ -298,6 +367,66 @@ describe('ProjectShowcasePostService', () => {
       }),
     );
     expect(response.title).toBe('Updated title');
+  });
+
+  it('updates a post with media assets', async () => {
+    prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+      buildPostRecord(),
+    );
+    prismaMock.projectShowcasePost.update.mockResolvedValue(
+      buildPostRecord({
+        title: 'Updated title',
+        media: [
+          {
+            id: BigInt(102),
+            type: 'video/mp4',
+            url: 'https://example.com/video.mp4',
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            createdBy: BigInt(42),
+          },
+        ],
+      }),
+    );
+
+    const response = await service.updatePost(
+      '1001',
+      '10',
+      {
+        title: 'Updated title',
+        media: [
+          {
+            type: 'video/mp4',
+            url: 'https://example.com/video.mp4',
+          },
+        ],
+      },
+      user,
+    );
+
+    expect(prismaMock.projectShowcasePost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: BigInt(10) },
+        data: expect.objectContaining({
+          media: {
+            deleteMany: {},
+            create: [
+              {
+                type: 'video/mp4',
+                url: 'https://example.com/video.mp4',
+                createdBy: 42,
+              },
+            ],
+          },
+        }),
+      }),
+    );
+    expect(response.media).toEqual([
+      expect.objectContaining({
+        id: '102',
+        type: 'video/mp4',
+        url: 'https://example.com/video.mp4',
+      }),
+    ]);
   });
 
   it('throws NotFoundException when update hits an industry foreign key constraint', async () => {

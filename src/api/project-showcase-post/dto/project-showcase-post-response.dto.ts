@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProjectShowcasePostStatus } from '@prisma/client';
+import { ProjectShowcasePostMediaDto } from './project-showcase-post-media.dto';
 
 export class ProjectShowcasePostResponseDto {
   @ApiProperty()
@@ -25,6 +26,9 @@ export class ProjectShowcasePostResponseDto {
 
   @ApiProperty({ type: [Object] })
   categories: Array<{ id: string; name: string }>;
+
+  @ApiPropertyOptional({ type: [ProjectShowcasePostMediaDto] })
+  media?: ProjectShowcasePostMediaDto[];
 
   @ApiProperty()
   createdById: number;
