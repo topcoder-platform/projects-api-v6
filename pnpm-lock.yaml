@@ -4204,11 +4204,6 @@ packages:
     version: 3.0.1
     engines: {node: '>= 14'}
 
-  tc-core-library-js@https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062:
-    resolution: {tarball: https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062}
-    version: 3.0.1
-    engines: {node: '>= 14'}
-
   terser-webpack-plugin@5.3.16:
     resolution: {integrity: sha512-h9oBFCWrq78NyWWVcSwZarJkZ01c2AyGrzs1crmHZO3QUg9D61Wu4NPjBy69n7JqylFF5y+CsUZYmYEIZ3mR+Q==}
     engines: {node: '>= 10.13.0'}
@@ -6546,7 +6541,7 @@ snapshots:
       joi: 18.0.2
       lodash: 4.17.23
       superagent: 10.3.0
-      tc-core-library-js: https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062
+      tc-core-library-js: https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/1075136355e1e1c4779f2138a30f3ffbd718bfa4
     transitivePeerDependencies:
       - debug
       - supports-color
@@ -9450,19 +9445,6 @@ snapshots:
       - react-native-b4a
 
   tc-core-library-js@https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/1075136355e1e1c4779f2138a30f3ffbd718bfa4:
-    dependencies:
-      axios: 1.13.5
-      bunyan: 1.8.15
-      jsonwebtoken: 9.0.3
-      jwks-rsa: 3.2.2
-      lodash: 4.17.23
-      millisecond: 0.1.2
-      r7insight_node: 2.1.1
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
-  tc-core-library-js@https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062:
     dependencies:
       axios: 1.13.5
       bunyan: 1.8.15
