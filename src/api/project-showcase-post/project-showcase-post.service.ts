@@ -491,7 +491,6 @@ export class ProjectShowcasePostService {
       media: post.media.map((entry) => ({
         id: String(entry.id),
         type: entry.type,
-        url_: entry.url,
         url: signCloudFrontUrl(entry.url),
         createdAt: entry.createdAt,
         createdBy: String(entry.createdBy),
