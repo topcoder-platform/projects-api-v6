@@ -32,6 +32,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.926.0
         version: 3.985.0
+      '@aws-sdk/cloudfront-signer':
+        specifier: ^3.1077.0
+        version: 3.1077.0
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.926.0
         version: 3.985.0
@@ -261,6 +264,10 @@ packages:
 
   '@aws-sdk/client-sso@3.985.0':
     resolution: {integrity: sha512-81J8iE8MuXhdbMfIz4sWFj64Pe41bFi/uqqmqOC5SlGv+kwoyLsyKS/rH2tW2t5buih4vTUxskRjxlqikTD4oQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/cloudfront-signer@3.1077.0':
+    resolution: {integrity: sha512-KjOQEbesPbpVd3NjF2fGCDbigunTY/x5fERn1RmFZ836VUT2Sh4BJpaHZ1rOLE+wsEuYS4DFHkXzbVbmJ5H5lw==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.973.7':
@@ -1285,6 +1292,10 @@ packages:
     resolution: {integrity: sha512-x3ie6Crr58MWrm4viHqqy2Du2rHYZjwu8BekasrQx4ca+Y24dzVAwq3yErdqIbc2G3I0kLQA13PQ+/rde+u65g==}
     engines: {node: '>=18.0.0'}
 
+  '@smithy/core@3.28.0':
+    resolution: {integrity: sha512-N/LoLG8pZ1zv5cIWpdF6vmSjtZtXKK9G0OqT5yYCOZU+CzPq1+nYA95VoKJBGWRScs7YbMugZ7lZx8Fj1vdHoA==}
+    engines: {node: '>=18.0.0'}
+
   '@smithy/credential-provider-imds@4.2.8':
     resolution: {integrity: sha512-FNT0xHS1c/CPN8upqbMFP83+ul5YgdisfCfkZ86Jh2NSmnqw/AJ6x5pEogVCTVvSm7j9MopRU89bmDelxuDMYw==}
     engines: {node: '>=18.0.0'}
@@ -1403,6 +1414,10 @@ packages:
 
   '@smithy/types@4.12.0':
     resolution: {integrity: sha512-9YcuJVTOBDjg9LWo23Qp0lTQ3D7fQsQtwle0jVfpbUHy9qBwCEgKuVH4FqFB3VYu0nwdHKiEMA+oXz7oV8X1kw==}
+    engines: {node: '>=18.0.0'}
+
+  '@smithy/types@4.15.0':
+    resolution: {integrity: sha512-Z5TAOxygoFvybJV3igo5SloFflSokHx2hu1eFA+DxDTcn+FtKxUSui+rbTRG1pAafMA888Z3MVvCWUuvCrTXjg==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/url-parser@4.2.8':
@@ -4189,6 +4204,11 @@ packages:
     version: 3.0.1
     engines: {node: '>= 14'}
 
+  tc-core-library-js@https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062:
+    resolution: {tarball: https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062}
+    version: 3.0.1
+    engines: {node: '>= 14'}
+
   terser-webpack-plugin@5.3.16:
     resolution: {integrity: sha512-h9oBFCWrq78NyWWVcSwZarJkZ01c2AyGrzs1crmHZO3QUg9D61Wu4NPjBy69n7JqylFF5y+CsUZYmYEIZ3mR+Q==}
     engines: {node: '>= 10.13.0'}
@@ -4739,6 +4759,11 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
+
+  '@aws-sdk/cloudfront-signer@3.1077.0':
+    dependencies:
+      '@smithy/core': 3.28.0
+      tslib: 2.8.1
 
   '@aws-sdk/core@3.973.7':
     dependencies:
@@ -6106,6 +6131,11 @@ snapshots:
       '@smithy/uuid': 1.1.0
       tslib: 2.8.1
 
+  '@smithy/core@3.28.0':
+    dependencies:
+      '@smithy/types': 4.15.0
+      tslib: 2.8.1
+
   '@smithy/credential-provider-imds@4.2.8':
     dependencies:
       '@smithy/node-config-provider': 4.3.8
@@ -6298,6 +6328,10 @@ snapshots:
       tslib: 2.8.1
 
   '@smithy/types@4.12.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@smithy/types@4.15.0':
     dependencies:
       tslib: 2.8.1
 
@@ -6512,7 +6546,7 @@ snapshots:
       joi: 18.0.2
       lodash: 4.17.23
       superagent: 10.3.0
-      tc-core-library-js: https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/1075136355e1e1c4779f2138a30f3ffbd718bfa4
+      tc-core-library-js: https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062
     transitivePeerDependencies:
       - debug
       - supports-color
@@ -9416,6 +9450,19 @@ snapshots:
       - react-native-b4a
 
   tc-core-library-js@https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/1075136355e1e1c4779f2138a30f3ffbd718bfa4:
+    dependencies:
+      axios: 1.13.5
+      bunyan: 1.8.15
+      jsonwebtoken: 9.0.3
+      jwks-rsa: 3.2.2
+      lodash: 4.17.23
+      millisecond: 0.1.2
+      r7insight_node: 2.1.1
+    transitivePeerDependencies:
+      - debug
+      - supports-color
+
+  tc-core-library-js@https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/323567bc50e433ae488b656f9f94e821ebaf3062:
     dependencies:
       axios: 1.13.5
       bunyan: 1.8.15

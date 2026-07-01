@@ -72,6 +72,33 @@ export const APP_CONFIG = {
     3600,
   ),
   /**
+   * CloudFront key pair id used to sign project showcase media URLs.
+   * Env: `CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_KEY_PAIR_ID`.
+   */
+  cloudFrontProjectShowcaseMediaKeyPairId:
+    process.env.CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_KEY_PAIR_ID ||
+    process.env.CLOUDFRONT_KEY_PAIR_ID,
+  /**
+   * CloudFront private key used to sign project showcase media URLs.
+   * Env: `CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_PRIVATE_KEY`.
+   */
+  cloudFrontProjectShowcaseMediaPrivateKey:
+    process.env.CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_PRIVATE_KEY,
+  /**
+   * CloudFront public key used to validate signed URLs (not used by service).
+   * Env: `CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_PUBLIC_KEY`.
+   */
+  cloudFrontProjectShowcaseMediaPublicKey:
+    process.env.CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_PUBLIC_KEY,
+  /**
+   * CloudFront signed URL expiry in seconds.
+   * Env: `CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_URL_EXPIRATION`, default: `600`.
+   */
+  cloudFrontProjectShowcaseMediaUrlExpiration: parseNumberEnv(
+    process.env.CLOUDFRONT_PROJECT_SHOWCASE_MEDIA_URL_EXPIRATION,
+    600,
+  ),
+  /**
    * Maximum number of phase products per phase.
    * Env: `MAX_PHASE_PRODUCT_COUNT`, default: `20`.
    */

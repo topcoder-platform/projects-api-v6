@@ -1,6 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { ProjectShowcasePostService } from './project-showcase-post.service';
+import type { ProjectShowcasePostService } from './project-showcase-post.service';
+
+jest.mock('src/shared/utils/cloudfront.utils', () => ({
+  signCloudFrontUrl: jest.fn((url: string) => `${url}?signed=1`),
+}));
+
+const { ProjectShowcasePostService: ProjectShowcasePostServiceClass } =
+  require('./project-showcase-post.service');
 
 describe('ProjectShowcasePostService', () => {
   const prismaMock = {
@@ -20,7 +27,7 @@ describe('ProjectShowcasePostService', () => {
     hasNamedPermission: jest.fn(),
   };
 
-  let service: ProjectShowcasePostService;
+  let service: InstanceType<typeof ProjectShowcasePostServiceClass>;
   const user = {
     userId: '42',
     isMachine: false,
@@ -69,7 +76,7 @@ describe('ProjectShowcasePostService', () => {
   }
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
 
     permissionServiceMock.hasNamedPermission.mockReturnValue(true);
     prismaMock.project.findFirst.mockResolvedValue({
@@ -83,7 +90,7 @@ describe('ProjectShowcasePostService', () => {
       ],
     });
 
-    service = new ProjectShowcasePostService(
+    service = new ProjectShowcasePostServiceClass(
       prismaMock as any,
       permissionServiceMock as any,
     );
@@ -247,7 +254,7 @@ describe('ProjectShowcasePostService', () => {
               {
                 type: 'image/png',
                 url: 'https://example.com/image.png',
-                createdBy: 42,
+                createdBy: BigInt(42),
               },
             ],
           },
@@ -258,7 +265,7 @@ describe('ProjectShowcasePostService', () => {
       expect.objectContaining({
         id: '101',
         type: 'image/png',
-        url: 'https://example.com/image.png',
+        url: 'https://example.com/image.png?signed=1',
       }),
     ]);
   });
@@ -413,7 +420,7 @@ describe('ProjectShowcasePostService', () => {
               {
                 type: 'video/mp4',
                 url: 'https://example.com/video.mp4',
-                createdBy: 42,
+                createdBy: BigInt(42),
               },
             ],
           },
@@ -424,7 +431,7 @@ describe('ProjectShowcasePostService', () => {
       expect.objectContaining({
         id: '102',
         type: 'video/mp4',
-        url: 'https://example.com/video.mp4',
+        url: 'https://example.com/video.mp4?signed=1',
       }),
     ]);
   });
