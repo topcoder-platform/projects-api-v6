@@ -18,6 +18,7 @@ import { CreateProjectShowcasePostDto } from './dto/create-project-showcase-post
 import { ProjectShowcasePostListQueryDto } from './dto/project-showcase-post-list-query.dto';
 import { ProjectShowcasePostResponseDto } from './dto/project-showcase-post-response.dto';
 import { UpdateProjectShowcasePostDto } from './dto/update-project-showcase-post.dto';
+import { signCloudFrontUrl } from 'src/shared/utils/cloudfront.utils';
 
 @Injectable()
 export class ProjectShowcasePostService {
@@ -490,7 +491,7 @@ export class ProjectShowcasePostService {
       media: post.media.map((entry) => ({
         id: String(entry.id),
         type: entry.type,
-        url: entry.url,
+        url: signCloudFrontUrl(entry.url),
         createdAt: entry.createdAt,
         createdBy: String(entry.createdBy),
       })),
