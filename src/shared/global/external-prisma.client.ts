@@ -1,4 +1,3 @@
-import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClientOptions } from '@prisma/client/runtime/client';
 import { PrismaClient as ChallengesPrismaClient } from '@topcoder/challenge-api-v6/packages/challenge-prisma-client';
 import { PrismaClient as MembersPrismaClient } from '@topcoder/member-api-v6/packages/member-prisma-client';
@@ -24,15 +23,6 @@ function ensureUrl(value: string | undefined, name: string): string {
   return value;
 }
 
-function createPgAdapter(dbUrl: string) {
-  const url = new URL(dbUrl);
-  const schema = url.searchParams.get('schema');
-  const connectionString = dbUrl;
-  return schema
-    ? new PrismaPg({ connectionString }, { schema })
-    : new PrismaPg({ connectionString });
-}
-
 let challengesClient: ChallengesPrismaClient;
 let membersClient: MembersPrismaClient;
 let resourcesClient: ResourcesPrismaClient;
@@ -40,10 +30,7 @@ let skillsClient: SkillsPrismaClient;
 
 export const getChallengesPrismaClient = (): ChallengesPrismaClient => {
   if (!challengesClient) {
-    const url = ensureUrl(
-      process.env.CHALLENGES_DB_URL || process.env.DATABASE_URL,
-      'CHALLENGES_DB_URL or DATABASE_URL',
-    );
+    const url = ensureUrl(process.env.CHALLENGES_DB_URL, 'CHALLENGES_DB_URL');
     challengesClient = new ChallengesPrismaClient({
       ...clientOptions,
       datasources: { db: { url } },
@@ -54,10 +41,7 @@ export const getChallengesPrismaClient = (): ChallengesPrismaClient => {
 
 export const getMembersPrismaClient = (): MembersPrismaClient => {
   if (!membersClient) {
-    const url = ensureUrl(
-      process.env.MEMBERS_DB_URL || process.env.DATABASE_URL,
-      'MEMBERS_DB_URL or DATABASE_URL',
-    );
+    const url = ensureUrl(process.env.MEMBERS_DB_URL, 'MEMBERS_DB_URL');
     membersClient = new MembersPrismaClient({
       ...clientOptions,
       datasources: { db: { url } },
@@ -68,10 +52,7 @@ export const getMembersPrismaClient = (): MembersPrismaClient => {
 
 export const getResourcesPrismaClient = (): ResourcesPrismaClient => {
   if (!resourcesClient) {
-    const url = ensureUrl(
-      process.env.RESOURCES_DB_URL || process.env.DATABASE_URL,
-      'RESOURCES_DB_URL or DATABASE_URL',
-    );
+    const url = ensureUrl(process.env.RESOURCES_DB_URL, 'RESOURCES_DB_URL');
     resourcesClient = new ResourcesPrismaClient({
       ...clientOptions,
       datasources: { db: { url } },
@@ -82,10 +63,7 @@ export const getResourcesPrismaClient = (): ResourcesPrismaClient => {
 
 export const getSkillsPrismaClient = (): SkillsPrismaClient => {
   if (!skillsClient) {
-    const url = ensureUrl(
-      process.env.SKILLS_DB_URL || process.env.DATABASE_URL,
-      'SKILLS_DB_URL or DATABASE_URL',
-    );
+    const url = ensureUrl(process.env.SKILLS_DB_URL, 'SKILLS_DB_URL');
     skillsClient = new SkillsPrismaClient({
       ...clientOptions,
       datasources: { db: { url } },

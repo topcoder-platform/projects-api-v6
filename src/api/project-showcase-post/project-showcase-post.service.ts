@@ -620,7 +620,9 @@ export class ProjectShowcasePostService {
     const memberCountry = new Map<string, string>();
     for (const member of members) {
       const country =
-        member.country || member.homeCountryCode || member.competitionCountryCode;
+        member.country ||
+        member.homeCountryCode ||
+        member.competitionCountryCode;
       if (country) {
         memberCountry.set(String(member.userId), country);
       }
@@ -633,13 +635,18 @@ export class ProjectShowcasePostService {
         continue;
       }
 
-      const set = countriesByChallenge.get(resource.challengeId) ?? new Set<string>();
+      const set =
+        countriesByChallenge.get(resource.challengeId) ?? new Set<string>();
       set.add(country);
       countriesByChallenge.set(resource.challengeId, set);
     }
 
     const uniqueSkillIds = Array.from(
-      new Set(challenges.flatMap((challenge) => challenge.skills.map((skill) => skill.skillId))),
+      new Set(
+        challenges.flatMap((challenge) =>
+          challenge.skills.map((skill) => skill.skillId),
+        ),
+      ),
     );
 
     const skillNamesById = new Map<string, string>();
