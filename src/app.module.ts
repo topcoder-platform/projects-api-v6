@@ -1,4 +1,3 @@
-import { ConfigModule } from '@nestjs/config';
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ApiModule } from './api/api.module';
@@ -23,7 +22,7 @@ import { GlobalProvidersModule } from './shared/modules/global/globalProviders.m
  * Usage: passed directly to NestFactory.create() in main.ts.
  */
 @Module({
-  imports: [ConfigModule.forRoot(), GlobalProvidersModule, ApiModule],
+  imports: [GlobalProvidersModule, ApiModule],
   providers: [
     {
       provide: APP_GUARD,
