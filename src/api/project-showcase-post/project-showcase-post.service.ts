@@ -19,7 +19,14 @@ import { ProjectShowcasePostListQueryDto } from './dto/project-showcase-post-lis
 import { ProjectShowcasePostResponseDto } from './dto/project-showcase-post-response.dto';
 import { UpdateProjectShowcasePostDto } from './dto/update-project-showcase-post.dto';
 import { signCloudFrontUrl } from 'src/shared/utils/cloudfront.utils';
-
+import {
+  getChallengesPrismaClient,
+  getMembersPrismaClient,
+  getResourcesPrismaClient,
+  getSkillsPrismaClient,
+  getSubmitterRoleId,
+} from 'src/shared/global/external-prisma.client';
+import { ChallengeMetadataDto } from './dto/challenge-metadata.dto';
 @Injectable()
 export class ProjectShowcasePostService {
   constructor(
@@ -52,7 +59,15 @@ export class ProjectShowcasePostService {
       take: perPage,
     });
 
-    return posts.map((post) => this.toDto(post));
+    const metadata = await this.loadMetadataForPosts(posts);
+    return posts.map((post) =>
+      this.toDto(
+        post,
+        post.challengeIds
+          .map((challengeId) => metadata.get(challengeId))
+          .filter((entry): entry is ChallengeMetadataDto => Boolean(entry)),
+      ),
+    );
   }
 
   async countPosts(criteria: ProjectShowcasePostListQueryDto): Promise<number> {
@@ -99,7 +114,15 @@ export class ProjectShowcasePostService {
       take: perPage,
     });
 
-    return posts.map((post) => this.toDto(post));
+    const metadata = await this.loadMetadataForPosts(posts);
+    return posts.map((post) =>
+      this.toDto(
+        post,
+        post.challengeIds
+          .map((challengeId) => metadata.get(challengeId))
+          .filter((entry): entry is ChallengeMetadataDto => Boolean(entry)),
+      ),
+    );
   }
 
   async countProjectPosts(
@@ -148,6 +171,12 @@ export class ProjectShowcasePostService {
         projectId: parsedProjectId,
       },
       include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         industries: {
           include: { industry: true },
         },
@@ -164,7 +193,13 @@ export class ProjectShowcasePostService {
       );
     }
 
-    return this.toDto(post);
+    const metadataMap = await this.loadMetadataForPosts([post]);
+    return this.toDto(
+      post,
+      post.challengeIds
+        .map((challengeId) => metadataMap.get(challengeId))
+        .filter((entry): entry is ChallengeMetadataDto => Boolean(entry)),
+    );
   }
 
   async createPost(
@@ -227,7 +262,13 @@ export class ProjectShowcasePostService {
         },
       });
 
-      return this.toDto(created);
+      const metadataMap = await this.loadMetadataForPosts([created]);
+      return this.toDto(
+        created,
+        created.challengeIds
+          .map((challengeId) => metadataMap.get(challengeId))
+          .filter((entry): entry is ChallengeMetadataDto => Boolean(entry)),
+      );
     } catch (error) {
       this.handlePrismaForeignKeyError(error, 'create project showcase post');
     }
@@ -327,7 +368,13 @@ export class ProjectShowcasePostService {
         },
       });
 
-      return this.toDto(updated);
+      const metadataMap = await this.loadMetadataForPosts([updated]);
+      return this.toDto(
+        updated,
+        updated.challengeIds
+          .map((challengeId) => metadataMap.get(challengeId))
+          .filter((entry): entry is ChallengeMetadataDto => Boolean(entry)),
+      );
     } catch (error) {
       this.handlePrismaForeignKeyError(error, 'update project showcase post');
     }
@@ -458,6 +505,7 @@ export class ProjectShowcasePostService {
 
   private toDto(
     post: ProjectShowcasePost & {
+      project?: { id: bigint; name: string };
       industries: { industry: { id: bigint; name: string } }[];
       categories: { category: { id: bigint; name: string } }[];
       media: {
@@ -468,6 +516,7 @@ export class ProjectShowcasePostService {
         createdBy: bigint;
       }[];
     },
+    challengeMetadata?: ChallengeMetadataDto[],
   ): ProjectShowcasePostResponseDto {
     return {
       id: String(post.id),
@@ -475,6 +524,7 @@ export class ProjectShowcasePostService {
       content: post.content,
       status: post.status,
       projectId: String(post.projectId),
+      projectTitle: post.project && String(post.project.name),
       challengeIds: post.challengeIds,
       createdById: post.createdById,
       updatedById: post.updatedById,
@@ -495,7 +545,140 @@ export class ProjectShowcasePostService {
         createdAt: entry.createdAt,
         createdBy: String(entry.createdBy),
       })),
+      challengeMetadata:
+        challengeMetadata && challengeMetadata.length > 0
+          ? challengeMetadata
+          : undefined,
     };
+  }
+
+  private async loadMetadataForPosts(
+    posts: Array<
+      ProjectShowcasePost & {
+        industries: { industry: { id: bigint; name: string } }[];
+        categories: { category: { id: bigint; name: string } }[];
+        media: {
+          id: bigint;
+          type: string;
+          url: string;
+          createdAt: Date;
+          createdBy: bigint;
+        }[];
+      }
+    >,
+  ): Promise<Map<string, ChallengeMetadataDto>> {
+    const challengeIds = Array.from(
+      new Set(posts.flatMap((post) => post.challengeIds ?? [])),
+    );
+
+    if (challengeIds.length === 0) {
+      return new Map();
+    }
+
+    const challenges = await getChallengesPrismaClient().challenge.findMany({
+      where: { id: { in: challengeIds } },
+      select: {
+        id: true,
+        numOfSubmissions: true,
+        numOfRegistrants: true,
+        track: { select: { name: true } },
+        skills: { select: { skillId: true } },
+      },
+    });
+
+    const submitterRoleId = getSubmitterRoleId();
+    const resources = await getResourcesPrismaClient().resource.findMany({
+      where: {
+        challengeId: { in: challengeIds },
+        roleId: submitterRoleId,
+      },
+      select: {
+        challengeId: true,
+        memberId: true,
+      },
+    });
+
+    const memberIds = Array.from(
+      new Set(resources.map((resource) => resource.memberId)),
+    );
+
+    const members =
+      memberIds.length > 0
+        ? await getMembersPrismaClient().member.findMany({
+            where: {
+              userId: { in: memberIds.map((memberId) => BigInt(memberId)) },
+            },
+            select: {
+              userId: true,
+              country: true,
+              homeCountryCode: true,
+              competitionCountryCode: true,
+            },
+          })
+        : [];
+
+    const memberCountry = new Map<string, string>();
+    for (const member of members) {
+      const country =
+        member.country || member.homeCountryCode || member.competitionCountryCode;
+      if (country) {
+        memberCountry.set(String(member.userId), country);
+      }
+    }
+
+    const countriesByChallenge = new Map<string, Set<string>>();
+    for (const resource of resources) {
+      const country = memberCountry.get(resource.memberId);
+      if (!country) {
+        continue;
+      }
+
+      const set = countriesByChallenge.get(resource.challengeId) ?? new Set<string>();
+      set.add(country);
+      countriesByChallenge.set(resource.challengeId, set);
+    }
+
+    const uniqueSkillIds = Array.from(
+      new Set(challenges.flatMap((challenge) => challenge.skills.map((skill) => skill.skillId))),
+    );
+
+    const skillNamesById = new Map<string, string>();
+    if (uniqueSkillIds.length > 0) {
+      const skills = await getSkillsPrismaClient().skill.findMany({
+        where: { id: { in: uniqueSkillIds } },
+        select: { id: true, name: true },
+      });
+      for (const skill of skills) {
+        skillNamesById.set(skill.id, skill.name);
+      }
+    }
+
+    const metadataMap = new Map<string, ChallengeMetadataDto>();
+
+    for (const challenge of challenges) {
+      const countries = Array.from(
+        countriesByChallenge.get(challenge.id) ?? new Set<string>(),
+      ).sort();
+
+      const uniqueIds = Array.from(
+        new Set(challenge.skills.map((skillItem) => skillItem.skillId)),
+      );
+      const skills = uniqueIds.map((skillId) => ({
+        id: skillId,
+        name: skillNamesById.get(skillId) ?? '',
+      }));
+
+      metadataMap.set(challenge.id, {
+        challengeId: challenge.id,
+        numOfSubmissions: challenge.numOfSubmissions,
+        numOfRegistrants: challenge.numOfRegistrants,
+        skills,
+        track: challenge.track?.name ?? '',
+        countries,
+      });
+    }
+
+    return metadataMap;
   }
 
   private handlePrismaForeignKeyError(

@@ -6,6 +6,38 @@ jest.mock('src/shared/utils/cloudfront.utils', () => ({
   signCloudFrontUrl: jest.fn((url: string) => `${url}?signed=1`),
 }));
 
+const challengeClientMock = {
+  challenge: {
+    findMany: jest.fn(),
+  },
+};
+
+const membersClientMock = {
+  member: {
+    findMany: jest.fn(),
+  },
+};
+
+const resourcesClientMock = {
+  resource: {
+    findMany: jest.fn(),
+  },
+};
+
+const skillsClientMock = {
+  skill: {
+    findMany: jest.fn(),
+  },
+};
+
+jest.mock('src/shared/global/external-prisma.client', () => ({
+  getChallengesPrismaClient: () => challengeClientMock,
+  getMembersPrismaClient: () => membersClientMock,
+  getResourcesPrismaClient: () => resourcesClientMock,
+  getSkillsPrismaClient: () => skillsClientMock,
+  getSubmitterRoleId: () => '732339e7-8e30-49d7-9198-cccf9451e221',
+}));
+
 const { ProjectShowcasePostService: ProjectShowcasePostServiceClass } =
   require('./project-showcase-post.service');
 
@@ -62,6 +94,9 @@ describe('ProjectShowcasePostService', () => {
           },
         },
       ],
+      project: {
+        title: 'Project Title',
+      },
       media: [
         {
           id: BigInt(101),
@@ -89,6 +124,41 @@ describe('ProjectShowcasePostService', () => {
         },
       ],
     });
+
+    challengeClientMock.challenge.findMany.mockResolvedValue([
+      {
+        id: '100',
+        numOfSubmissions: 5,
+        numOfRegistrants: 3,
+        track: { name: 'Development' },
+        skills: [{ skillId: 'skill-1' }, { skillId: 'skill-2' }],
+      },
+    ]);
+
+    resourcesClientMock.resource.findMany.mockResolvedValue([
+      { challengeId: '100', memberId: '42' },
+      { challengeId: '100', memberId: '43' },
+    ]);
+
+    membersClientMock.member.findMany.mockResolvedValue([
+      {
+        userId: BigInt(42),
+        country: 'US',
+        homeCountryCode: 'US',
+        competitionCountryCode: 'US',
+      },
+      {
+        userId: BigInt(43),
+        country: 'CA',
+        homeCountryCode: 'CA',
+        competitionCountryCode: 'CA',
+      },
+    ]);
+
+    skillsClientMock.skill.findMany.mockResolvedValue([
+      { id: 'skill-1', name: 'Skill One' },
+      { id: 'skill-2', name: 'Skill Two' },
+    ]);
 
     service = new ProjectShowcasePostServiceClass(
       prismaMock as any,
@@ -211,6 +281,19 @@ describe('ProjectShowcasePostService', () => {
       }),
     );
     expect(response.status).toBe('DRAFT');
+    expect(challengeClientMock.challenge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['100'] } },
+      }),
+    );
+    expect(resourcesClientMock.resource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          challengeId: { in: ['100'] },
+          roleId: '732339e7-8e30-49d7-9198-cccf9451e221',
+        },
+      }),
+    );
   });
 
   it('creates a new project showcase post with media assets', async () => {
