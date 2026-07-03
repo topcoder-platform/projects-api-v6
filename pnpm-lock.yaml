@@ -63,7 +63,7 @@ importers:
         specifier: 7.4.0
         version: 7.4.0(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@topcoder/challenge-api-v6':
-        specifier: github:topcoder-platform/challenge-api-v6#develop
+        specifier: github:topcoder-platform/challenge-api-v6#prisma-client
         version: topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/7f0a4fcc0887e61e88b4a69d14614905b22d19ca(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@topcoder/member-api-v6':
         specifier: github:topcoder-platform/member-api-v6#develop
