@@ -63,17 +63,17 @@ importers:
         specifier: 7.4.0
         version: 7.4.0(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@topcoder/challenge-api-v6':
-        specifier: github:topcoder-platform/challenge-api-v6#prisma-client-2
+        specifier: github:topcoder-platform/challenge-api-v6#prisma-client
         version: topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/4d33d98270c87cbe99fe908af53ad0f4139e098a(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@topcoder/member-api-v6':
-        specifier: github:topcoder-platform/member-api-v6#develop
-        version: topcoder-member-api@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/232567e7d963d6fcae594a3a857f2b578b5154ee(@swc/cli@0.6.0(@swc/core@1.15.11(@swc/helpers@0.5.23))(chokidar@4.0.3))(@swc/core@1.15.11(@swc/helpers@0.5.23))(@types/node@22.19.9)(chokidar@4.0.3)(elasticsearch@15.5.0)(keyv@5.6.0)(typescript@5.9.3)
+        specifier: github:topcoder-platform/member-api-v6#prisma-client
+        version: topcoder-member-api@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/ea895f64de791cabfb86d0d7b2ba0869465e2d8b(@swc/cli@0.6.0(@swc/core@1.15.11(@swc/helpers@0.5.23))(chokidar@4.0.3))(@swc/core@1.15.11(@swc/helpers@0.5.23))(@types/node@22.19.9)(chokidar@4.0.3)(elasticsearch@15.5.0)(keyv@5.6.0)(typescript@5.9.3)
       '@topcoder/resource-api-v6':
-        specifier: github:topcoder-platform/resource-api-v6#develop
-        version: topcoder-challenge-recources-api@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/833124d56536eb31f5f97b320882988c4a581305(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
+        specifier: github:topcoder-platform/resource-api-v6#prisma-client
+        version: topcoder-challenge-recources-api@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/b286467f3a295b0e0925e57ec38df7c701b47cb6(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@topcoder/standardized-skills-api':
-        specifier: github:topcoder-platform/standardized-skills-api#develop
-        version: standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/687eb3ad80cfda82a3db569e5fb4bdd5bac3b3f2(typescript@5.9.3)
+        specifier: github:topcoder-platform/standardized-skills-api#prisma-client
+        version: standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/09d5ecf08dbca447bb49d33418e8363d0850cbcd(typescript@5.9.3)
       axios:
         specifier: 1.13.5
         version: 1.13.5
@@ -5880,13 +5880,13 @@ packages:
   standard-as-callback@2.1.0:
     resolution: {integrity: sha512-qoRRSyROncaz1z0mvYqIE4lCd9p2R90i6GxW3uZv5ucSu8tU7B5HXUP1gG8pVZsYNVaXjk8ClXHPttLyxAL48A==}
 
-  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/261e2fa790c0428f0ce270b004bf42d841e920c3:
-    resolution: {tarball: https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/261e2fa790c0428f0ce270b004bf42d841e920c3}
+  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/09d5ecf08dbca447bb49d33418e8363d0850cbcd:
+    resolution: {tarball: https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/09d5ecf08dbca447bb49d33418e8363d0850cbcd}
     version: 1.0.0
     engines: {node: '>=22.0.0'}
 
-  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/687eb3ad80cfda82a3db569e5fb4bdd5bac3b3f2:
-    resolution: {tarball: https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/687eb3ad80cfda82a3db569e5fb4bdd5bac3b3f2}
+  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/261e2fa790c0428f0ce270b004bf42d841e920c3:
+    resolution: {tarball: https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/261e2fa790c0428f0ce270b004bf42d841e920c3}
     version: 1.0.0
     engines: {node: '>=22.0.0'}
 
@@ -6131,8 +6131,8 @@ packages:
     version: 1.0.0
     engines: {node: '>=18 <23'}
 
-  topcoder-challenge-recources-api@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/833124d56536eb31f5f97b320882988c4a581305:
-    resolution: {tarball: https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/833124d56536eb31f5f97b320882988c4a581305}
+  topcoder-challenge-recources-api@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/b286467f3a295b0e0925e57ec38df7c701b47cb6:
+    resolution: {tarball: https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/b286467f3a295b0e0925e57ec38df7c701b47cb6}
     version: 1.0.0
     engines: {node: '>=18 <23'}
 
@@ -6151,8 +6151,8 @@ packages:
     version: 1.0.0
     engines: {node: 22.x, npm: '>= 8.5.5', yarn: please-use-npm}
 
-  topcoder-member-api@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/232567e7d963d6fcae594a3a857f2b578b5154ee:
-    resolution: {tarball: https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/232567e7d963d6fcae594a3a857f2b578b5154ee}
+  topcoder-member-api@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/ea895f64de791cabfb86d0d7b2ba0869465e2d8b:
+    resolution: {tarball: https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/ea895f64de791cabfb86d0d7b2ba0869465e2d8b}
     version: 1.0.0
 
   topo@3.0.3:
@@ -13665,7 +13665,7 @@ snapshots:
 
   standard-as-callback@2.1.0: {}
 
-  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/261e2fa790c0428f0ce270b004bf42d841e920c3(typescript@5.9.3):
+  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/09d5ecf08dbca447bb49d33418e8363d0850cbcd(typescript@5.9.3):
     dependencies:
       '@nestjs/common': 11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/config': 4.0.4(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)
@@ -13695,7 +13695,7 @@ snapshots:
       - supports-color
       - typescript
 
-  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/687eb3ad80cfda82a3db569e5fb4bdd5bac3b3f2(typescript@5.9.3):
+  standardized-skills-api@https://codeload.github.com/topcoder-platform/standardized-skills-api/tar.gz/261e2fa790c0428f0ce270b004bf42d841e920c3(typescript@5.9.3):
     dependencies:
       '@nestjs/common': 11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/config': 4.0.4(@nestjs/common@11.1.13(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)
@@ -14115,7 +14115,7 @@ snapshots:
       - supports-color
       - typescript
 
-  topcoder-challenge-recources-api@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/833124d56536eb31f5f97b320882988c4a581305(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3):
+  topcoder-challenge-recources-api@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/b286467f3a295b0e0925e57ec38df7c701b47cb6(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3):
     dependencies:
       '@prisma/client': 6.19.3(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       aws-sdk: 2.1693.0
@@ -14276,7 +14276,7 @@ snapshots:
       - tedious
       - typescript
 
-  topcoder-member-api@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/232567e7d963d6fcae594a3a857f2b578b5154ee(@swc/cli@0.6.0(@swc/core@1.15.11(@swc/helpers@0.5.23))(chokidar@4.0.3))(@swc/core@1.15.11(@swc/helpers@0.5.23))(@types/node@22.19.9)(chokidar@4.0.3)(elasticsearch@15.5.0)(keyv@5.6.0)(typescript@5.9.3):
+  topcoder-member-api@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/ea895f64de791cabfb86d0d7b2ba0869465e2d8b(@swc/cli@0.6.0(@swc/core@1.15.11(@swc/helpers@0.5.23))(chokidar@4.0.3))(@swc/core@1.15.11(@swc/helpers@0.5.23))(@types/node@22.19.9)(chokidar@4.0.3)(elasticsearch@15.5.0)(keyv@5.6.0)(typescript@5.9.3):
     dependencies:
       '@prisma/adapter-pg': 7.4.0
       '@prisma/client': 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
