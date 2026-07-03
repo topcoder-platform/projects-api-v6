@@ -36,7 +36,7 @@ jest.mock('src/shared/global/external-prisma.client', () => ({
   getResourcesPrismaClient: () => resourcesClientMock,
   getSkillsPrismaClient: () => skillsClientMock,
   getSubmitterRoleId: () => '732339e7-8e30-49d7-9198-cccf9451e221',
-}));
+}));98
 
 const { ProjectShowcasePostService: ProjectShowcasePostServiceClass } =
   require('./project-showcase-post.service');
@@ -95,7 +95,8 @@ describe('ProjectShowcasePostService', () => {
         },
       ],
       project: {
-        title: 'Project Title',
+        id: BigInt(1001),
+        name: 'Project Title',
       },
       media: [
         {

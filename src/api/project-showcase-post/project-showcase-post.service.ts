@@ -524,7 +524,7 @@ export class ProjectShowcasePostService {
       content: post.content,
       status: post.status,
       projectId: String(post.projectId),
-      projectTitle: post.project && String(post.project.name),
+      projectTitle: post.project?.name,
       challengeIds: post.challengeIds,
       createdById: post.createdById,
       updatedById: post.updatedById,

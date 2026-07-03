@@ -28,7 +28,7 @@ export class ProjectShowcasePostResponseDto {
   @ApiProperty({ type: [Object] })
   categories: Array<{ id: string; name: string }>;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   projectTitle?: string;
 
   @ApiPropertyOptional({ type: [ProjectShowcasePostMediaDto] })
