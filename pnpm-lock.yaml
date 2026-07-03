@@ -63,8 +63,8 @@ importers:
         specifier: 7.4.0
         version: 7.4.0(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@topcoder/challenge-api-v6':
-        specifier: github:topcoder-platform/challenge-api-v6#prisma-client
-        version: topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/7f0a4fcc0887e61e88b4a69d14614905b22d19ca(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
+        specifier: github:topcoder-platform/challenge-api-v6#prisma-client-2
+        version: topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/4d33d98270c87cbe99fe908af53ad0f4139e098a(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@topcoder/member-api-v6':
         specifier: github:topcoder-platform/member-api-v6#develop
         version: topcoder-member-api@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/232567e7d963d6fcae594a3a857f2b578b5154ee(@swc/cli@0.6.0(@swc/core@1.15.11(@swc/helpers@0.5.23))(chokidar@4.0.3))(@swc/core@1.15.11(@swc/helpers@0.5.23))(@types/node@22.19.9)(chokidar@4.0.3)(elasticsearch@15.5.0)(keyv@5.6.0)(typescript@5.9.3)
@@ -6136,8 +6136,8 @@ packages:
     version: 1.0.0
     engines: {node: '>=18 <23'}
 
-  topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/7f0a4fcc0887e61e88b4a69d14614905b22d19ca:
-    resolution: {tarball: https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/7f0a4fcc0887e61e88b4a69d14614905b22d19ca}
+  topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/4d33d98270c87cbe99fe908af53ad0f4139e098a:
+    resolution: {tarball: https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/4d33d98270c87cbe99fe908af53ad0f4139e098a}
     version: 1.0.0
     engines: {node: 22.x}
 
@@ -14145,7 +14145,7 @@ snapshots:
       - supports-color
       - typescript
 
-  topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/7f0a4fcc0887e61e88b4a69d14614905b22d19ca(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3):
+  topcoder-challenges-api@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/4d33d98270c87cbe99fe908af53ad0f4139e098a(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3):
     dependencies:
       '@aws-sdk/client-s3': 3.985.0
       '@prisma/client': 6.19.3(prisma@7.4.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
