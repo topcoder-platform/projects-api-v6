@@ -17,6 +17,8 @@ export enum Permission {
   CREATE_PROJECT = 'CREATE_PROJECT',
   /** Edit project details. */
   EDIT_PROJECT = 'EDIT_PROJECT',
+  /** Create/update/delete project showcase posts. */
+  MANAGE_PROJECT_SHOWCASE_POST = 'MANAGE_PROJECT_SHOWCASE_POST',
   /** Delete a project. */
   DELETE_PROJECT = 'DELETE_PROJECT',
   /**

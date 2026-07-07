@@ -20,10 +20,12 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:load": "jest --config ./test/jest-e2e.json --runInBand --testRegex \"test/load/performance.test.ts$\"",
     "test:deployment": "jest --config ./test/jest-e2e.json --runInBand test/deployment-validation.e2e-spec.ts",
+    "deploy:dev": "BRANCH=$(git rev-parse --abbrev-ref HEAD) && TAG=\"dev-${BRANCH}\" && git tag -d \"$TAG\" 2>/dev/null; git push origin \":refs/tags/$TAG\" 2>/dev/null; git tag \"$TAG\" && git push origin \"$TAG\"",
     "postinstall": "npx prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.926.0",
+    "@aws-sdk/cloudfront-signer": "^3.1077.0",
     "@aws-sdk/s3-request-presigner": "^3.926.0",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^11.0.1",

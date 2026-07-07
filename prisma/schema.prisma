@@ -317,6 +317,7 @@ model Project {
   settings             ProjectSetting[]
   estimations          ProjectEstimation[]
   history              ProjectHistory[]
+  showcasePosts         ProjectShowcasePost[]
 
   @@index([createdAt])
   @@index([name])
@@ -1049,4 +1050,99 @@ model CustomerPayment {
   @@index([paymentIntentId])
   @@index([status])
   @@map("customer_payments")
+}
+
+/// Project showcase post lifecycle status.
+enum ProjectShowcasePostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Showcase content posts linked to a project.
+model ProjectShowcasePost {
+  id             BigInt                    @id @default(autoincrement())
+  title          String
+  content        String                    @db.Text
+  status         ProjectShowcasePostStatus @default(DRAFT)
+  projectId      BigInt
+  challengeIds   String[]                  @default([])
+  createdById    Int
+  updatedById    Int
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  project        Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  industries     ProjectShowcasePostIndustry[]
+  categories     ProjectShowcasePostCategory[]
+  media          ProjectShowcasePostMedia[]
+
+  @@index([status])
+  @@index([projectId])
+  @@map("project_showcase_posts")
+}
+
+/// Project showcase post industries taxonomy.
+model ProjectPostIndustry {
+  id    BigInt     @id @default(autoincrement())
+  name  String     @unique
+
+  posts ProjectShowcasePostIndustry[]
+
+  @@map("project_post_industries")
+}
+
+/// Project showcase post categories taxonomy.
+model ProjectPostCategory {
+  id    BigInt     @id @default(autoincrement())
+  name  String     @unique
+
+  posts ProjectShowcasePostCategory[]
+
+  @@map("project_post_categories")
+}
+
+/// Join table linking showcase posts to industries.
+model ProjectShowcasePostIndustry {
+  id                    BigInt                    @id @default(autoincrement())
+  projectShowcasePostId BigInt
+  industryId            BigInt
+
+  projectShowcasePost    ProjectShowcasePost    @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
+  industry               ProjectPostIndustry    @relation(fields: [industryId], references: [id], onDelete: Cascade)
+
+  @@unique([projectShowcasePostId, industryId])
+  @@index([projectShowcasePostId])
+  @@index([industryId])
+  @@map("project_showcase_post_industries")
+}
+
+/// Join table linking showcase posts to categories.
+model ProjectShowcasePostCategory {
+  id                    BigInt                    @id @default(autoincrement())
+  projectShowcasePostId BigInt
+  categoryId            BigInt
+
+  projectShowcasePost    ProjectShowcasePost    @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
+  category               ProjectPostCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([projectShowcasePostId, categoryId])
+  @@index([projectShowcasePostId])
+  @@index([categoryId])
+  @@map("project_showcase_post_categories")
+}
+
+/// Media assets attached to project showcase posts.
+model ProjectShowcasePostMedia {
+  id                    BigInt                    @id @default(autoincrement())
+  projectShowcasePostId BigInt
+  type                  String
+  url                   String
+  createdAt             DateTime                  @default(now())
+  createdBy             BigInt
+
+  projectShowcasePost    ProjectShowcasePost    @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
+
+  @@index([projectShowcasePostId])
+  @@map("project_showcase_post_media")
 }

@@ -13,13 +13,10 @@ export interface MemberRoleRecord {
 
 type RoleSubjectRecord = {
   subjectID?: string | number;
+  subjectId?: string | number;
   userId?: string | number;
   handle?: string;
   email?: string;
-};
-
-type RoleDetailResponse = {
-  subjects?: RoleSubjectRecord[];
 };
 
 /**
@@ -213,9 +210,9 @@ export class MemberService {
    * Looks up role members from Identity API by role name.
    *
    * Resolves `/roles?filter=roleName=<roleName>` and then
-   * `/roles/:id?selector=subjects&perPage=200`, returning the merged
-   * `subjects` list
-   * normalized to `MemberDetail` shape.
+   * `/roles/:id` with subject expansion, returning the merged `subjects` list
+   * normalized to `MemberDetail` shape. Supports both direct array responses
+   * and the legacy `{ result: { content } }` Identity response wrapper.
    *
    * Role-detail lookups are tolerant to partial failures; one failing role id
    * does not prevent subjects from other matching roles from being returned.
@@ -250,9 +247,9 @@ export class MemberService {
         }),
       );
 
-      const roles = Array.isArray(rolesResponse.data)
-        ? (rolesResponse.data as MemberRoleRecord[])
-        : [];
+      const roles = this.extractArrayPayload<MemberRoleRecord>(
+        rolesResponse.data,
+      );
 
       const roleIds = roles
         .filter(
@@ -276,14 +273,14 @@ export class MemberService {
                 'Content-Type': 'application/json',
               },
               params: {
+                fields: 'subjects',
                 selector: 'subjects',
                 perPage: 200,
               },
             }),
           );
 
-          const payload = roleResponse.data as RoleDetailResponse;
-          return Array.isArray(payload?.subjects) ? payload.subjects : [];
+          return this.extractRoleSubjects(roleResponse.data);
         }),
       );
 
@@ -310,7 +307,7 @@ export class MemberService {
           .trim()
           .toLowerCase();
         const subjectId = String(
-          subject.subjectID || subject.userId || '',
+          subject.subjectID || subject.subjectId || subject.userId || '',
         ).trim();
 
         const key = email || subjectId;
@@ -319,7 +316,8 @@ export class MemberService {
         }
 
         uniqueSubjects.set(key, {
-          userId: subject.subjectID || subject.userId || null,
+          userId:
+            subject.subjectID || subject.subjectId || subject.userId || null,
           handle: subject.handle || null,
           email,
         });
@@ -336,5 +334,91 @@ export class MemberService {
 
   async getRoleSubjectsByRoleName(roleName: string): Promise<MemberDetail[]> {
     return this.getRoleSubjects(roleName);
+  }
+
+  /**
+   * Extracts an array payload from Identity responses.
+   *
+   * @param payload Identity API response body in direct or legacy wrapped form.
+   * @returns Extracted array or an empty array when the shape is unsupported.
+   */
+  private extractArrayPayload<T>(payload: unknown): T[] {
+    if (Array.isArray(payload)) {
+      return payload as T[];
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return [];
+    }
+
+    const response = payload as {
+      content?: unknown;
+      result?: {
+        content?: unknown;
+      };
+    };
+
+    if (Array.isArray(response.result?.content)) {
+      return response.result.content as T[];
+    }
+
+    if (Array.isArray(response.content)) {
+      return response.content as T[];
+    }
+
+    return [];
+  }
+
+  /**
+   * Extracts role subjects from Identity role-detail responses.
+   *
+   * @param payload Identity role-detail body in direct, legacy wrapped, or list form.
+   * @returns Role subject records or an empty array when no subjects are present.
+   */
+  private extractRoleSubjects(payload: unknown): RoleSubjectRecord[] {
+    const directSubjects = this.extractSubjectsFromObject(payload);
+    if (directSubjects.length > 0) {
+      return directSubjects;
+    }
+
+    const listPayload = this.extractArrayPayload<RoleSubjectRecord>(payload);
+    if (listPayload.length > 0) {
+      return listPayload;
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return [];
+    }
+
+    const response = payload as {
+      content?: unknown;
+      result?: {
+        content?: unknown;
+      };
+    };
+
+    const resultSubjects = this.extractSubjectsFromObject(
+      response.result?.content,
+    );
+    if (resultSubjects.length > 0) {
+      return resultSubjects;
+    }
+
+    return this.extractSubjectsFromObject(response.content);
+  }
+
+  /**
+   * Extracts a `subjects` array from an object-like response fragment.
+   *
+   * @param payload Response fragment that may contain a `subjects` property.
+   * @returns Subjects array or an empty array when absent.
+   */
+  private extractSubjectsFromObject(payload: unknown): RoleSubjectRecord[] {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return [];
+    }
+
+    const subjects = (payload as { subjects?: unknown }).subjects;
+    return Array.isArray(subjects) ? (subjects as RoleSubjectRecord[]) : [];
   }
 }

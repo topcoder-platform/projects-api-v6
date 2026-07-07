@@ -1,0 +1,44 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ProjectShowcasePostStatus } from '@prisma/client';
+import { ProjectShowcasePostMediaDto } from './project-showcase-post-media.dto';
+
+export class ProjectShowcasePostResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty()
+  content: string;
+
+  @ApiProperty({ enum: ProjectShowcasePostStatus })
+  status: ProjectShowcasePostStatus;
+
+  @ApiProperty()
+  projectId: string;
+
+  @ApiProperty({ type: [String] })
+  challengeIds: string[];
+
+  @ApiProperty({ type: [Object] })
+  industries: Array<{ id: string; name: string }>;
+
+  @ApiProperty({ type: [Object] })
+  categories: Array<{ id: string; name: string }>;
+
+  @ApiPropertyOptional({ type: [ProjectShowcasePostMediaDto] })
+  media?: ProjectShowcasePostMediaDto[];
+
+  @ApiProperty()
+  createdById: number;
+
+  @ApiProperty()
+  updatedById: number;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
