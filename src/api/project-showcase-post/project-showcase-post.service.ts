@@ -46,6 +46,9 @@ export class ProjectShowcasePostService {
     const posts = await this.prisma.projectShowcasePost.findMany({
       where,
       include: {
+        project: {
+          select: { id: true, name: true },
+        },
         industries: {
           include: { industry: true },
         },
@@ -101,6 +104,9 @@ export class ProjectShowcasePostService {
     const posts = await this.prisma.projectShowcasePost.findMany({
       where,
       include: {
+        project: {
+          select: { id: true, name: true },
+        },
         industries: {
           include: { industry: true },
         },
@@ -471,6 +477,18 @@ export class ProjectShowcasePostService {
       where.OR = [
         { title: { contains: criteria.keyword, mode: 'insensitive' } },
         { content: { contains: criteria.keyword, mode: 'insensitive' } },
+        {
+          project: {
+            is: { name: { contains: criteria.keyword, mode: 'insensitive' } },
+          },
+        },
+        {
+          project: {
+            is: {
+              description: { contains: criteria.keyword, mode: 'insensitive' },
+            },
+          },
+        },
       ];
     }
 

@@ -189,6 +189,43 @@ describe('ProjectShowcasePostService', () => {
     ]);
   });
 
+  it('filters posts by keyword matching project name or description', async () => {
+    prismaMock.projectShowcasePost.findMany.mockResolvedValue([
+      buildPostRecord(),
+    ]);
+
+    await service.listPosts({ keyword: 'Project' });
+
+    expect(prismaMock.projectShowcasePost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              project: {
+                is: {
+                  name: {
+                    contains: 'Project',
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            }),
+            expect.objectContaining({
+              project: {
+                is: {
+                  description: {
+                    contains: 'Project',
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
   it('lists posts for a project with permission checks', async () => {
     prismaMock.projectShowcasePost.findMany.mockResolvedValue([
       buildPostRecord({ status: 'PUBLISHED' }),
