@@ -260,6 +260,7 @@ export class ProjectShowcasePostService {
             create: (dto.media || []).map((asset) => ({
               type: asset.type,
               url: asset.url,
+              alt: asset.alt,
               createdBy: BigInt(auditUserId),
             })),
           },
@@ -365,6 +366,7 @@ export class ProjectShowcasePostService {
         create: dto.media.map((mediaItem) => ({
           type: mediaItem.type,
           url: mediaItem.url,
+          alt: mediaItem.alt,
           createdBy: auditUserId,
         })),
       };
@@ -543,6 +545,7 @@ export class ProjectShowcasePostService {
         id: bigint;
         type: string;
         url: string;
+        alt?: string | null;
         createdAt: Date;
         createdBy: bigint;
       }[];
@@ -575,6 +578,7 @@ export class ProjectShowcasePostService {
         id: String(entry.id),
         type: entry.type,
         url: signCloudFrontUrl(entry.url),
+        alt: entry.alt ?? undefined,
         createdAt: entry.createdAt,
         createdBy: String(entry.createdBy),
       })),
