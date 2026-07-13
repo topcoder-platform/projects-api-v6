@@ -638,9 +638,9 @@ export class ProjectShowcasePostService {
     const memberCountry = new Map<string, string>();
     for (const member of members) {
       const country =
+        member.competitionCountryCode ||
         member.country ||
-        member.homeCountryCode ||
-        member.competitionCountryCode;
+        member.homeCountryCode;
       if (country) {
         memberCountry.set(String(member.userId), country);
       }
