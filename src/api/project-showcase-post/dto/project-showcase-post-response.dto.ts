@@ -34,6 +34,12 @@ export class ProjectShowcasePostResponseDto {
   @ApiPropertyOptional({ type: [ProjectShowcasePostMediaDto] })
   media?: ProjectShowcasePostMediaDto[];
 
+  @ApiPropertyOptional()
+  publishedAt?: Date;
+
+  @ApiPropertyOptional()
+  publishedBy?: number;
+
   @ApiProperty()
   createdById: number;
 

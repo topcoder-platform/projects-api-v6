@@ -226,6 +226,7 @@ export class ProjectShowcasePostService {
     );
 
     const auditUserId = getAuditUserId(user);
+    const status = dto.status ?? 'DRAFT';
     const industryIds = (dto.industryIds || []).map((industryId) =>
       parseNumericStringId(String(industryId), 'Industry id'),
     );
@@ -238,11 +239,17 @@ export class ProjectShowcasePostService {
         data: {
           title: dto.title,
           content: dto.content,
-          status: dto.status ?? 'DRAFT',
+          status,
           projectId: parsedProjectId,
           challengeIds: dto.challengeIds || [],
           createdById: auditUserId,
           updatedById: auditUserId,
+          ...(status === 'PUBLISHED'
+            ? {
+                publishedAt: new Date(),
+                publishedBy: auditUserId,
+              }
+            : {}),
           industries: {
             create: industryIds.map((industryId) => ({ industryId })),
           },
@@ -313,6 +320,7 @@ export class ProjectShowcasePostService {
       );
     }
 
+    const auditUserId = getAuditUserId(user);
     const updateData: Prisma.ProjectShowcasePostUpdateInput = {
       ...(typeof dto.title === 'undefined' ? {} : { title: dto.title }),
       ...(typeof dto.content === 'undefined' ? {} : { content: dto.content }),
@@ -320,8 +328,13 @@ export class ProjectShowcasePostService {
       ...(typeof dto.challengeIds === 'undefined'
         ? {}
         : { challengeIds: dto.challengeIds }),
-      updatedById: getAuditUserId(user),
+      updatedById: auditUserId,
     };
+
+    if (dto.status === 'PUBLISHED' && existing.status !== 'PUBLISHED') {
+      updateData.publishedAt = new Date();
+      updateData.publishedBy = auditUserId;
+    }
 
     if (typeof dto.industryIds !== 'undefined') {
       const industryIds = dto.industryIds.map((industryId) =>
@@ -546,6 +559,8 @@ export class ProjectShowcasePostService {
       challengeIds: post.challengeIds,
       createdById: post.createdById,
       updatedById: post.updatedById,
+      publishedAt: post.publishedAt ?? undefined,
+      publishedBy: post.publishedBy ?? undefined,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
       industries: post.industries.map((entry) => ({

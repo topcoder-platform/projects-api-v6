@@ -1069,6 +1069,8 @@ model ProjectShowcasePost {
   challengeIds   String[]                  @default([])
   createdById    Int
   updatedById    Int
+  publishedAt    DateTime?
+  publishedBy    Int?
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
 

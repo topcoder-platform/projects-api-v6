@@ -557,6 +557,84 @@ describe('ProjectShowcasePostService', () => {
     ]);
   });
 
+  it('sets publishedAt and publishedBy when publishing a draft post', async () => {
+    prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+      buildPostRecord({
+        status: 'DRAFT',
+        publishedAt: null,
+        publishedBy: null,
+      }),
+    );
+    prismaMock.projectShowcasePost.update.mockResolvedValue(
+      buildPostRecord({
+        status: 'PUBLISHED',
+        publishedAt: new Date('2026-07-13T12:00:00Z'),
+        publishedBy: 42,
+      }),
+    );
+
+    const response = await service.updatePost(
+      '1001',
+      '10',
+      { status: 'PUBLISHED' },
+      user,
+    );
+
+    expect(prismaMock.projectShowcasePost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: BigInt(10) },
+        data: expect.objectContaining({
+          status: 'PUBLISHED',
+          publishedAt: expect.any(Date),
+          publishedBy: 42,
+        }),
+      }),
+    );
+    expect(response.status).toBe('PUBLISHED');
+    expect(response.publishedAt).toBeDefined();
+    expect(response.publishedBy).toBe(42);
+  });
+
+  it('does not override publishedAt/publishedBy when updating an already published post', async () => {
+    prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+      buildPostRecord({
+        status: 'PUBLISHED',
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        publishedBy: 42,
+      }),
+    );
+    prismaMock.projectShowcasePost.update.mockResolvedValue(
+      buildPostRecord({
+        title: 'Updated title',
+        status: 'PUBLISHED',
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        publishedBy: 42,
+      }),
+    );
+
+    const response = await service.updatePost(
+      '1001',
+      '10',
+      {
+        title: 'Updated title',
+        status: 'PUBLISHED',
+      },
+      user,
+    );
+
+    expect(prismaMock.projectShowcasePost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: BigInt(10) },
+        data: expect.objectContaining({
+          title: 'Updated title',
+          status: 'PUBLISHED',
+        }),
+      }),
+    );
+    expect(response.publishedAt).toEqual(new Date('2026-01-01T00:00:00Z'));
+    expect(response.publishedBy).toBe(42);
+  });
+
   it('throws NotFoundException when update hits an industry foreign key constraint', async () => {
     prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
       buildPostRecord(),
