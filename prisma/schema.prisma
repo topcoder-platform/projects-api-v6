@@ -1069,6 +1069,8 @@ model ProjectShowcasePost {
   challengeIds   String[]                  @default([])
   createdById    Int
   updatedById    Int
+  publishedAt    DateTime?
+  publishedBy    Int?
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
 
@@ -1138,6 +1140,7 @@ model ProjectShowcasePostMedia {
   projectShowcasePostId BigInt
   type                  String
   url                   String
+  alt                   String?
   createdAt             DateTime                  @default(now())
   createdBy             BigInt
 

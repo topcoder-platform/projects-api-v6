@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProjectShowcasePostStatus } from '@prisma/client';
 import { ProjectShowcasePostMediaDto } from './project-showcase-post-media.dto';
+import { ChallengeMetadataDto } from './challenge-metadata.dto';
 
 export class ProjectShowcasePostResponseDto {
   @ApiProperty()
@@ -27,8 +28,17 @@ export class ProjectShowcasePostResponseDto {
   @ApiProperty({ type: [Object] })
   categories: Array<{ id: string; name: string }>;
 
+  @ApiPropertyOptional()
+  projectTitle?: string;
+
   @ApiPropertyOptional({ type: [ProjectShowcasePostMediaDto] })
   media?: ProjectShowcasePostMediaDto[];
+
+  @ApiPropertyOptional()
+  publishedAt?: Date;
+
+  @ApiPropertyOptional()
+  publishedBy?: number;
 
   @ApiProperty()
   createdById: number;
@@ -41,4 +51,7 @@ export class ProjectShowcasePostResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  @ApiPropertyOptional({ type: [ChallengeMetadataDto] })
+  challengeMetadata?: ChallengeMetadataDto[];
 }
