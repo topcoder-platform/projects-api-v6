@@ -528,6 +528,7 @@ export class ProjectShowcasePostService {
     switch (field) {
       case 'title':
       case 'status':
+      case 'publishedAt':
       case 'createdAt':
       case 'updatedAt':
         return [{ [field]: normalizedDirection }];
