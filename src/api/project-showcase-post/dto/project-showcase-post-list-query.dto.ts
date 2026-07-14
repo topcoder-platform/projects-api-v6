@@ -52,6 +52,7 @@ export class ProjectShowcasePostListQueryDto extends PaginationDto {
   projectId?: string | string[] | Record<string, unknown>;
 
   @ApiPropertyOptional({
+    type: [String],
     description: 'Filter by industry id (exact or $in pattern)',
   })
   @IsOptional()
@@ -59,6 +60,7 @@ export class ProjectShowcasePostListQueryDto extends PaginationDto {
   industryId?: string | string[] | Record<string, unknown>;
 
   @ApiPropertyOptional({
+    type: [String],
     description: 'Filter by category id (exact or $in pattern)',
   })
   @IsOptional()

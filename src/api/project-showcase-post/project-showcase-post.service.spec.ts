@@ -6,6 +6,38 @@ jest.mock('src/shared/utils/cloudfront.utils', () => ({
   signCloudFrontUrl: jest.fn((url: string) => `${url}?signed=1`),
 }));
 
+const challengeClientMock = {
+  challenge: {
+    findMany: jest.fn(),
+  },
+};
+
+const membersClientMock = {
+  member: {
+    findMany: jest.fn(),
+  },
+};
+
+const resourcesClientMock = {
+  resource: {
+    findMany: jest.fn(),
+  },
+};
+
+const skillsClientMock = {
+  skill: {
+    findMany: jest.fn(),
+  },
+};
+
+jest.mock('src/shared/global/external-prisma.client', () => ({
+  getChallengesPrismaClient: () => challengeClientMock,
+  getMembersPrismaClient: () => membersClientMock,
+  getResourcesPrismaClient: () => resourcesClientMock,
+  getSkillsPrismaClient: () => skillsClientMock,
+  getSubmitterRoleId: () => '732339e7-8e30-49d7-9198-cccf9451e221',
+}));98
+
 const { ProjectShowcasePostService: ProjectShowcasePostServiceClass } =
   require('./project-showcase-post.service');
 
@@ -62,6 +94,10 @@ describe('ProjectShowcasePostService', () => {
           },
         },
       ],
+      project: {
+        id: BigInt(1001),
+        name: 'Project Title',
+      },
       media: [
         {
           id: BigInt(101),
@@ -90,6 +126,41 @@ describe('ProjectShowcasePostService', () => {
       ],
     });
 
+    challengeClientMock.challenge.findMany.mockResolvedValue([
+      {
+        id: '100',
+        numOfSubmissions: 5,
+        numOfRegistrants: 3,
+        track: { name: 'Development' },
+        skills: [{ skillId: 'skill-1' }, { skillId: 'skill-2' }],
+      },
+    ]);
+
+    resourcesClientMock.resource.findMany.mockResolvedValue([
+      { challengeId: '100', memberId: '42' },
+      { challengeId: '100', memberId: '43' },
+    ]);
+
+    membersClientMock.member.findMany.mockResolvedValue([
+      {
+        userId: BigInt(42),
+        country: 'US',
+        homeCountryCode: 'US',
+        competitionCountryCode: 'US',
+      },
+      {
+        userId: BigInt(43),
+        country: 'CA',
+        homeCountryCode: 'CA',
+        competitionCountryCode: 'CA',
+      },
+    ]);
+
+    skillsClientMock.skill.findMany.mockResolvedValue([
+      { id: 'skill-1', name: 'Skill One' },
+      { id: 'skill-2', name: 'Skill Two' },
+    ]);
+
     service = new ProjectShowcasePostServiceClass(
       prismaMock as any,
       permissionServiceMock as any,
@@ -116,6 +187,43 @@ describe('ProjectShowcasePostService', () => {
         categories: [{ id: '7', name: 'Web' }],
       }),
     ]);
+  });
+
+  it('filters posts by keyword matching project name or description', async () => {
+    prismaMock.projectShowcasePost.findMany.mockResolvedValue([
+      buildPostRecord(),
+    ]);
+
+    await service.listPosts({ keyword: 'Project' });
+
+    expect(prismaMock.projectShowcasePost.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            expect.objectContaining({
+              project: {
+                is: {
+                  name: {
+                    contains: 'Project',
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            }),
+            expect.objectContaining({
+              project: {
+                is: {
+                  description: {
+                    contains: 'Project',
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            }),
+          ]),
+        }),
+      }),
+    );
   });
 
   it('lists posts for a project with permission checks', async () => {
@@ -211,6 +319,19 @@ describe('ProjectShowcasePostService', () => {
       }),
     );
     expect(response.status).toBe('DRAFT');
+    expect(challengeClientMock.challenge.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['100'] } },
+      }),
+    );
+    expect(resourcesClientMock.resource.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          challengeId: { in: ['100'] },
+          roleId: '732339e7-8e30-49d7-9198-cccf9451e221',
+        },
+      }),
+    );
   });
 
   it('creates a new project showcase post with media assets', async () => {
@@ -434,6 +555,84 @@ describe('ProjectShowcasePostService', () => {
         url: 'https://example.com/video.mp4?signed=1',
       }),
     ]);
+  });
+
+  it('sets publishedAt and publishedBy when publishing a draft post', async () => {
+    prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+      buildPostRecord({
+        status: 'DRAFT',
+        publishedAt: null,
+        publishedBy: null,
+      }),
+    );
+    prismaMock.projectShowcasePost.update.mockResolvedValue(
+      buildPostRecord({
+        status: 'PUBLISHED',
+        publishedAt: new Date('2026-07-13T12:00:00Z'),
+        publishedBy: 42,
+      }),
+    );
+
+    const response = await service.updatePost(
+      '1001',
+      '10',
+      { status: 'PUBLISHED' },
+      user,
+    );
+
+    expect(prismaMock.projectShowcasePost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: BigInt(10) },
+        data: expect.objectContaining({
+          status: 'PUBLISHED',
+          publishedAt: expect.any(Date),
+          publishedBy: 42,
+        }),
+      }),
+    );
+    expect(response.status).toBe('PUBLISHED');
+    expect(response.publishedAt).toBeDefined();
+    expect(response.publishedBy).toBe(42);
+  });
+
+  it('does not override publishedAt/publishedBy when updating an already published post', async () => {
+    prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+      buildPostRecord({
+        status: 'PUBLISHED',
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        publishedBy: 42,
+      }),
+    );
+    prismaMock.projectShowcasePost.update.mockResolvedValue(
+      buildPostRecord({
+        title: 'Updated title',
+        status: 'PUBLISHED',
+        publishedAt: new Date('2026-01-01T00:00:00Z'),
+        publishedBy: 42,
+      }),
+    );
+
+    const response = await service.updatePost(
+      '1001',
+      '10',
+      {
+        title: 'Updated title',
+        status: 'PUBLISHED',
+      },
+      user,
+    );
+
+    expect(prismaMock.projectShowcasePost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: BigInt(10) },
+        data: expect.objectContaining({
+          title: 'Updated title',
+          status: 'PUBLISHED',
+        }),
+      }),
+    );
+    expect(response.publishedAt).toEqual(new Date('2026-01-01T00:00:00Z'));
+    expect(response.publishedBy).toBe(42);
   });
 
   it('throws NotFoundException when update hits an industry foreign key constraint', async () => {

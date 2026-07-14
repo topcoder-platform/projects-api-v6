@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsUrl } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class ProjectShowcasePostMediaDto {
   @ApiProperty({ description: 'Media asset id.' })
@@ -15,6 +15,11 @@ export class ProjectShowcasePostMediaDto {
   @ApiProperty({ description: 'URL of the media asset.' })
   @IsUrl()
   url: string;
+
+  @ApiPropertyOptional({ description: 'Alternative text for the media asset.' })
+  @IsOptional()
+  @IsString()
+  alt?: string;
 
   @ApiProperty({ description: 'Timestamp when media asset was created.' })
   createdAt: Date;

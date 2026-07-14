@@ -54,8 +54,20 @@ export class ProjectShowcasePostController {
   @ApiQuery({ name: 'sort', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'projectId', required: false, type: String })
-  @ApiQuery({ name: 'industryId', required: false, type: String })
-  @ApiQuery({ name: 'categoryId', required: false, type: String })
+  @ApiQuery({
+    name: 'industryId',
+    required: false,
+    type: String,
+    isArray: true,
+    example: ['1', '2'],
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    isArray: true,
+    example: ['2', '3'],
+  })
   @ApiQuery({ name: 'challengeId', required: false, type: String })
   @ApiQuery({ name: 'keyword', required: false, type: String })
   @ApiResponse({
@@ -98,8 +110,20 @@ export class ProjectShowcasePostController {
   @ApiQuery({ name: 'perPage', required: false, type: Number })
   @ApiQuery({ name: 'sort', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
-  @ApiQuery({ name: 'industryId', required: false, type: String })
-  @ApiQuery({ name: 'categoryId', required: false, type: String })
+  @ApiQuery({
+    name: 'industryId',
+    required: false,
+    type: String,
+    isArray: true,
+    example: ['5', '10'],
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    isArray: true,
+    example: ['7', '12'],
+  })
   @ApiQuery({ name: 'challengeId', required: false, type: String })
   @ApiQuery({ name: 'keyword', required: false, type: String })
   @ApiResponse({
