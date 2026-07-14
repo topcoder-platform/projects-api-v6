@@ -231,11 +231,6 @@ export class JwtService implements OnModuleInit {
 
     const payload = decoded.payload as JwtPayloadRecord;
 
-    if (process.env.NODE_ENV !== 'production') {
-      // TODO (security): CRITICAL - JWT signature verification is skipped entirely in non-production (NODE_ENV !== 'production'). Any token with a valid structure will be accepted. This must never reach a publicly accessible environment.
-      return payload;
-    }
-
     const issuer = this.resolveIssuer(payload);
     const keyId =
       decoded.header && typeof decoded.header.kid === 'string'
