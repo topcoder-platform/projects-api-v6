@@ -1112,7 +1112,9 @@ describe('ProjectService', () => {
           workManagementPolicies: {},
         },
       });
-      expect(prismaMock.workManagementPermission.findMany).not.toHaveBeenCalled();
+      expect(
+        prismaMock.workManagementPermission.findMany,
+      ).not.toHaveBeenCalled();
       expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('100');
       expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('200');
     },
@@ -1142,9 +1144,7 @@ describe('ProjectService', () => {
     ]);
     permissionServiceMock.isNamedPermissionRequireProjectMembers.mockImplementation(
       (permission: Permission) =>
-        [Permission.VIEW_PROJECT, Permission.EDIT_PROJECT].includes(
-          permission,
-        ),
+        [Permission.VIEW_PROJECT, Permission.EDIT_PROJECT].includes(permission),
     );
     permissionServiceMock.hasNamedPermission.mockImplementation(
       (
@@ -1449,7 +1449,7 @@ describe('ProjectService', () => {
       '1001',
       {
         name: 'Updated by machine',
-        status: 'active' as any,
+        status: 'active',
       },
       {
         isMachine: false,
@@ -1866,10 +1866,10 @@ describe('ProjectService', () => {
     await service.updateProject(
       '1001',
       {
-        status: 'cancelled' as any,
+        status: 'cancelled',
         cancelReason: 'Client requested cancellation',
         clearBillingAccountId: true,
-      } as any,
+      },
       {
         userId: '100',
         isMachine: false,
@@ -2087,7 +2087,7 @@ describe('ProjectService', () => {
     await service.updateProject(
       '1001',
       {
-        status: 'active' as any,
+        status: 'active',
         billingAccountId: 22,
       },
       {
@@ -2199,7 +2199,7 @@ describe('ProjectService', () => {
     await service.updateProject(
       '1001',
       {
-        status: 'active' as any,
+        status: 'active',
         name: 'Demo Updated',
       },
       {

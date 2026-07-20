@@ -113,14 +113,6 @@ const SCOPES_PROJECTS_READ_BILLING_ACCOUNT_DETAILS = [
 ];
 
 /**
- * M2M scopes to "write" billingAccountId property
- */
-const SCOPES_PROJECTS_WRITE_PROJECTS_BILLING_ACCOUNTS = [
-  M2M_SCOPES.CONNECT_PROJECT_ADMIN,
-  M2M_SCOPES.PROJECTS.WRITE_PROJECTS_BILLING_ACCOUNTS,
-];
-
-/**
  * M2M scopes to "read" projects members
  */
 const SCOPES_PROJECT_MEMBERS_READ = [

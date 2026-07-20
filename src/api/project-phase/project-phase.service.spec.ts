@@ -233,7 +233,7 @@ describe('ProjectPhaseService', () => {
       '1001',
       {
         name: 'Kickoff',
-        status: 'active' as any,
+        status: 'active',
         productTemplateId: 5,
         members: [100, 200],
       },

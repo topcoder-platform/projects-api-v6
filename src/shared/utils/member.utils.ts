@@ -176,7 +176,7 @@ export function getDefaultProjectRole(
     const normalizedRuleRole = normalizeRole(rule.topcoderRole);
 
     if (normalizedUserRoles.includes(normalizedRuleRole)) {
-      return rule.projectRole as ProjectMemberRole;
+      return rule.projectRole;
     }
   }
 
@@ -238,7 +238,7 @@ export function enrichMembersWithUserDetails<T extends ProjectMemberLike>(
     !includeFirstName &&
     !includeLastName
   ) {
-    return members as Array<T & Partial<MemberDetail>>;
+    return members;
   }
 
   const detailsByUserId = buildDetailsMap(userDetails);
@@ -254,7 +254,7 @@ export function enrichMembersWithUserDetails<T extends ProjectMemberLike>(
       ...(includeFirstName ? { firstName: detail?.firstName ?? null } : {}),
       ...(includeLastName ? { lastName: detail?.lastName ?? null } : {}),
     };
-  }) as Array<T & Partial<MemberDetail>>;
+  });
 }
 
 /**
@@ -289,7 +289,7 @@ export function enrichInvitesWithUserDetails<T extends ProjectInviteLike>(
     !includeFirstName &&
     !includeLastName
   ) {
-    return invites as Array<T & Partial<MemberDetail>>;
+    return invites;
   }
 
   const detailsByUserId = buildDetailsMap(userDetails);
@@ -304,7 +304,7 @@ export function enrichInvitesWithUserDetails<T extends ProjectInviteLike>(
       ...(includeFirstName ? { firstName: detail?.firstName ?? null } : {}),
       ...(includeLastName ? { lastName: detail?.lastName ?? null } : {}),
     };
-  }) as Array<T & Partial<MemberDetail>>;
+  });
 }
 
 /**

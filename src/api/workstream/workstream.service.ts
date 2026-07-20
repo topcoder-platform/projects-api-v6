@@ -433,7 +433,7 @@ export class WorkStreamService {
   private parseSort(sort?: string): Prisma.WorkStreamOrderByWithRelationInput {
     return parseSortParam(sort, WORK_STREAM_SORT_FIELDS, {
       updatedAt: 'desc',
-    }) as Prisma.WorkStreamOrderByWithRelationInput;
+    });
   }
 
   /**

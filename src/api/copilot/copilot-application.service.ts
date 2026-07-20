@@ -6,7 +6,6 @@ import {
 import {
   CopilotApplication,
   CopilotApplicationStatus,
-  CopilotOpportunity,
   CopilotOpportunityStatus,
   ProjectMember,
 } from '@prisma/client';
@@ -29,10 +28,6 @@ import {
 } from './copilot.utils';
 
 const APPLICATION_SORTS = ['createdAt asc', 'createdAt desc'];
-
-type ApplicationWithRelations = CopilotApplication & {
-  opportunity?: CopilotOpportunity | null;
-};
 
 @Injectable()
 /**
@@ -203,9 +198,7 @@ export class CopilotApplicationService {
     const normalizedApplications = applications
       .slice(start, end)
       .map((application) => {
-        const response = this.formatApplication(
-          application as ApplicationWithRelations,
-        );
+        const response = this.formatApplication(application);
 
         const membership = memberByUserId.get(response.userId);
         if (membership) {

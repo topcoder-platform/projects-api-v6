@@ -52,7 +52,7 @@ export function toRecord(
     return null;
   }
 
-  return value as Record<string, unknown>;
+  return value;
 }
 
 /**

@@ -31,7 +31,6 @@ import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { getAuditUserIdNumber } from '../utils/metadata-utils';
 import { CreateWorkManagementPermissionDto } from './dto/create-work-management-permission.dto';
 import { UpdateWorkManagementPermissionRequestDto } from './dto/update-work-management-permission-request.dto';
-import { UpdateWorkManagementPermissionDto } from './dto/update-work-management-permission.dto';
 import { WorkManagementPermissionCriteriaDto } from './dto/work-management-permission-criteria.dto';
 import { WorkManagementPermissionIdQueryDto } from './dto/work-management-permission-id-query.dto';
 import { WorkManagementPermissionQueryDto } from './dto/work-management-permission-query.dto';
@@ -179,7 +178,7 @@ export class WorkManagementPermissionController {
     const { id, ...dto } = dtoWithId;
     return this.workManagementPermissionService.update(
       this.workManagementPermissionService.parseId(id.toString()),
-      dto as UpdateWorkManagementPermissionDto,
+      dto,
       getAuditUserIdNumber(user),
     );
   }

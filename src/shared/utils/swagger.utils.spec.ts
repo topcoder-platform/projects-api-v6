@@ -23,7 +23,7 @@ describe('enrichSwaggerAuthDocumentation', () => {
           },
         },
       },
-    } as unknown as OpenAPIObject;
+    };
   }
 
   it('renders any-authenticated policy guidance instead of raw permission keys', () => {

@@ -67,10 +67,7 @@ describe('ProjectPostIndustryService', () => {
       name: 'Marketing',
     });
 
-    const response = await service.create(
-      { name: 'Marketing' },
-      100,
-    );
+    const response = await service.create({ name: 'Marketing' }, 100);
 
     expect(prismaMock.projectPostIndustry.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,9 +83,9 @@ describe('ProjectPostIndustryService', () => {
       name: 'Finance',
     });
 
-    await expect(
-      service.create({ name: 'Finance' }, 100),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.create({ name: 'Finance' }, 100)).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('updates an existing industry', async () => {
@@ -112,17 +109,17 @@ describe('ProjectPostIndustryService', () => {
   });
 
   it('throws NotFoundException when updating invalid id', async () => {
-    await expect(
-      service.update('abc', { name: 'Any' }, 100),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.update('abc', { name: 'Any' }, 100)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('throws NotFoundException when updating missing industry', async () => {
     prismaMock.projectPostIndustry.findFirst.mockResolvedValue(undefined);
 
-    await expect(
-      service.update('7', { name: 'Any' }, 100),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.update('7', { name: 'Any' }, 100)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('deletes an existing industry', async () => {
@@ -139,16 +136,12 @@ describe('ProjectPostIndustryService', () => {
   });
 
   it('throws NotFoundException when deleting invalid id', async () => {
-    await expect(service.delete('abc', 100)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.delete('abc', 100)).rejects.toThrow(NotFoundException);
   });
 
   it('throws NotFoundException when deleting missing industry', async () => {
     prismaMock.projectPostIndustry.findFirst.mockResolvedValue(undefined);
 
-    await expect(service.delete('10', 100)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.delete('10', 100)).rejects.toThrow(NotFoundException);
   });
 });

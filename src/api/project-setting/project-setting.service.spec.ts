@@ -56,7 +56,7 @@ describe('ProjectSettingService', () => {
       {
         key: 'region',
         value: 'US',
-        valueType: 'string' as never,
+        valueType: 'string',
         readPermission: {},
         writePermission: {},
       },
@@ -157,7 +157,7 @@ describe('ProjectSettingService', () => {
       {
         key: 'timezone',
         value: 'UTC',
-        valueType: 'string' as never,
+        valueType: 'string',
         readPermission: {},
         writePermission: {},
       },

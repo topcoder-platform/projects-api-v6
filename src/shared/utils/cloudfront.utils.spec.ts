@@ -11,7 +11,10 @@ describe('signCloudFrontUrl', () => {
 
   it('returns original URL when signing keys are missing', () => {
     jest.isolateModules(() => {
-      const { signCloudFrontUrl } = require('./cloudfront.utils');
+      const { signCloudFrontUrl } =
+        jest.requireActual<typeof import('./cloudfront.utils')>(
+          './cloudfront.utils',
+        );
       expect(signCloudFrontUrl(url)).toBe(url);
     });
   });
@@ -26,7 +29,10 @@ describe('signCloudFrontUrl', () => {
     }));
 
     jest.isolateModules(() => {
-      const { signCloudFrontUrl } = require('./cloudfront.utils');
+      const { signCloudFrontUrl } =
+        jest.requireActual<typeof import('./cloudfront.utils')>(
+          './cloudfront.utils',
+        );
       expect(signCloudFrontUrl(url)).toBe(mockSignedUrl);
     });
   });

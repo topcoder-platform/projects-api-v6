@@ -14,9 +14,7 @@ describe('ProjectPostIndustryController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ProjectPostIndustryController(
-      serviceMock as any,
-    );
+    controller = new ProjectPostIndustryController(serviceMock as any);
   });
 
   it('lists industries', async () => {
@@ -40,10 +38,7 @@ describe('ProjectPostIndustryController', () => {
   it('creates an industry', async () => {
     serviceMock.create.mockResolvedValue({ id: '3', name: 'Marketing' });
 
-    const response = await controller.create(
-      { name: 'Marketing' },
-      user,
-    );
+    const response = await controller.create({ name: 'Marketing' }, user);
 
     expect(response).toEqual({ id: '3', name: 'Marketing' });
     expect(serviceMock.create).toHaveBeenCalled();
