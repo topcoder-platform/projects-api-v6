@@ -10,14 +10,14 @@ Toolchain used for this verification cycle:
 
 - Node: `v26.5.0`
 - pnpm: `10.28.2`
-- Prisma CLI, client, and PostgreSQL adapter: `7.8.0`
-- Verification date: `2026-07-20`
+- Prisma CLI, client, and PostgreSQL adapter: `7.9.0`
+- Verification date: `2026-07-22`
 
 Run `nvm use` from this project directory before each Node or pnpm command.
 The standard verification commands are:
 
 ```bash
-pnpm audit --prod --audit-level=moderate
+pnpm audit
 pnpm lint
 pnpm build
 pnpm test --runInBand
@@ -38,19 +38,20 @@ The remediated direct dependency set includes:
 | Node.js | 26.5.0 |
 | NestJS common, core, platform, and testing | 11.1.28 |
 | NestJS Swagger | 11.4.6 |
-| Prisma CLI, client, and PostgreSQL adapter | 7.8.0 |
+| Prisma CLI, client, and PostgreSQL adapter | 7.9.0 |
 | AWS SDK S3 client and request presigner | 3.1090.0 |
 | Axios | 1.18.1 |
 | Lodash | 4.18.1 |
 | qs | 6.15.3 |
 | UUID | 14.0.1 |
 
-`pnpm-workspace.yaml` constrains vulnerable transitive ranges for Axios, Hono,
-Fast XML Parser, Multer, Path-to-RegExp, file-type, form-data, js-yaml,
-brace-expansion, Joi, and related packages. The generated lockfile is the
-authoritative record of their resolved versions.
+`pnpm-workspace.yaml` constrains vulnerable transitive ranges for Axios, Babel,
+Body Parser, Fast URI, Fast XML Parser, Hono's Node server, Multer,
+Path-to-RegExp, file-type, form-data, js-yaml, brace-expansion, Handlebars, Joi,
+Piscina, UUID, archive utilities, and related packages. The generated lockfile
+is the authoritative record of their resolved versions.
 
-Prisma 7.8.0 currently prints an upstream support-list warning under Node 26.
+Prisma 7.9.0 currently prints an upstream support-list warning under Node 26.
 The four committed external generated clients also retain their existing Prisma
 6.19.x runtimes. Client generation, lint, build, migrations, the primary health
 query, and explicit connection queries through all four external clients are
@@ -114,8 +115,8 @@ Update this table whenever dependency or image contents change.
 
 | Command | Result |
 | --- | --- |
-| `pnpm install --frozen-lockfile` | Passed; Prisma 7.8.0 client generated |
-| `pnpm audit --prod --audit-level=moderate` | Passed: no known vulnerabilities |
+| `pnpm install --frozen-lockfile` | Passed; Prisma 7.9.0 client generated |
+| `pnpm audit` | Passed: 0 critical, high, moderate, low, or informational advisories |
 | `pnpm lint` | Passed |
 | `pnpm build` | Passed |
 | `pnpm test --runInBand` | 46 of 57 suites and 360 of 375 tests passed; 10 existing event-publish mock expectations and 5 JWT fixture expectations remain stale on `dev` |
