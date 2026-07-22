@@ -447,7 +447,7 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 Summary from `docs/DEPENDENCIES.md`:
 
 - Production audit: no known vulnerabilities.
-- Node 26.5.0, NestJS 11.1.28, Prisma 7.8.0, Axios 1.18.1,
+- Node 26.5.0, NestJS 11.1.28, Prisma 7.9.0, Axios 1.18.1,
   Lodash 4.18.1, qs 6.15.3, and UUID 14.0.1 are locked in the
   security candidate.
 - Security overrides for affected transitives are maintained in
