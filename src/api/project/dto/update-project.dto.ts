@@ -10,7 +10,9 @@ import { CreateProjectDto } from './create-project.dto';
  * @param value Raw `billingAccountId` value from request payload.
  * @returns Parsed integer, `null` when clearing, or `undefined` when omitted.
  */
-function parseOptionalNullableInteger(value: unknown): number | null | undefined {
+function parseOptionalNullableInteger(
+  value: unknown,
+): number | null | undefined {
   if (typeof value === 'undefined') {
     return undefined;
   }
@@ -49,7 +51,8 @@ export class UpdateProjectDto extends PartialType(
   OmitType(CreateProjectDto, ['billingAccountId'] as const),
 ) {
   @ApiPropertyOptional({
-    description: 'Project billing account id. Send null or empty string to clear.',
+    description:
+      'Project billing account id. Send null or empty string to clear.',
     nullable: true,
   })
   @IsOptional()

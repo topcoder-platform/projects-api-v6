@@ -3,9 +3,9 @@
 NestJS drop-in replacement for `tc-project-service`, serving the Topcoder platform at `/v6/projects`.
 
 [![CircleCI](https://img.shields.io/badge/CircleCI-build%20status-informational?logo=circleci)](https://circleci.com/)
-![Node](https://img.shields.io/badge/node-v22.13.1-339933?logo=node.js&logoColor=white)
+![Node](https://img.shields.io/badge/node-v26.5.0-339933?logo=node.js&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-10.28.2-F69220?logo=pnpm&logoColor=white)
-![Audit](https://img.shields.io/badge/audit-2%20moderate%20ajv%20findings-orange)
+![Audit](https://img.shields.io/badge/production%20audit-0%20findings-brightgreen)
 
 ## Table of Contents
 
@@ -352,7 +352,7 @@ Reference source: `.env.example`.
 
 ### Prerequisites
 
-- Node.js `v22.13.1` (`nvm use` in this project folder)
+- Node.js `v26.5.0` (`nvm use` in this project folder)
 - pnpm `10.28.2`
 - PostgreSQL
 
@@ -369,7 +369,7 @@ pnpm install
 Configure `DATABASE_URL`, then run:
 
 ```bash
-npx prisma migrate dev
+pnpm exec prisma migrate dev
 pnpm prisma db seed
 ```
 
@@ -419,6 +419,10 @@ Must pass before every commit per `AGENTS.md`.
 ## Deployment
 
 - CI/CD: CircleCI -> AWS ECS Fargate.
+- The multi-stage Docker image builds with Node 26.5.0 and copies only compiled
+  output, production dependencies, and Prisma migration assets into its runtime.
+- Container startup invokes the local Prisma CLI to deploy migrations before
+  replacing the shell process with `node dist/src/main`.
 - Blue-green rollout strategy is documented in `docs/MIGRATION_RUNBOOK.md`.
 - Recommended alerts:
   - 5xx rate > 2% for 5 minutes
@@ -436,18 +440,21 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 | `src/main.ts` | CORS returns `'*'` for requests with no `Origin` header | Low | Open - consider returning `false` for server-to-server calls |
 | `src/main.ts` | Swagger UI publicly accessible with no auth in production | Medium | Open - restrict by IP or add HTTP Basic auth, or gate behind env flag |
 | `src/main.ts` | Duplicate Swagger mount at `/v6/projects-api-docs` | Low (quality) | Open - consolidate to single path |
-| `docs/DEPENDENCIES.md` | `tc-bus-api-wrapper` and `tc-core-library-js` sourced from GitHub (floating refs) | Medium | Open - publish to npm or pin to commit SHA |
-| `docs/DEPENDENCIES.md` | 2 moderate `ajv` vulnerabilities (transitive via `@eslint/eslintrc` and `fork-ts-checker-webpack-plugin`) | Moderate | Open - requires upstream toolchain migration off Ajv v6 |
+| `docs/DEPENDENCIES.md` | GitHub-sourced Topcoder packages do not have a registry release stream | Low | Mitigated with immutable commit pins; external API dependencies install only their generated Prisma-client subdirectories |
 
 ## Dependency Status
 
 Summary from `docs/DEPENDENCIES.md`:
 
-- Audit: 2 moderate `ajv` vulnerabilities remain (transitive, upstream fix required).
-- All HIGH/CRITICAL findings are resolved via `pnpm.overrides` (`axios`, `jws`, `minimatch`, `hono`, `lodash`, `qs`, `fast-xml-parser`).
-- Patch updates available: `@nestjs/*` (11.1.13 -> 11.1.14), `@prisma/*` (7.4.0 -> 7.4.1), `@aws-sdk/*`.
-- Major updates available: `eslint` (9 -> 10), `jest` (29 -> 30), `uuid` (11 -> 13), `@types/node` (22 -> 25) - evaluate compatibility before upgrading.
-- Supply-chain risk: `tc-bus-api-wrapper` and `tc-core-library-js` are GitHub-sourced with floating refs.
+- Production audit: no known vulnerabilities.
+- Node 26.5.0, NestJS 11.1.28, Prisma 7.8.0, Axios 1.18.1,
+  Lodash 4.18.1, qs 6.15.3, and UUID 14.0.1 are locked in the
+  security candidate.
+- Security overrides for affected transitives are maintained in
+  `pnpm-workspace.yaml` and captured in `pnpm-lock.yaml`.
+- Topcoder Git dependencies use immutable commits. Cross-service database
+  dependencies install only committed generated Prisma clients rather than the
+  full API applications and their unrelated dependency graphs.
 
 Full details: `docs/DEPENDENCIES.md`.
 

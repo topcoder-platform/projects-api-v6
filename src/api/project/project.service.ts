@@ -49,10 +49,7 @@ import { ProjectWithRelationsDto } from './dto/project-response.dto';
 import { UpgradeProjectDto } from './dto/upgrade-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
-const BILLING_MARKUP_COPILOT_ROLES = [
-  UserRole.COPILOT,
-  UserRole.TC_COPILOT,
-];
+const BILLING_MARKUP_COPILOT_ROLES = [UserRole.COPILOT, UserRole.TC_COPILOT];
 
 const BILLING_MARKUP_VISIBLE_HUMAN_ROLES = [
   ...ADMIN_ROLES,
@@ -668,12 +665,11 @@ export class ProjectService {
 
     const shouldClearBillingAccountId =
       dto.clearBillingAccountId === true || dto.billingAccountId === null;
-    const requestedBillingAccountId =
-      shouldClearBillingAccountId
-        ? null
-        : typeof dto.billingAccountId === 'number'
-          ? String(dto.billingAccountId)
-          : undefined;
+    const requestedBillingAccountId = shouldClearBillingAccountId
+      ? null
+      : typeof dto.billingAccountId === 'number'
+        ? String(dto.billingAccountId)
+        : undefined;
     const existingBillingAccountId =
       this.toOptionalBigintString(existingProject.billingAccountId) ?? null;
 
@@ -727,12 +723,11 @@ export class ProjectService {
           status: dto.status,
           cancelReason:
             typeof dto.cancelReason === 'string' ? dto.cancelReason : undefined,
-          billingAccountId:
-            shouldClearBillingAccountId
-              ? null
-              : typeof dto.billingAccountId === 'number'
-                ? BigInt(dto.billingAccountId)
-                : undefined,
+          billingAccountId: shouldClearBillingAccountId
+            ? null
+            : typeof dto.billingAccountId === 'number'
+              ? BigInt(dto.billingAccountId)
+              : undefined,
           directProjectId:
             typeof dto.directProjectId === 'number'
               ? BigInt(dto.directProjectId)
@@ -1502,8 +1497,8 @@ export class ProjectService {
 
         return Boolean(
           parsedMemberUserId &&
-            parsedMemberUserId === parsedUserId &&
-            member.deletedAt === null,
+          parsedMemberUserId === parsedUserId &&
+          member.deletedAt === null,
         );
       })
     ) {
@@ -1517,7 +1512,9 @@ export class ProjectService {
     return projectInvites.some((invite) => {
       if (
         invite.deletedAt !== null ||
-        String(invite.status || '').trim().toLowerCase() !== 'pending'
+        String(invite.status || '')
+          .trim()
+          .toLowerCase() !== 'pending'
       ) {
         return false;
       }
@@ -1609,7 +1606,7 @@ export class ProjectService {
 
     return {
       [prismaField]: direction,
-    } as Prisma.ProjectOrderByWithRelationInput;
+    };
   }
 
   /**
@@ -1909,7 +1906,9 @@ export class ProjectService {
       UserRole.PROJECT_MANAGER,
       UserRole.TALENT_MANAGER,
       UserRole.TOPCODER_TALENT_MANAGER,
-    ].some((role) => normalizedUserRoles.has(String(role).trim().toLowerCase()));
+    ].some((role) =>
+      normalizedUserRoles.has(String(role).trim().toLowerCase()),
+    );
 
     if (hasGlobalMatrixRole) {
       return true;
@@ -2376,7 +2375,7 @@ export class ProjectService {
       return Prisma.JsonNull;
     }
 
-    return value as Prisma.InputJsonValue;
+    return value;
   }
 
   /**
@@ -2398,7 +2397,7 @@ export class ProjectService {
       return Prisma.JsonNull;
     }
 
-    return value as Prisma.InputJsonValue;
+    return value;
   }
 
   /**

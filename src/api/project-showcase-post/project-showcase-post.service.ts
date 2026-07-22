@@ -284,7 +284,7 @@ export class ProjectShowcasePostService {
           .filter((entry): entry is ChallengeMetadataDto => Boolean(entry)),
       );
     } catch (error) {
-      this.handlePrismaForeignKeyError(error, 'create project showcase post');
+      this.handlePrismaForeignKeyError(error);
     }
   }
 
@@ -397,7 +397,7 @@ export class ProjectShowcasePostService {
           .filter((entry): entry is ChallengeMetadataDto => Boolean(entry)),
       );
     } catch (error) {
-      this.handlePrismaForeignKeyError(error, 'update project showcase post');
+      this.handlePrismaForeignKeyError(error);
     }
   }
 
@@ -637,7 +637,11 @@ export class ProjectShowcasePostService {
     });
 
     const memberIds = Array.from(
-      new Set(resources.map((resource) => resource.memberId)),
+      new Set<string>(
+        resources.map(
+          (resource: { memberId: string }): string => resource.memberId,
+        ),
+      ),
     );
 
     const members =
@@ -680,9 +684,10 @@ export class ProjectShowcasePostService {
     }
 
     const uniqueSkillIds = Array.from(
-      new Set(
-        challenges.flatMap((challenge) =>
-          challenge.skills.map((skill) => skill.skillId),
+      new Set<string>(
+        challenges.flatMap(
+          (challenge: { skills: Array<{ skillId: string }> }): string[] =>
+            challenge.skills.map((skill): string => skill.skillId),
         ),
       ),
     );
@@ -706,7 +711,11 @@ export class ProjectShowcasePostService {
       ).sort();
 
       const uniqueIds = Array.from(
-        new Set(challenge.skills.map((skillItem) => skillItem.skillId)),
+        new Set<string>(
+          challenge.skills.map(
+            (skillItem: { skillId: string }): string => skillItem.skillId,
+          ),
+        ),
       );
       const skills = uniqueIds.map((skillId) => ({
         id: skillId,
@@ -726,16 +735,31 @@ export class ProjectShowcasePostService {
     return metadataMap;
   }
 
-  private handlePrismaForeignKeyError(
-    error: unknown,
-    operation: string,
-  ): never {
+  /**
+   * Maps known showcase metadata foreign-key failures to a not-found response.
+   *
+   * @param error Prisma error raised while creating or updating showcase data.
+   * @returns Never returns; it always throws a mapped or original exception.
+   * @throws {NotFoundException} When an industry or category reference is missing.
+   * @throws Rethrows unrecognized Prisma and non-Prisma errors unchanged.
+   */
+  private handlePrismaForeignKeyError(error: unknown): never {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2003'
     ) {
       const meta = error.meta ?? {};
-      let constraint = String(meta.constraint ?? '').trim();
+      const constraintValue = meta.constraint;
+      let constraint = '';
+
+      if (typeof constraintValue === 'string') {
+        constraint = constraintValue.trim();
+      } else if (Array.isArray(constraintValue)) {
+        constraint = (constraintValue as unknown[])
+          .filter((value): value is string => typeof value === 'string')
+          .join(',')
+          .trim();
+      }
 
       if (!constraint) {
         const match = /constraint:\s*`([^`]*)`/.exec(error.message);

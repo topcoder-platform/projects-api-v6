@@ -1037,7 +1037,7 @@ export class ProjectPhaseService {
       typeof template.template === 'object' &&
       !Array.isArray(template.template)
     ) {
-      return template.template as Record<string, unknown>;
+      return template.template;
     }
 
     return {

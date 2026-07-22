@@ -2,98 +2,123 @@
 
 ## Overview
 
-This document tracks dependency security posture and version drift for `projects-api-v6`.
+This document records the dependency and production-image posture for the
+`projects-api-v6` security candidate rebuilt from the repository's `dev`
+lineage.
 
 Toolchain used for this verification cycle:
 
-- Node: `v22.13.1`
+- Node: `v26.5.0`
 - pnpm: `10.28.2`
-- Verification date: `2026-02-20`
+- Prisma CLI, client, and PostgreSQL adapter: `7.8.0`
+- Verification date: `2026-07-20`
 
-To re-run checks:
+Run `nvm use` from this project directory before each Node or pnpm command.
+The standard verification commands are:
 
-- `pnpm outdated`
-- `pnpm audit`
-- `pnpm lint`
-- `pnpm build`
+```bash
+pnpm audit --prod --audit-level=moderate
+pnpm lint
+pnpm build
+pnpm test --runInBand
+```
 
-## Security Vulnerabilities
+## Security status
 
-| CVE / Advisory | Severity | Package | Affected Versions | Fixed In | Status | Planned / Required Fix |
-|---|---|---|---|---|---|---|
-| GHSA-43fc-jf86-j433 | **HIGH** | `axios` | `<=0.30.2` and `>=1.0.0 <=1.13.4` | `>=0.30.3`, `>=1.13.5` | ✅ Cleared in production/transitive paths | Applied `pnpm.overrides.axios = 1.13.5`; verified `tc-core-library-js` now resolves `axios@1.13.5`. |
-| GHSA-gq3j-xvxp-8hrf | **LOW** | `hono` | `<4.11.10` | `>=4.11.10` | ✅ Cleared | Updated `pnpm.overrides.hono` to `4.11.10`; Prisma transitive paths resolve `hono@4.11.10`. |
-| GHSA-3ppc-4f35-3m26 | **HIGH** | `minimatch` | `<10.2.1` | `>=10.2.1` | ✅ Cleared | Added `pnpm.overrides.minimatch = 10.2.1`; audit no longer reports minimatch. |
-| GHSA-2g4f-4pwh-qvx6 | **MODERATE** | `ajv` | `<8.18.0` | `>=8.18.0` | ✅ Cleared | Enforced `pnpm.overrides.ajv = 8.18.0` and added compatibility patches for `eslint@9.39.2` / `@eslint/eslintrc@3.3.3` to preserve lint behavior with Ajv v8. |
-| CVE-2025-65945 | **HIGH** | `jws` (transitive via `jsonwebtoken`, `jwks-rsa`) | `<=3.2.2`, `4.0.0` | `3.2.3`, `4.0.1` | ✅ Cleared | Existing `jws` override retained (`>=3.2.3 <4.0.0 || >=4.0.1`). |
-
-Current `pnpm audit` summary:
+The production dependency audit reports:
 
 ```text
 No known vulnerabilities found
 ```
 
-## Outdated Dependencies
+The remediated direct dependency set includes:
 
-Regenerated from `pnpm outdated` after dependency/security updates.
+| Package group | Version |
+| --- | --- |
+| Node.js | 26.5.0 |
+| NestJS common, core, platform, and testing | 11.1.28 |
+| NestJS Swagger | 11.4.6 |
+| Prisma CLI, client, and PostgreSQL adapter | 7.8.0 |
+| AWS SDK S3 client and request presigner | 3.1090.0 |
+| Axios | 1.18.1 |
+| Lodash | 4.18.1 |
+| qs | 6.15.3 |
+| UUID | 14.0.1 |
 
-| Package | Specifier | Resolved | Latest | Notes |
-|---|---|---|---|---|
-| `@nestjs/common` | `^11.0.1` | `11.1.13` | `11.1.14` | Patch update available |
-| `@nestjs/core` | `^11.0.1` | `11.1.13` | `11.1.14` | Patch update available |
-| `@nestjs/platform-express` | `^11.0.1` | `11.1.13` | `11.1.14` | Patch update available |
-| `@nestjs/testing` (dev) | `^11.0.1` | `11.1.13` | `11.1.14` | Patch update available |
-| `@prisma/adapter-pg` | `7.4.0` | `7.4.0` | `7.4.1` | Patch update available |
-| `@prisma/client` | `7.4.0` | `7.4.0` | `7.4.1` | Patch update available |
-| `prisma` (dev) | `7.4.0` | `7.4.0` | `7.4.1` | Patch update available |
-| `@aws-sdk/client-s3` | `^3.926.0` | `3.985.0` | `3.994.0` | Minor update available |
-| `@aws-sdk/s3-request-presigner` | `^3.926.0` | `3.985.0` | `3.994.0` | Minor update available |
-| `qs` | `^6.14.2` | `6.14.2` | `6.15.0` | Minor update available (currently security-pinned by override) |
-| `typescript-eslint` (dev) | `^8.20.0` | `8.54.0` | `8.56.0` | Minor update available |
-| `@eslint/js` (dev) | `^9.18.0` | `9.39.2` | `10.0.1` | Major update available |
-| `@types/jest` (dev) | `^29.5.14` | `29.5.14` | `30.0.0` | Major update available |
-| `@types/node` (dev) | `^22.10.7` | `22.19.9` | `25.3.0` | Major update available |
-| `eslint` (dev) | `^9.18.0` | `9.39.2` | `10.0.0` | Major update available |
-| `globals` (dev) | `^15.14.0` | `15.15.0` | `17.3.0` | Major update available |
-| `jest` (dev) | `^29.7.0` | `29.7.0` | `30.2.0` | Major update available |
-| `uuid` | `^11.1.0` | `11.1.0` | `13.0.0` | Major update available |
-| `@swc/cli` (dev) | `^0.6.0` | `0.6.0` | `0.8.0` | Minor update available |
+`pnpm-workspace.yaml` constrains vulnerable transitive ranges for Axios, Hono,
+Fast XML Parser, Multer, Path-to-RegExp, file-type, form-data, js-yaml,
+brace-expansion, Joi, and related packages. The generated lockfile is the
+authoritative record of their resolved versions.
 
-## GitHub-Sourced Packages (Supply-Chain Risk)
+Prisma 7.8.0 currently prints an upstream support-list warning under Node 26.
+The four committed external generated clients also retain their existing Prisma
+6.19.x runtimes. Client generation, lint, build, migrations, the primary health
+query, and explicit connection queries through all four external clients are
+verified with Node 26.5.0. Keep this compatibility point in deployment QA until
+the applicable Prisma support messages explicitly include Node 26.
 
-| Package | Specifier | Risk |
-|---|---|---|
-| `tc-bus-api-wrapper` | `github:topcoder-platform/tc-bus-api-wrapper.git` | GitHub source dependency; no semver release stream in npm |
-| `tc-core-library-js` | `topcoder-platform/tc-core-library-js.git#master` | Floating `master` reference; transitive changes can land without semver |
+## External Prisma clients
 
-## pnpm Overrides in Effect
+The application imports generated Prisma clients for challenge, member,
+resource, and standardized-skills data. Installing each source repository's
+root package pulled its entire API dependency graph into this service even
+though none of that application code was used.
 
-| Override | Pinned To | Reason |
-|---|---|---|
-| `ajv` | `8.18.0` | Fix advisory GHSA-2g4f-4pwh-qvx6 across all transitive paths |
-| `axios` | `1.13.5` | Force patched axios across transitive paths (`tc-core-library-js` included) |
-| `fast-xml-parser` | `5.3.6` | Security hardening |
-| `hono` | `4.11.10` | Fix advisory GHSA-gq3j-xvxp-8hrf |
-| `jws` | `>=3.2.3 <4.0.0 \|\| >=4.0.1` | Fix CVE-2025-65945 |
-| `lodash` | `4.17.23` | Prototype pollution fix |
-| `minimatch` | `10.2.1` | Fix advisory GHSA-3ppc-4f35-3m26 |
-| `qs` | `6.14.2` | Prototype pollution / DoS fix |
+The dependencies now select only the committed generated-client subdirectory
+from an immutable repository commit:
 
-## pnpm Patched Dependencies
+| Dependency | Commit | Installed path |
+| --- | --- | --- |
+| `@topcoder/challenge-api-v6` | `8ca7e4d065d15a077c648e4d04b85b73276cc078` | `packages/challenge-prisma-client` |
+| `@topcoder/member-api-v6` | `a0ffd68bd7c63bbf525459b1e195d6d38ab26a91` | `packages/member-prisma-client` |
+| `@topcoder/resource-api-v6` | `c64ffdccbed62533528dce55d33484be5e035d89` | `packages/resources-prisma-client` |
+| `@topcoder/standardized-skills-api` | `012bf813583f80ec1dad014824ebb4d0bd434439` | `packages/skills-prisma-client` |
 
-| Package | Patch File | Reason |
-|---|---|---|
-| `@eslint/eslintrc@3.3.3` | `patches/@eslint__eslintrc@3.3.3.patch` | Adapt Ajv initialization to work with enforced `ajv@8.18.0` |
-| `eslint@9.39.2` | `patches/eslint@9.39.2.patch` | Replace Ajv v6-specific draft-04 path/API usage with Ajv v8-compatible behavior |
+This preserves the exact generated clients used by the `dev` lineage while
+excluding unrelated service dependencies and lifecycle scripts. These generated
+packages contain Prisma 6.19.x runtimes; each client is connection/query
+smoke-tested under Node 26 in addition to the application's Prisma 7 health
+check.
 
-## Verification Log
+## Other Git dependencies
 
-Commands run in `projects-api-v6/` (with `nvm use` before each):
+The remaining Topcoder libraries are pinned to immutable commits:
+
+| Package | Commit |
+| --- | --- |
+| `tc-bus-api-wrapper` | `297a9c0adcdb97661257e7825bee9c3f5578b833` |
+| `tc-core-library-js` | `1075136355e1e1c4779f2138a30f3ffbd718bfa4` |
+
+The wrapper's own `tc-core-library-js#master` dependency is overridden to the
+same immutable core-library archive, preventing lockfile regeneration from
+advancing that transitive ref. Publishing these libraries to a controlled
+package registry would further reduce reliance on Git-hosted installation.
+
+## Production image
+
+The Dockerfile uses separate build and production stages on Node 26.5.0 with
+Alpine 3.23. The production stage contains only:
+
+- compiled application output;
+- production dependencies;
+- the Prisma CLI, configuration, schema, and migrations;
+- the startup script required to deploy migrations before listening.
+
+Development tooling and npm/npx are not copied into the final image. The
+startup script invokes the local Prisma CLI directly and then uses `exec` for
+the NestJS process, preserving ECS signal handling and migration behavior.
+
+## Verification log
+
+Update this table whenever dependency or image contents change.
 
 | Command | Result |
-|---|---|
-| `pnpm install` | ✅ Passed |
-| `pnpm audit` | ✅ Passed (`No known vulnerabilities found`) |
-| `pnpm outdated` | ✅ Completed (table above updated) |
-| `pnpm lint` | ✅ Passed |
-| `pnpm build` | ✅ Passed |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | Passed; Prisma 7.8.0 client generated |
+| `pnpm audit --prod --audit-level=moderate` | Passed: no known vulnerabilities |
+| `pnpm lint` | Passed |
+| `pnpm build` | Passed |
+| `pnpm test --runInBand` | 46 of 57 suites and 360 of 375 tests passed; 10 existing event-publish mock expectations and 5 JWT fixture expectations remain stale on `dev` |
+| Docker migration and health smoke test | Passed: 3 migrations applied, server remained running, and `/v6/projects/health` returned `{"checksRun":1}` |
+| External generated-client query smoke | Passed for challenge, member, resource, and skills clients under Node 26.5.0 |
+| Trivy 0.72.0 Critical/High/Medium image scan | Passed: 0 / 0 / 0 |

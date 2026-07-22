@@ -142,7 +142,7 @@ describe('ProjectController', () => {
       {
         name: 'My Project',
         type: 'app',
-      } as any,
+      },
       {
         userId: '123',
         isMachine: false,
@@ -226,7 +226,7 @@ describe('ProjectController', () => {
       '303',
       {
         targetVersion: 'v3',
-      } as any,
+      },
       {
         userId: '123',
         isMachine: false,

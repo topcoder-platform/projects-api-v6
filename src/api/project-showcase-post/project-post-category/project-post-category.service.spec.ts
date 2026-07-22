@@ -136,16 +136,12 @@ describe('ProjectPostCategoryService', () => {
   });
 
   it('throws NotFoundException when deleting invalid id', async () => {
-    await expect(service.delete('abc', 100)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.delete('abc', 100)).rejects.toThrow(NotFoundException);
   });
 
   it('throws NotFoundException when deleting missing category', async () => {
     prismaMock.projectPostCategory.findFirst.mockResolvedValue(undefined);
 
-    await expect(service.delete('10', 100)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(service.delete('10', 100)).rejects.toThrow(NotFoundException);
   });
 });

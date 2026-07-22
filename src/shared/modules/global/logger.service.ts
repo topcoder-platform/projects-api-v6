@@ -224,10 +224,7 @@ export class LoggerService implements NestLoggerService {
    */
   private sanitizeString(value: string): string {
     return value
-      .replace(
-        LoggerService.AUTHORIZATION_HEADER_PATTERN,
-        '$1[REDACTED]',
-      )
+      .replace(LoggerService.AUTHORIZATION_HEADER_PATTERN, '$1[REDACTED]')
       .replace(LoggerService.BEARER_TOKEN_PATTERN, '$1[REDACTED]')
       .replace(LoggerService.SENSITIVE_JSON_VALUE_PATTERN, '$1[REDACTED]$3')
       .replace(LoggerService.SENSITIVE_VALUE_PATTERN, '$1[REDACTED]');

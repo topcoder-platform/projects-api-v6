@@ -404,7 +404,7 @@ export class ProjectSettingService {
       return {};
     }
 
-    return value as Permission;
+    return value;
   }
 
   /**
