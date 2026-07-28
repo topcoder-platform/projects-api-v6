@@ -186,7 +186,7 @@ export class WorkManagementPermissionService {
             ? {}
             : { projectTemplateId: BigInt(dto.projectTemplateId) }),
           updatedBy: userId,
-        } as Prisma.WorkManagementPermissionUncheckedUpdateInput,
+        },
       });
 
       await publishMetadataEvent(

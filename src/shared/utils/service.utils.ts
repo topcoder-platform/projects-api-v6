@@ -226,7 +226,7 @@ export function toJsonInput(
     return Prisma.JsonNull;
   }
 
-  return value as Prisma.InputJsonValue;
+  return value;
 }
 
 /**

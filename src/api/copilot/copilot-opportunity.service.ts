@@ -125,7 +125,7 @@ export class CopilotOpportunityService {
     );
 
     const sorted = this.sortOpportunities(
-      opportunities as OpportunityWithRelations[],
+      opportunities,
       sortField,
       sortDirection,
       query.noGrouping,

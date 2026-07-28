@@ -36,10 +36,12 @@ jest.mock('src/shared/global/external-prisma.client', () => ({
   getResourcesPrismaClient: () => resourcesClientMock,
   getSkillsPrismaClient: () => skillsClientMock,
   getSubmitterRoleId: () => '732339e7-8e30-49d7-9198-cccf9451e221',
-}));98
+}));
 
 const { ProjectShowcasePostService: ProjectShowcasePostServiceClass } =
-  require('./project-showcase-post.service');
+  jest.requireActual<typeof import('./project-showcase-post.service')>(
+    './project-showcase-post.service',
+  );
 
 describe('ProjectShowcasePostService', () => {
   const prismaMock = {
@@ -59,7 +61,7 @@ describe('ProjectShowcasePostService', () => {
     hasNamedPermission: jest.fn(),
   };
 
-  let service: InstanceType<typeof ProjectShowcasePostServiceClass>;
+  let service: ProjectShowcasePostService;
   const user = {
     userId: '42',
     isMachine: false,
@@ -392,9 +394,7 @@ describe('ProjectShowcasePostService', () => {
   });
 
   it('throws NotFoundException when create hits an industry foreign key constraint', async () => {
-    const error = Object.create(
-      Prisma.PrismaClientKnownRequestError.prototype,
-    );
+    const error = Object.create(Prisma.PrismaClientKnownRequestError.prototype);
     Object.assign(error, {
       message:
         'Foreign key constraint violated on the constraint: `project_showcase_post_industries_industry_fkey`',
@@ -419,9 +419,7 @@ describe('ProjectShowcasePostService', () => {
   });
 
   it('throws NotFoundException when create hits a category foreign key constraint', async () => {
-    const error = Object.create(
-      Prisma.PrismaClientKnownRequestError.prototype,
-    );
+    const error = Object.create(Prisma.PrismaClientKnownRequestError.prototype);
     Object.assign(error, {
       message:
         'Foreign key constraint violated on the constraint: `project_showcase_post_categories_category_fkey`',
@@ -445,17 +443,11 @@ describe('ProjectShowcasePostService', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-
   it('throws NotFoundException when updating a missing post', async () => {
     prismaMock.projectShowcasePost.findFirst.mockResolvedValue(undefined);
 
     await expect(
-      service.updatePost(
-        '1001',
-        '10',
-        { title: 'Updated title' },
-        user,
-      ),
+      service.updatePost('1001', '10', { title: 'Updated title' }, user),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -639,9 +631,7 @@ describe('ProjectShowcasePostService', () => {
     prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
       buildPostRecord(),
     );
-    const error = Object.create(
-      Prisma.PrismaClientKnownRequestError.prototype,
-    );
+    const error = Object.create(Prisma.PrismaClientKnownRequestError.prototype);
     Object.assign(error, {
       message:
         'Foreign key constraint violated on the constraint: `project_showcase_post_industries_industry_fkey`',
@@ -667,9 +657,7 @@ describe('ProjectShowcasePostService', () => {
     prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
       buildPostRecord(),
     );
-    const error = Object.create(
-      Prisma.PrismaClientKnownRequestError.prototype,
-    );
+    const error = Object.create(Prisma.PrismaClientKnownRequestError.prototype);
     Object.assign(error, {
       message:
         'Foreign key constraint violated on the constraint: `project_showcase_post_categories_category_fkey`',

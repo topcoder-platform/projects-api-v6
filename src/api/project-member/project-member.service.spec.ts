@@ -250,7 +250,7 @@ describe('ProjectMemberService', () => {
       service.addMember(
         '1001',
         {
-          userId: 'invalid' as unknown as string,
+          userId: 'invalid',
           role: ProjectMemberRole.customer,
         },
         {

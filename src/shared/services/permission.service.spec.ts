@@ -376,26 +376,23 @@ describe('PermissionService', () => {
     UserRole.TOPCODER_TASK_MANAGER,
     UserRole.TALENT_MANAGER,
     UserRole.TOPCODER_TALENT_MANAGER,
-  ])(
-    'allows %s to view projects without membership',
-    (role) => {
-      expect(
-        service.hasNamedPermission(Permission.VIEW_PROJECT, {
-          userId: '555',
-          roles: [role],
-          isMachine: false,
-        }),
-      ).toBe(true);
+  ])('allows %s to view projects without membership', (role) => {
+    expect(
+      service.hasNamedPermission(Permission.VIEW_PROJECT, {
+        userId: '555',
+        roles: [role],
+        isMachine: false,
+      }),
+    ).toBe(true);
 
-      expect(
-        service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
-          userId: '555',
-          roles: [role],
-          isMachine: false,
-        }),
-      ).toBe(true);
-    },
-  );
+    expect(
+      service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
+        userId: '555',
+        roles: [role],
+        isMachine: false,
+      }),
+    ).toBe(true);
+  });
 
   it('allows creating projects for Project Manager role', () => {
     const allowed = service.hasNamedPermission(Permission.CREATE_PROJECT, {
@@ -419,11 +416,14 @@ describe('PermissionService', () => {
   it.each([UserRole.PROGRAM_MANAGER, UserRole.TOPCODER_MANAGER])(
     'allows manager-tier role %s to read project members without membership',
     (role) => {
-      const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
-        userId: '555',
-        roles: [role],
-        isMachine: false,
-      });
+      const allowed = service.hasNamedPermission(
+        Permission.READ_PROJECT_MEMBER,
+        {
+          userId: '555',
+          roles: [role],
+          isMachine: false,
+        },
+      );
 
       expect(allowed).toBe(true);
     },
@@ -737,14 +737,14 @@ describe('PermissionService', () => {
     ];
 
     expect(
-      service.hasNamedPermission(
-        Permission.EDIT_PROJECT,
+      service.hasNamedPermission(Permission.EDIT_PROJECT, user, projectMembers),
+    ).toBe(false);
+    expect(
+      service.matchPermissionRule(
+        PERMISSION.UPDATE_PROJECT,
         user,
         projectMembers,
       ),
-    ).toBe(false);
-    expect(
-      service.matchPermissionRule(PERMISSION.UPDATE_PROJECT, user, projectMembers),
     ).toBe(false);
   });
 

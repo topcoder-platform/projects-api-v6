@@ -295,7 +295,7 @@ async function sendRequest(
   return {
     status: response.status,
     data: response.data,
-    headers: normalizeHeaders(response.headers as Record<string, unknown>),
+    headers: normalizeHeaders(response.headers),
   };
 }
 

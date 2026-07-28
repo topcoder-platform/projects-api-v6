@@ -221,13 +221,16 @@ export class BillingAccountService {
     try {
       const token = await this.m2mService.getM2MToken();
       const response = await firstValueFrom(
-        this.httpService.get(`${this.billingAccountsApiUrl}/${billingAccountId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+        this.httpService.get(
+          `${this.billingAccountsApiUrl}/${billingAccountId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 5000,
           },
-          timeout: 5000,
-        }),
+        ),
       );
 
       const payload =

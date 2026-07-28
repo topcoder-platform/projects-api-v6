@@ -14,9 +14,7 @@ describe('ProjectPostCategoryController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ProjectPostCategoryController(
-      serviceMock as any,
-    );
+    controller = new ProjectPostCategoryController(serviceMock as any);
   });
 
   it('lists categories', async () => {
@@ -40,10 +38,7 @@ describe('ProjectPostCategoryController', () => {
   it('creates a category', async () => {
     serviceMock.create.mockResolvedValue({ id: '3', name: 'Growth' });
 
-    const response = await controller.create(
-      { name: 'Growth' },
-      user,
-    );
+    const response = await controller.create({ name: 'Growth' }, user);
 
     expect(response).toEqual({ id: '3', name: 'Growth' });
     expect(serviceMock.create).toHaveBeenCalled();

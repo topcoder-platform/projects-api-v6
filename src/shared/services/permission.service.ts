@@ -397,8 +397,8 @@ export class PermissionService {
           this.hasIntersection(user.roles || [], ADMIN_ROLES) ||
           Boolean(
             member &&
-              this.normalizeRole(member.role) ===
-                this.normalizeRole(ProjectMemberRole.MANAGER),
+            this.normalizeRole(member.role) ===
+              this.normalizeRole(ProjectMemberRole.MANAGER),
           )
         );
 
@@ -483,9 +483,7 @@ export class PermissionService {
       case NamedPermission.WORK_VIEW:
       case NamedPermission.WORKITEM_VIEW:
         return (
-          hasManagerTopcoderRole ||
-          hasProjectMembership ||
-          hasStrictAdminAccess
+          hasManagerTopcoderRole || hasProjectMembership || hasStrictAdminAccess
         );
 
       case NamedPermission.WORKSTREAM_DELETE:

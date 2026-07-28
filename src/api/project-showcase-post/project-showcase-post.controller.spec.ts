@@ -27,20 +27,14 @@ describe('ProjectShowcasePostController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new ProjectShowcasePostController(
-      serviceMock as any,
-    );
+    controller = new ProjectShowcasePostController(serviceMock as any);
   });
 
   it('searches posts', async () => {
     serviceMock.listPosts.mockResolvedValue([{ id: '1' }]);
     serviceMock.countPosts = jest.fn().mockResolvedValue(1);
 
-    const response = await controller.searchPosts(
-      mockReq,
-      mockRes,
-      {},
-    );
+    const response = await controller.searchPosts(mockReq, mockRes, {});
 
     expect(response).toEqual([{ id: '1' }]);
     expect(serviceMock.listPosts).toHaveBeenCalledWith({});

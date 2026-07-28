@@ -80,8 +80,8 @@ export class ProjectShowcasePostController {
     @Res({ passthrough: true }) res: Response,
     @Query() query: ProjectShowcasePostListQueryDto,
   ): Promise<ProjectShowcasePostResponseDto[]> {
-    const posts = await this.service.listPosts(query)
-    const total = await this.service.countPosts(query)
+    const posts = await this.service.listPosts(query);
+    const total = await this.service.countPosts(query);
 
     setProjectPaginationHeaders(
       req,
@@ -89,7 +89,7 @@ export class ProjectShowcasePostController {
       query.page || 1,
       query.perPage || 20,
       total,
-    )
+    );
 
     return posts;
   }
@@ -138,8 +138,8 @@ export class ProjectShowcasePostController {
     @Query() query: ProjectShowcasePostListQueryDto,
     @CurrentUser() user: JwtUser,
   ): Promise<ProjectShowcasePostResponseDto[]> {
-    const posts = await this.service.listProjectPosts(projectId, query, user)
-    const total = await this.service.countProjectPosts(projectId, query, user)
+    const posts = await this.service.listProjectPosts(projectId, query, user);
+    const total = await this.service.countProjectPosts(projectId, query, user);
 
     setProjectPaginationHeaders(
       req,
@@ -147,7 +147,7 @@ export class ProjectShowcasePostController {
       query.page || 1,
       query.perPage || 20,
       total,
-    )
+    );
 
     return posts;
   }

@@ -217,9 +217,7 @@ export class JwtService implements OnModuleInit {
    * @throws {UnauthorizedException} When token structure is invalid, issuer/keyId is missing, signing key cannot be fetched, or signature verification fails.
    */
   private async validateWithJwt(token: string): Promise<JwtPayloadRecord> {
-    const decoded = jwt.decode(token, { complete: true }) as
-      | (jwt.Jwt & { payload?: jwt.JwtPayload | string })
-      | null;
+    const decoded = jwt.decode(token, { complete: true });
 
     if (!decoded || typeof decoded !== 'object') {
       throw new UnauthorizedException('Invalid token');
@@ -230,11 +228,6 @@ export class JwtService implements OnModuleInit {
     }
 
     const payload = decoded.payload as JwtPayloadRecord;
-
-    if (process.env.NODE_ENV !== 'production') {
-      // TODO (security): CRITICAL - JWT signature verification is skipped entirely in non-production (NODE_ENV !== 'production'). Any token with a valid structure will be accepted. This must never reach a publicly accessible environment.
-      return payload;
-    }
 
     const issuer = this.resolveIssuer(payload);
     const keyId =
@@ -257,7 +250,7 @@ export class JwtService implements OnModuleInit {
       audience: this.audience,
     }) as jwt.JwtPayload;
 
-    return verifiedPayload as JwtPayloadRecord;
+    return verifiedPayload;
   }
 
   /**

@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
-import { PrismaClient as ChallengesPrismaClient } from '@topcoder/challenge-api-v6/packages/challenge-prisma-client';
-import { PrismaClient as MembersPrismaClient } from '@topcoder/member-api-v6/packages/member-prisma-client';
-import { PrismaClient as ResourcesPrismaClient } from '@topcoder/resource-api-v6/packages/resources-prisma-client';
-import { PrismaClient as SkillsPrismaClient } from '@topcoder/standardized-skills-api/packages/skills-prisma-client';
+import { PrismaClient as ChallengesPrismaClient } from '@topcoder/challenge-api-v6';
+import { PrismaClient as MembersPrismaClient } from '@topcoder/member-api-v6';
+import { PrismaClient as ResourcesPrismaClient } from '@topcoder/resource-api-v6';
+import { PrismaClient as SkillsPrismaClient } from '@topcoder/standardized-skills-api';
 
 const clientOptions = {
   log: [

@@ -59,7 +59,8 @@ export function signCloudFrontUrl(url: string): string {
       keyPairId,
       privateKey,
       dateLessThan: new Date(
-        Date.now() + APP_CONFIG.cloudFrontProjectShowcaseMediaUrlExpiration * 1000,
+        Date.now() +
+          APP_CONFIG.cloudFrontProjectShowcaseMediaUrlExpiration * 1000,
       ).toISOString(),
     });
   } catch {

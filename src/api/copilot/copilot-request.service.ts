@@ -717,10 +717,7 @@ export class CopilotRequestService {
 
       if (field === 'projectName') {
         return (
-          this.compareValues(
-            left.project?.name as unknown,
-            right.project?.name as unknown,
-          ) * factor
+          this.compareValues(left.project?.name, right.project?.name) * factor
         );
       }
 

@@ -5,11 +5,11 @@ describe('buildProjectWhereClause', () => {
     const where = buildProjectWhereClause(
       {
         keyword: '"my ba"',
-      } as any,
+      },
       {
         userId: '123',
         isMachine: false,
-      } as any,
+      },
       true,
     );
 
@@ -52,11 +52,11 @@ describe('buildProjectWhereClause', () => {
     const where = buildProjectWhereClause(
       {
         keyword: '""',
-      } as any,
+      },
       {
         userId: '123',
         isMachine: false,
-      } as any,
+      },
       true,
     );
 
