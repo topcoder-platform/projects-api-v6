@@ -80,7 +80,7 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'List copilot opportunities',
     description:
-      'Lists copilot opportunities using database-side filtering, sorting, and pagination. Supports discovery by search text, opportunity/application state, project, type, skills, and dates. This route remains public; current-user application filters and enrichment require an authenticated numeric user id. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
+      'Lists copilot opportunities using database-side filtering, sorting, and pagination. Supports discovery by search text, opportunity/application state, project, type, skills, and dates. This route remains public; current-user application filters and enrichment require an authenticated numeric user id. canApplyAsCopilot is true only for eligible authenticated copilot-role users. Admin and manager callers also receive minimal nested project metadata for v5 compatibility; project member ids are never returned.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({
@@ -228,7 +228,7 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'Get copilot opportunity',
     description:
-      'Returns one copilot opportunity with flattened request data and apply eligibility context for /projects/copilots/opportunity/:id. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
+      'Returns one copilot opportunity with allow-listed flattened request data and apply eligibility context for /projects/copilots/opportunity/:id. canApplyAsCopilot is false for anonymous and non-copilot callers. Admin and manager callers also receive minimal nested project metadata for v5 compatibility; project member ids are never returned.',
   })
   @ApiParam({ name: 'id', required: true, type: String })
   @ApiResponse({ status: 200, type: CopilotOpportunityResponseDto })

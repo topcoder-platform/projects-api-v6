@@ -63,7 +63,9 @@ export class CurrentUserCopilotApplicationDto {
 
 /**
  * Flattened response merging opportunity fields with request data.
- * canApplyAsCopilot indicates whether the current user is eligible to apply.
+ * canApplyAsCopilot is true only for an authenticated human with the
+ * lowercase `copilot` role, a numeric user id, no existing application, and no
+ * membership in the opportunity project.
  * Admin/manager callers also receive minimal nested project metadata.
  */
 export class CopilotOpportunityResponseDto {
@@ -138,9 +140,6 @@ export class CopilotOpportunityResponseDto {
 
   @ApiProperty()
   canApplyAsCopilot: boolean;
-
-  @ApiPropertyOptional({ type: [String] })
-  members?: string[];
 
   @ApiPropertyOptional({ type: () => CopilotOpportunityProjectDto })
   project?: CopilotOpportunityProjectDto;

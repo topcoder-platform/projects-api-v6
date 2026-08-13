@@ -72,12 +72,22 @@ The body remains an array for compatibility:
 ]
 ```
 
-Request data continues to be flattened into each result, preserving existing
-fields such as `copilotUsername`, `complexity`, `requiresCommunication`,
-`paymentType`, and `otherPaymentType`. `hasApplied` and
-`currentUserApplication` are included when a numeric authenticated user id is
-available. Admin and manager responses retain the minimal `projectId` and
-`project: { name }` metadata previously exposed.
+Documented public request data continues to be flattened into each result:
+`opportunityTitle`, `copilotUsername`, `complexity`,
+`requiresCommunication`, `paymentType`, `otherPaymentType`, `projectType`,
+`overview`, `skills`, `startDate`, `numWeeks`, `tzRestrictions`, and
+`numHoursPerWeek`. Other stored request JSON keys are not exposed, and request
+JSON cannot override trusted opportunity identity, status, type, timestamps,
+eligibility, or current-user application fields.
+
+`canApplyAsCopilot` is true only for an authenticated human caller with a
+numeric user id and the lowercase `copilot` role when the opportunity is
+active, the caller has no existing application, and the caller is not already
+a project member. It is always false for anonymous, M2M, and non-copilot
+callers. `hasApplied` and `currentUserApplication` are included when a numeric
+authenticated user id is available. Admin and manager responses retain the
+minimal `projectId` and `project: { name }` metadata previously exposed. No
+project member ids are returned by the public list or detail routes.
 
 Pagination metadata is returned in `X-Page`, `X-Per-Page`, `X-Total`, and
 `X-Total-Pages`. `X-Prev-Page`, `X-Next-Page`, and RFC 5988-style `Link` headers
@@ -90,6 +100,6 @@ Both routes resolve the same detail response:
 - `GET /v6/projects/copilot/opportunity/:id`
 - `GET /v6/projects/copilots/opportunity/:id`
 
-The detail includes the same flattened fields and current-user application
-summary as the list, plus `members`, the active project-member user-id list used
-to calculate `canApplyAsCopilot`.
+The detail includes the same allow-listed flattened fields, caller eligibility,
+and current-user application summary as the list. Membership eligibility is
+calculated server-side without exposing project member ids.

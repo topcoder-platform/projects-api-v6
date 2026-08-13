@@ -36,6 +36,12 @@ describe('CopilotOpportunityService', () => {
     isMachine: false,
   };
 
+  const copilotUser: JwtUser = {
+    userId: '4001',
+    roles: [UserRole.TC_COPILOT],
+    isMachine: false,
+  };
+
   const baseOpportunity = {
     id: BigInt(21),
     projectId: BigInt(100),
@@ -74,7 +80,7 @@ describe('CopilotOpportunityService', () => {
     );
   });
 
-  it('includes nested project metadata for project managers when fetching one opportunity', async () => {
+  it('includes project metadata without member ids for project managers', async () => {
     prismaMock.copilotOpportunity.findFirst.mockResolvedValue(baseOpportunity);
 
     const response = await service.getOpportunity('21', pmUser);
@@ -83,11 +89,12 @@ describe('CopilotOpportunityService', () => {
     expect(response.project).toEqual({
       name: 'Demo Project',
     });
-    expect(response.members).toEqual(['3001']);
-    expect(response.canApplyAsCopilot).toBe(true);
+    expect(response).not.toHaveProperty('members');
+    expect(response.canApplyAsCopilot).toBe(false);
+    expect(prismaMock.projectMember.findMany).not.toHaveBeenCalled();
   });
 
-  it('omits nested project metadata for regular users while preserving membership eligibility checks', async () => {
+  it('omits project member ids and disables apply for non-copilot users', async () => {
     prismaMock.copilotOpportunity.findFirst.mockResolvedValue({
       ...baseOpportunity,
       applications: [
@@ -104,7 +111,7 @@ describe('CopilotOpportunityService', () => {
 
     expect(response.projectId).toBeUndefined();
     expect(response.project).toBeUndefined();
-    expect(response.members).toEqual(['3001']);
+    expect(response).not.toHaveProperty('members');
     expect(response.canApplyAsCopilot).toBe(false);
     expect(response.hasApplied).toBe(true);
     expect(response.currentUserApplication).toMatchObject({
@@ -120,6 +127,110 @@ describe('CopilotOpportunityService', () => {
         }),
       }),
     );
+    expect(prismaMock.projectMember.findMany).not.toHaveBeenCalled();
+  });
+
+  it('disables apply for anonymous callers without loading membership data', async () => {
+    prismaMock.copilotOpportunity.findFirst.mockResolvedValue(baseOpportunity);
+
+    const response = await service.getOpportunity('21', undefined);
+
+    expect(response.canApplyAsCopilot).toBe(false);
+    expect(response).not.toHaveProperty('members');
+    expect(response).not.toHaveProperty('hasApplied');
+    expect(prismaMock.projectMember.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.copilotOpportunity.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          project: false,
+          applications: false,
+        }),
+      }),
+    );
+  });
+
+  it('enables apply only for an eligible copilot without membership or an application', async () => {
+    prismaMock.copilotOpportunity.findFirst.mockResolvedValue(baseOpportunity);
+
+    const response = await service.getOpportunity('21', copilotUser);
+
+    expect(response.canApplyAsCopilot).toBe(true);
+    expect(response.hasApplied).toBe(false);
+    expect(prismaMock.projectMember.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: BigInt(4001),
+        projectId: { in: [BigInt(100)] },
+        deletedAt: null,
+      },
+      select: { projectId: true },
+    });
+  });
+
+  it('disables apply for a copilot who is already a project member', async () => {
+    prismaMock.copilotOpportunity.findFirst.mockResolvedValue(baseOpportunity);
+    prismaMock.projectMember.findMany.mockResolvedValue([
+      { projectId: BigInt(100) },
+    ]);
+
+    const response = await service.getOpportunity('21', copilotUser);
+
+    expect(response.canApplyAsCopilot).toBe(false);
+  });
+
+  it('disables apply for a copilot who already has an application', async () => {
+    prismaMock.copilotOpportunity.findFirst.mockResolvedValue({
+      ...baseOpportunity,
+      applications: [
+        {
+          id: BigInt(31),
+          status: CopilotApplicationStatus.pending,
+          createdAt: new Date('2026-03-03T00:00:00.000Z'),
+          updatedAt: new Date('2026-03-03T01:00:00.000Z'),
+        },
+      ],
+    });
+
+    const response = await service.getOpportunity('21', copilotUser);
+
+    expect(response.canApplyAsCopilot).toBe(false);
+    expect(response.hasApplied).toBe(true);
+  });
+
+  it('allow-lists request JSON and assigns trusted opportunity fields last', async () => {
+    prismaMock.copilotOpportunity.findFirst.mockResolvedValue({
+      ...baseOpportunity,
+      copilotRequest: {
+        data: {
+          opportunityTitle: 'Safe public title',
+          overview: 'Safe public overview',
+          projectId: '999',
+          id: 'spoofed-id',
+          status: CopilotOpportunityStatus.completed,
+          type: CopilotOpportunityType.design,
+          createdAt: 'spoofed-date',
+          canApplyAsCopilot: false,
+          members: ['private-member-id'],
+          project: { name: 'Spoofed project' },
+          secretAccountId: 'private-account',
+        },
+      },
+    });
+
+    const response = await service.getOpportunity('21', copilotUser);
+
+    expect(response).toMatchObject({
+      id: '21',
+      status: CopilotOpportunityStatus.active,
+      type: CopilotOpportunityType.dev,
+      createdAt: baseOpportunity.createdAt,
+      opportunityTitle: 'Safe public title',
+      overview: 'Safe public overview',
+      canApplyAsCopilot: true,
+    });
+    expect(response).not.toHaveProperty('projectId');
+    expect(response).not.toHaveProperty('members');
+    expect(response).not.toHaveProperty('secretAccountId');
+    expect(response).not.toHaveProperty('project');
   });
 
   it('includes nested project metadata in list results for project managers', async () => {
@@ -132,6 +243,8 @@ describe('CopilotOpportunityService', () => {
     expect(response.data[0].project).toEqual({
       name: 'Demo Project',
     });
+    expect(response.data[0].canApplyAsCopilot).toBe(false);
+    expect(response.data[0]).not.toHaveProperty('members');
     expect(response.total).toBe(1);
     expect(prismaMock.copilotOpportunity.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

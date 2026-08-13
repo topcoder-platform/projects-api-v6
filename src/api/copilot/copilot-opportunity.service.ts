@@ -16,6 +16,7 @@ import {
   ProjectMemberRole,
 } from '@prisma/client';
 import { Permission as NamedPermission } from 'src/shared/constants/permissions';
+import { UserRole } from 'src/shared/enums/userRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
@@ -66,9 +67,6 @@ type OpportunityWithRelations = CopilotOpportunity & {
   project?: {
     id: bigint;
     name: string;
-    members?: Array<{
-      userId: bigint;
-    }>;
   } | null;
   applications?: Array<
     Pick<CopilotApplication, 'id' | 'status' | 'createdAt' | 'updatedAt'>
@@ -113,6 +111,41 @@ interface NormalizedOpportunityQuery {
   applicationStatuses?: CopilotApplicationStatus[];
   currentUserId?: bigint;
 }
+
+type PublicCopilotRequestData = Partial<
+  Pick<
+    CopilotOpportunityResponseDto,
+    | 'opportunityTitle'
+    | 'copilotUsername'
+    | 'complexity'
+    | 'requiresCommunication'
+    | 'paymentType'
+    | 'otherPaymentType'
+    | 'projectType'
+    | 'overview'
+    | 'skills'
+    | 'startDate'
+    | 'numWeeks'
+    | 'tzRestrictions'
+    | 'numHoursPerWeek'
+  >
+>;
+
+const PUBLIC_COPILOT_REQUEST_FIELDS = [
+  'opportunityTitle',
+  'copilotUsername',
+  'complexity',
+  'requiresCommunication',
+  'paymentType',
+  'otherPaymentType',
+  'projectType',
+  'overview',
+  'skills',
+  'startDate',
+  'numWeeks',
+  'tzRestrictions',
+  'numHoursPerWeek',
+] as const satisfies ReadonlyArray<keyof PublicCopilotRequestData>;
 
 @Injectable()
 /**
@@ -207,7 +240,7 @@ export class CopilotOpportunityService {
         Boolean(opportunity),
       );
 
-    const canApplyProjectIds = await this.getMembershipProjectIds(
+    const memberProjectIds = await this.getMembershipProjectIds(
       orderedOpportunities,
       user,
     );
@@ -216,8 +249,7 @@ export class CopilotOpportunityService {
       data: orderedOpportunities.map((opportunity) => {
         const formatted = this.formatOpportunity(
           opportunity,
-          !canApplyProjectIds.has(String(opportunity.projectId || '')),
-          undefined,
+          this.canApplyToOpportunity(opportunity, user, memberProjectIds),
           includeProject,
           Boolean(filters.currentUserId),
         );
@@ -232,7 +264,8 @@ export class CopilotOpportunityService {
 
   /**
    * Returns a single opportunity with eligibility context.
-   * canApplyAsCopilot is true when the user is not already a member of the project.
+   * canApplyAsCopilot is true only for an authenticated human copilot with a
+   * numeric user id who has not applied and is not already a project member.
    * Admin/manager responses also include minimal project metadata for v5 compatibility.
    *
    * @param opportunityId Opportunity id path value.
@@ -257,20 +290,14 @@ export class CopilotOpportunityService {
       },
       include: {
         copilotRequest: true,
-        project: {
-          select: {
-            id: true,
-            name: true,
-            members: {
-              where: {
-                deletedAt: null,
-              },
+        project: includeProject
+          ? {
               select: {
-                userId: true,
+                id: true,
+                name: true,
               },
-            },
-          },
-        },
+            }
+          : false,
         applications: currentUserId
           ? {
               where: {
@@ -298,19 +325,14 @@ export class CopilotOpportunityService {
       );
     }
 
-    const members = (opportunity.project?.members || []).map((member) =>
-      member.userId.toString(),
+    const memberProjectIds = await this.getMembershipProjectIds(
+      [opportunity],
+      user,
     );
-
-    const canApplyAsCopilot =
-      user?.userId && user.userId.trim().length > 0
-        ? !members.includes(user.userId)
-        : true;
 
     return this.formatOpportunity(
       opportunity,
-      canApplyAsCopilot,
-      members,
+      this.canApplyToOpportunity(opportunity, user, memberProjectIds),
       includeProject,
       Boolean(currentUserId),
     );
@@ -1152,11 +1174,13 @@ export class CopilotOpportunityService {
 
   /**
    * Formats an opportunity response DTO.
-   * Request data fields are spread directly onto the response.
+   * Only explicitly public request-data fields are copied to the response;
+   * trusted opportunity fields are assigned afterward so stored JSON cannot
+   * override server-computed identity, status, eligibility, or application
+   * state.
    *
    * @param input Opportunity row with relations.
    * @param canApplyAsCopilot Whether caller can apply.
-   * @param members Optional member userId list.
    * @param includeProjectDetails Whether to include admin/manager project metadata.
    * @param includeCurrentUserApplication Whether to emit current-user application state.
    * @returns Formatted opportunity response.
@@ -1164,16 +1188,16 @@ export class CopilotOpportunityService {
   private formatOpportunity(
     input: OpportunityWithRelations,
     canApplyAsCopilot: boolean,
-    members: string[] | undefined,
     includeProjectDetails: boolean,
     includeCurrentUserApplication: boolean,
   ): CopilotOpportunityResponseDto {
     const normalized = normalizeEntity(input) as Record<string, any>;
-    const requestData = getCopilotRequestData(
+    const requestData = this.getPublicCopilotRequestData(
       normalized.copilotRequest?.data as Prisma.JsonValue,
     );
 
     const response: CopilotOpportunityResponseDto = {
+      ...requestData,
       id: String(normalized.id),
       copilotRequestId: normalized.copilotRequestId
         ? String(normalized.copilotRequestId)
@@ -1183,8 +1207,6 @@ export class CopilotOpportunityService {
       createdAt: normalized.createdAt,
       updatedAt: normalized.updatedAt,
       canApplyAsCopilot,
-      members,
-      ...requestData,
     };
 
     const projectId =
@@ -1230,8 +1252,78 @@ export class CopilotOpportunityService {
   }
 
   /**
+   * Copies the public request-data contract from the JSON request envelope.
+   * Database-only fields, unknown future keys, member identifiers, and keys
+   * that could collide with trusted opportunity metadata are omitted.
+   *
+   * @param value Copilot request JSON stored with the opportunity.
+   * @returns A new object containing only documented public request fields.
+   * @throws Does not throw.
+   */
+  private getPublicCopilotRequestData(
+    value: Prisma.JsonValue | null | undefined,
+  ): PublicCopilotRequestData {
+    const requestData = getCopilotRequestData(value);
+    const publicData: Record<string, unknown> = {};
+
+    for (const field of PUBLIC_COPILOT_REQUEST_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(requestData, field)) {
+        publicData[field] = requestData[field];
+      }
+    }
+
+    return publicData;
+  }
+
+  /**
+   * Determines whether a caller can create a new copilot application.
+   * Eligibility mirrors the protected apply route and application service:
+   * callers must be authenticated human copilots with numeric ids, the
+   * opportunity must be active, and neither a current application nor project
+   * membership may exist.
+   *
+   * @param opportunity Opportunity and optional current-user application row.
+   * @param user Optional authenticated principal.
+   * @param memberProjectIds Project ids where the current user is a member.
+   * @returns True when the caller can create a new application.
+   * @throws Does not throw.
+   */
+  private canApplyToOpportunity(
+    opportunity: OpportunityWithRelations,
+    user: JwtUser | undefined,
+    memberProjectIds: Set<string>,
+  ): boolean {
+    const projectId = opportunity.projectId?.toString();
+
+    return Boolean(
+      this.isCopilotApplicant(user) &&
+      opportunity.status === CopilotOpportunityStatus.active &&
+      projectId &&
+      !memberProjectIds.has(projectId) &&
+      !opportunity.applications?.length,
+    );
+  }
+
+  /**
+   * Checks whether the principal can satisfy the copilot-only apply route.
+   *
+   * @param user Optional authenticated principal.
+   * @returns True for human copilot-role users with numeric Topcoder ids.
+   * @throws Does not throw.
+   */
+  private isCopilotApplicant(user: JwtUser | undefined): boolean {
+    return Boolean(
+      user &&
+      !user.isMachine &&
+      this.getNumericUserId(user) !== undefined &&
+      user.roles?.includes(UserRole.TC_COPILOT),
+    );
+  }
+
+  /**
    * Resolves project ids where the current user is already a member.
-   * Returns early for missing/non-numeric user ids and performs one batch membership query.
+   * Returns early for principals that cannot use the copilot-only apply route
+   * and performs one batch membership query for eligible callers.
    *
    * @param opportunities Opportunity rows used to collect project ids.
    * @param user Authenticated JWT user.
@@ -1241,7 +1333,8 @@ export class CopilotOpportunityService {
     opportunities: CopilotOpportunity[],
     user: JwtUser | undefined,
   ): Promise<Set<string>> {
-    if (!user?.userId || !/^\d+$/.test(user.userId)) {
+    const currentUserId = this.getNumericUserId(user);
+    if (!this.isCopilotApplicant(user) || currentUserId === undefined) {
       return new Set<string>();
     }
 
@@ -1255,7 +1348,7 @@ export class CopilotOpportunityService {
 
     const memberships = await this.prisma.projectMember.findMany({
       where: {
-        userId: BigInt(user.userId),
+        userId: currentUserId,
         projectId: {
           in: projectIds,
         },
