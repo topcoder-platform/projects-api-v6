@@ -25,6 +25,11 @@ import {
 
 const projects = createProjectsPrismaClient(process.env.PROJECTS_DB_URL!, {
   clientOptions: { log: ['warn', 'error'] },
+  driverOptions: {
+    connectionTimeoutMillis: 5000,
+    query_timeout: 5000,
+    statement_timeout: 5000,
+  },
 });
 
 const activeCount = await projects.copilotOpportunity.count({
@@ -35,5 +40,7 @@ await projects.$disconnect();
 ```
 
 The optional `schema` setting overrides the connection string's `schema` query
-parameter. The returned client is caller-owned and must be disconnected during
-application shutdown. The package pins Prisma and `@prisma/adapter-pg` to 7.9.0.
+parameter. `driverOptions` exposes bounded PostgreSQL pool/query settings while
+the factory continues to own adapter construction. The returned client is
+caller-owned and must be disconnected during application shutdown. The package
+pins Prisma and `@prisma/adapter-pg` to 7.9.0.

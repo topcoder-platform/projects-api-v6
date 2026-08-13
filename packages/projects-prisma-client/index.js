@@ -28,9 +28,10 @@ function resolveSchema(connectionString, schema) {
  *
  * @param {string} connectionString PostgreSQL connection string for the
  * projects database.
- * @param {{schema?: string, clientOptions?: object}} [options] Optional schema
- * override and generated PrismaClient constructor options (for example `log`
- * or `transactionOptions`).
+ * @param {{schema?: string, clientOptions?: object, driverOptions?: object}}
+ * [options] Optional schema override, PostgreSQL pool settings, and generated
+ * PrismaClient constructor options (for example `log` or
+ * `transactionOptions`). The factory owns the driver connection string.
  * @returns {import('./generated').PrismaClient} A caller-owned Prisma client.
  * @throws {TypeError} If connectionString is missing or blank.
  */
@@ -40,8 +41,10 @@ function createProjectsPrismaClient(connectionString, options = {}) {
   }
 
   const schema = resolveSchema(connectionString, options.schema);
+  const driverOptions = { ...(options.driverOptions || {}) };
+  delete driverOptions.connectionString;
   const adapter = new PrismaPg(
-    { connectionString },
+    { ...driverOptions, connectionString },
     schema ? { schema } : undefined,
   );
 
