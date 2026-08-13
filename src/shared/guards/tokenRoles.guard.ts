@@ -4,6 +4,7 @@
  *
  * The guard supports:
  * - `@Public()` escape hatch for unauthenticated routes.
+ * - Optional bearer-token enrichment on public routes.
  * - Bearer token extraction and JWT validation.
  * - Dual authorization flow for human tokens and M2M tokens.
  */
@@ -42,6 +43,15 @@ export const ANY_AUTHENTICATED_KEY = 'any_authenticated';
  */
 export const SWAGGER_ANY_AUTHENTICATED_KEY = 'x-any-authenticated';
 /**
+ * Metadata key for public routes that enrich valid bearer-token callers while
+ * continuing to allow anonymous requests.
+ */
+export const OPTIONAL_AUTHENTICATED_KEY = 'optional_authenticated';
+/**
+ * Swagger extension key for optional authentication behavior.
+ */
+export const SWAGGER_OPTIONAL_AUTHENTICATED_KEY = 'x-optional-authenticated';
+/**
  * Declares allowed Topcoder roles for a route.
  *
  * The decorator writes both runtime metadata and Swagger metadata.
@@ -67,6 +77,21 @@ export const AnyAuthenticated = () =>
   );
 
 /**
+ * Enables optional authentication on a route also marked with `@Public()`.
+ *
+ * Missing credentials remain anonymous. When an Authorization header is
+ * supplied, it must contain a valid bearer token and the validated user is
+ * attached to the request for `@CurrentUser()`.
+ *
+ * @returns Combined runtime and Swagger metadata decorators.
+ */
+export const OptionalAuthenticated = () =>
+  applyDecorators(
+    SetMetadata(OPTIONAL_AUTHENTICATED_KEY, true),
+    ApiExtension(SWAGGER_OPTIONAL_AUTHENTICATED_KEY, true),
+  );
+
+/**
  * Global auth guard that validates JWT tokens and applies role/scope checks.
  */
 @Injectable()
@@ -86,7 +111,8 @@ export class TokenRolesGuard implements CanActivate {
    * Authenticates and authorizes the incoming request.
    *
    * Behavior:
-   * - Returns `true` for `@Public()` routes.
+   * - Returns `true` for `@Public()` routes, optionally validating a supplied
+   *   bearer token when `@OptionalAuthenticated()` is also present.
    * - Throws `UnauthorizedException` when Bearer token is absent or malformed.
    * - Calls `JwtService.validateToken` and stores the validated user on request.
    * - Reads both `@Roles()` and `@Scopes()` metadata.
@@ -108,6 +134,16 @@ export class TokenRolesGuard implements CanActivate {
     ]);
 
     if (isPublic) {
+      const isOptionalAuthenticated =
+        this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTHENTICATED_KEY, [
+          context.getHandler(),
+          context.getClass(),
+        ]) || false;
+
+      if (isOptionalAuthenticated) {
+        await this.populateOptionalUser(context);
+      }
+
       return true;
     }
 
@@ -216,6 +252,35 @@ export class TokenRolesGuard implements CanActivate {
     }
 
     throw new ForbiddenException('Insufficient permissions');
+  }
+
+  /**
+   * Validates and attaches a bearer-token caller for an optional-auth public
+   * route. Absence of the Authorization header preserves anonymous access;
+   * malformed or invalid supplied credentials return 401.
+   *
+   * @param context Nest execution context containing the HTTP request.
+   * @returns Resolves after optional request enrichment.
+   * @throws UnauthorizedException If a supplied Authorization header is not a valid bearer token.
+   */
+  private async populateOptionalUser(context: ExecutionContext): Promise<void> {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const authHeader = request.headers.authorization;
+
+    if (!authHeader) {
+      return;
+    }
+
+    if (!authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid or missing token');
+    }
+
+    const token = authHeader.slice('Bearer '.length).trim();
+    if (!token) {
+      throw new UnauthorizedException('Invalid or missing token');
+    }
+
+    request.user = await this.jwtService.validateToken(token);
   }
 
   /**

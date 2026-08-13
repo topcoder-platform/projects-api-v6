@@ -81,6 +81,14 @@ packages contain Prisma 6.19.x runtimes; each client is connection/query
 smoke-tested under Node 26 in addition to the application's Prisma 7 health
 check.
 
+This repository also publishes its own generated client as the GitHub
+subdirectory package `@topcoder/projects-api-v6` from
+`packages/projects-prisma-client`. Unlike the legacy Prisma 6 clients above,
+the Projects package is generated and pinned with Prisma 7.9.0. Its exported
+`createProjectsPrismaClient(connectionString, options?)` factory supplies the
+required `@prisma/adapter-pg` instance for aggregators such as
+`opportunities-api-v6`; callers own and disconnect the returned client.
+
 ## Other Git dependencies
 
 The remaining Topcoder libraries are pinned to immutable commits:

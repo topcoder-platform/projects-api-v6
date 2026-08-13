@@ -1,5 +1,6 @@
 packages:
   - .
+  - packages/projects-prisma-client
 
 allowBuilds:
   '@nestjs/core': true

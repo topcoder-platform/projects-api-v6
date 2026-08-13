@@ -1,0 +1,35 @@
+{
+  "name": "@topcoder/projects-api-v6",
+  "version": "0.0.1",
+  "description": "Generated Prisma client and PostgreSQL adapter factory for Topcoder Projects API v6",
+  "license": "UNLICENSED",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "require": "./index.js",
+      "default": "./index.js"
+    },
+    "./generated": {
+      "types": "./generated/index.d.ts",
+      "require": "./generated/index.js",
+      "default": "./generated/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "generated",
+    "index.d.ts",
+    "index.js",
+    "README.md"
+  ],
+  "dependencies": {
+    "@prisma/adapter-pg": "7.9.0",
+    "@prisma/client": "7.9.0",
+    "@prisma/client-runtime-utils": "7.9.0"
+  },
+  "engines": {
+    "node": "26.x"
+  }
+}

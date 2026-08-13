@@ -2,12 +2,14 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   CopilotApplication,
   CopilotApplicationStatus,
   CopilotOpportunity,
   CopilotOpportunityStatus,
+  CopilotOpportunityType,
   CopilotRequest,
   CopilotRequestStatus,
   Prisma,
@@ -17,6 +19,11 @@ import { Permission as NamedPermission } from 'src/shared/constants/permissions'
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { PrismaService } from 'src/shared/modules/global/prisma.service';
 import { PermissionService } from 'src/shared/services/permission.service';
+import {
+  parseOptionalBoolean,
+  parseOptionalLooseInteger,
+  parseOptionalStringArray,
+} from 'src/shared/utils/dto-transform.utils';
 import { CopilotNotificationService } from './copilot-notification.service';
 import { AssignCopilotDto } from './dto/copilot-application.dto';
 import {
@@ -33,13 +40,26 @@ import {
   parseSortExpression,
 } from './copilot.utils';
 
-const OPPORTUNITY_SORTS = ['createdAt asc', 'createdAt desc'];
+const OPPORTUNITY_SORTS = [
+  'createdAt asc',
+  'createdAt desc',
+  'updatedAt asc',
+  'updatedAt desc',
+  'status asc',
+  'status desc',
+  'type asc',
+  'type desc',
+  'projectName asc',
+  'projectName desc',
+  'opportunityTitle asc',
+  'opportunityTitle desc',
+  'startDate asc',
+  'startDate desc',
+];
 
-const STATUS_PRIORITY: Record<CopilotOpportunityStatus, number> = {
-  [CopilotOpportunityStatus.active]: 0,
-  [CopilotOpportunityStatus.canceled]: 1,
-  [CopilotOpportunityStatus.completed]: 2,
-};
+const MAX_OPPORTUNITY_PAGE_SIZE = 200;
+const MAX_OPPORTUNITY_SEARCH_LENGTH = 200;
+const MAX_OPPORTUNITY_SKILL_FILTERS = 50;
 
 type OpportunityWithRelations = CopilotOpportunity & {
   copilotRequest?: CopilotRequest | null;
@@ -50,6 +70,9 @@ type OpportunityWithRelations = CopilotOpportunity & {
       userId: bigint;
     }>;
   } | null;
+  applications?: Array<
+    Pick<CopilotApplication, 'id' | 'status' | 'createdAt' | 'updatedAt'>
+  >;
 };
 
 type ApplicationWithMembership = CopilotApplication & {
@@ -63,6 +86,32 @@ interface PaginatedOpportunityResponse {
   page: number;
   perPage: number;
   total: number;
+}
+
+interface OpportunityPageQueryRow {
+  ids: string[];
+  total: bigint | number;
+}
+
+interface NormalizedOpportunityQuery {
+  page: number;
+  perPage: number;
+  sortField: string;
+  sortDirection: 'asc' | 'desc';
+  noGrouping: boolean;
+  search?: string;
+  statuses?: CopilotOpportunityStatus[];
+  projectId?: bigint;
+  projectName?: string;
+  types?: CopilotOpportunity['type'][];
+  skills?: string[];
+  startDateFrom?: string;
+  startDateTo?: string;
+  createdAtFrom?: Date;
+  createdAtTo?: Date;
+  applied?: boolean;
+  applicationStatuses?: CopilotApplicationStatus[];
+  currentUserId?: bigint;
 }
 
 @Injectable()
@@ -79,78 +128,105 @@ export class CopilotOpportunityService {
   ) {}
 
   /**
-   * Lists opportunities with pagination and status-priority grouping.
-   * Uses a two-phase fetch: opportunities first, then membership lookup to compute canApplyAsCopilot.
-   * Default ordering groups by status priority active -> canceled -> completed unless noGrouping is true.
-   * Admin/manager responses also include minimal project metadata for v5 compatibility.
+   * Lists copilot opportunities using database-side filtering, ordering, and
+   * pagination.
    *
-   * @param query Pagination, sort, and noGrouping parameters.
+   * Filters cover free-text search, opportunity/application status, project,
+   * type, skills, requested start date, creation date, and the current user's
+   * applications. The default ordering retains the v5-compatible status
+   * grouping (active, canceled, completed); `noGrouping=true` disables it.
+   * A bounded second fetch loads only the selected page with response
+   * relations, followed by one membership query for `canApplyAsCopilot`.
+   *
+   * @param query Validated discovery filters and pagination aliases.
    * @param user Authenticated JWT user, or undefined for anonymous `@Public()` callers.
-   * @returns Paginated opportunity response payload.
+   * @returns Paginated opportunity response payload and total matching count.
+   * @throws BadRequestException If a filter, page size, sort, or date range is invalid.
+   * @throws UnauthorizedException If a current-user application filter is requested without a numeric user id.
    */
   async listOpportunities(
     query: ListOpportunitiesQueryDto,
     user: JwtUser | undefined,
   ): Promise<PaginatedOpportunityResponse> {
     // TODO [SECURITY]: No permission check is applied here; this is intentional for authenticated browsing and should remain explicitly documented.
-    const [sortField, sortDirection] = parseSortExpression(
-      query.sort,
-      OPPORTUNITY_SORTS,
-      'createdAt desc',
-    );
-
+    const filters = this.normalizeOpportunityQuery(query, user);
     const includeProject = isAdminOrManager(user);
+    const pageResult = await this.queryOpportunityPage(filters);
+    const opportunityIds = pageResult.ids.map((id) => BigInt(id));
 
-    // TODO [PERF]: This fetches the full opportunity set and performs sorting/pagination in memory; move to DB-level orderBy/skip/take for scale.
-    const opportunities = await this.prisma.copilotOpportunity.findMany({
-      where: {
-        deletedAt: null,
-      },
-      include: {
-        copilotRequest: true,
-        project: includeProject
-          ? {
-              select: {
-                id: true,
-                name: true,
+    const opportunities =
+      opportunityIds.length > 0
+        ? await this.prisma.copilotOpportunity.findMany({
+            where: {
+              id: {
+                in: opportunityIds,
               },
-            }
-          : false,
-      },
-    });
+              deletedAt: null,
+            },
+            include: {
+              copilotRequest: true,
+              project: includeProject
+                ? {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  }
+                : false,
+              applications: filters.currentUserId
+                ? {
+                    where: {
+                      userId: filters.currentUserId,
+                      deletedAt: null,
+                    },
+                    select: {
+                      id: true,
+                      status: true,
+                      createdAt: true,
+                      updatedAt: true,
+                    },
+                    orderBy: {
+                      createdAt: 'desc',
+                    },
+                    take: 1,
+                  }
+                : false,
+            },
+          })
+        : [];
+
+    const opportunityById = new Map(
+      opportunities.map((opportunity) => [
+        opportunity.id.toString(),
+        opportunity,
+      ]),
+    );
+    const orderedOpportunities = pageResult.ids
+      .map((id) => opportunityById.get(id))
+      .filter((opportunity): opportunity is (typeof opportunities)[number] =>
+        Boolean(opportunity),
+      );
 
     const canApplyProjectIds = await this.getMembershipProjectIds(
-      opportunities,
+      orderedOpportunities,
       user,
     );
 
-    const sorted = this.sortOpportunities(
-      opportunities,
-      sortField,
-      sortDirection,
-      query.noGrouping,
-    );
-
-    const page = query.page || 1;
-    const perPage = query.pageSize || 20;
-    const total = sorted.length;
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-
     return {
-      data: sorted.slice(start, end).map((opportunity) => {
+      data: orderedOpportunities.map((opportunity) => {
         const formatted = this.formatOpportunity(
           opportunity,
           !canApplyProjectIds.has(String(opportunity.projectId || '')),
           undefined,
           includeProject,
+          Boolean(filters.currentUserId),
         );
 
         return formatted;
       }),
-      page,
-      perPage,
-      total,
+      page: filters.page,
+      perPage: filters.perPage,
+      total: pageResult.total,
     };
   }
 
@@ -172,6 +248,7 @@ export class CopilotOpportunityService {
     // TODO [SECURITY]: No permission check is applied; any authenticated user can access any opportunity by id.
     const parsedOpportunityId = parseNumericId(opportunityId, 'Opportunity');
     const includeProject = isAdminOrManager(user);
+    const currentUserId = this.getNumericUserId(user);
 
     const opportunity = await this.prisma.copilotOpportunity.findFirst({
       where: {
@@ -194,6 +271,24 @@ export class CopilotOpportunityService {
             },
           },
         },
+        applications: currentUserId
+          ? {
+              where: {
+                userId: currentUserId,
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+              take: 1,
+            }
+          : false,
       },
     });
 
@@ -217,6 +312,7 @@ export class CopilotOpportunityService {
       canApplyAsCopilot,
       members,
       includeProject,
+      Boolean(currentUserId),
     );
   }
 
@@ -518,6 +614,543 @@ export class CopilotOpportunityService {
   }
 
   /**
+   * Normalizes query aliases and validates values before they are bound to the
+   * discovery SQL query.
+   *
+   * @param query Raw or class-transformed opportunity query DTO.
+   * @param user Optional authenticated principal used for current-user filters.
+   * @returns Canonical, typed filters with defaults applied.
+   * @throws BadRequestException If pagination, enum values, lengths, sort, or date ranges are invalid.
+   * @throws UnauthorizedException If application filtering is requested without a numeric user id.
+   */
+  private normalizeOpportunityQuery(
+    query: ListOpportunitiesQueryDto,
+    user: JwtUser | undefined,
+  ): NormalizedOpportunityQuery {
+    const page = this.normalizePositiveInteger(query.page, 'page', 1);
+    const perPage = this.normalizePositiveInteger(
+      query.pageSize ?? query.perPage,
+      'pageSize',
+      20,
+      MAX_OPPORTUNITY_PAGE_SIZE,
+    );
+    const [sortField, sortDirection] = parseSortExpression(
+      typeof query.sort === 'string' ? query.sort : undefined,
+      OPPORTUNITY_SORTS,
+      'createdAt desc',
+    );
+    const statuses = this.normalizeEnumFilter(
+      query.status,
+      Object.values(CopilotOpportunityStatus),
+      'status',
+    );
+    const types = this.normalizeEnumFilter(
+      [query.type, query.projectType],
+      Object.values(CopilotOpportunityType),
+      'type',
+    );
+    const applicationStatuses = this.normalizeEnumFilter(
+      query.applicationStatus,
+      Object.values(CopilotApplicationStatus),
+      'applicationStatus',
+    );
+    const skills = parseOptionalStringArray([query.skills, query.skill]);
+    const search = String(query.search ?? query.keyword ?? '').trim();
+    const projectName = String(query.projectName ?? '').trim();
+    const currentUserId = this.getNumericUserId(user);
+    const appliedFilter = parseOptionalBoolean(query.applied);
+    const myApplications = parseOptionalBoolean(query.myApplications);
+    const applied =
+      typeof appliedFilter === 'boolean'
+        ? appliedFilter
+        : myApplications === true
+          ? true
+          : undefined;
+
+    if (search.length > MAX_OPPORTUNITY_SEARCH_LENGTH) {
+      throw new BadRequestException(
+        `search must not exceed ${MAX_OPPORTUNITY_SEARCH_LENGTH} characters.`,
+      );
+    }
+
+    if (projectName.length > MAX_OPPORTUNITY_SEARCH_LENGTH) {
+      throw new BadRequestException(
+        `projectName must not exceed ${MAX_OPPORTUNITY_SEARCH_LENGTH} characters.`,
+      );
+    }
+
+    if (skills && skills.length > MAX_OPPORTUNITY_SKILL_FILTERS) {
+      throw new BadRequestException(
+        `skills must contain no more than ${MAX_OPPORTUNITY_SKILL_FILTERS} values.`,
+      );
+    }
+
+    if (applicationStatuses && applied === false) {
+      throw new BadRequestException(
+        'applicationStatus cannot be combined with applied=false.',
+      );
+    }
+
+    if (
+      (typeof applied === 'boolean' || Boolean(applicationStatuses)) &&
+      !currentUserId
+    ) {
+      throw new UnauthorizedException(
+        'Current-user application filters require an authenticated numeric user id.',
+      );
+    }
+
+    const startDateFrom = this.normalizeDateBoundary(
+      query.startDateFrom,
+      'startDateFrom',
+      false,
+    );
+    const startDateTo = this.normalizeDateBoundary(
+      query.startDateTo,
+      'startDateTo',
+      true,
+    );
+    const createdAtFromValue = this.normalizeDateBoundary(
+      query.createdAtFrom,
+      'createdAtFrom',
+      false,
+    );
+    const createdAtToValue = this.normalizeDateBoundary(
+      query.createdAtTo,
+      'createdAtTo',
+      true,
+    );
+
+    if (
+      startDateFrom &&
+      startDateTo &&
+      new Date(startDateFrom).getTime() > new Date(startDateTo).getTime()
+    ) {
+      throw new BadRequestException(
+        'startDateFrom must be earlier than or equal to startDateTo.',
+      );
+    }
+
+    if (
+      createdAtFromValue &&
+      createdAtToValue &&
+      new Date(createdAtFromValue).getTime() >
+        new Date(createdAtToValue).getTime()
+    ) {
+      throw new BadRequestException(
+        'createdAtFrom must be earlier than or equal to createdAtTo.',
+      );
+    }
+
+    const projectId = query.projectId
+      ? parseNumericId(String(query.projectId), 'Project')
+      : undefined;
+
+    return {
+      page,
+      perPage,
+      sortField,
+      sortDirection,
+      noGrouping: parseOptionalBoolean(query.noGrouping) ?? false,
+      search: search || undefined,
+      statuses,
+      projectId,
+      projectName: projectName || undefined,
+      types,
+      skills,
+      startDateFrom,
+      startDateTo,
+      createdAtFrom: createdAtFromValue
+        ? new Date(createdAtFromValue)
+        : undefined,
+      createdAtTo: createdAtToValue ? new Date(createdAtToValue) : undefined,
+      applied,
+      applicationStatuses,
+      currentUserId,
+    };
+  }
+
+  /**
+   * Executes the database-side discovery query and returns only the selected
+   * page of ids plus the total matching count.
+   *
+   * The raw SQL is required because legacy request attributes (title, skills,
+   * and requested start date) are stored in JSONB. All user-controlled values
+   * are parameter-bound through `Prisma.sql`; only allow-listed sort fragments
+   * are composed as SQL syntax.
+   *
+   * @param filters Canonical filters produced by normalizeOpportunityQuery.
+   * @returns Ordered opportunity ids for one page and the full filtered total.
+   */
+  private async queryOpportunityPage(
+    filters: NormalizedOpportunityQuery,
+  ): Promise<{ ids: string[]; total: number }> {
+    const conditions = this.buildOpportunityConditions(filters);
+    const orderBy = this.buildOpportunityOrderBy(filters);
+    const offset = (filters.page - 1) * filters.perPage;
+
+    const rows = await this.prisma.$queryRaw<OpportunityPageQueryRow[]>(
+      Prisma.sql`
+        WITH filtered AS (
+          SELECT
+            o.id,
+            o.status,
+            o.type,
+            o."createdAt",
+            o."updatedAt",
+            COALESCE(p.name, '') AS "projectName",
+            COALESCE(r.data ->> 'opportunityTitle', '') AS "opportunityTitle",
+            NULLIF(r.data ->> 'startDate', '') AS "startDate"
+          FROM "copilot_opportunities" o
+          LEFT JOIN "copilot_requests" r
+            ON r.id = o."copilotRequestId"
+          LEFT JOIN "projects" p
+            ON p.id = o."projectId"
+          WHERE ${Prisma.join(conditions, ' AND ')}
+        )
+        SELECT
+          ARRAY(
+            SELECT f.id::text
+            FROM filtered f
+            ORDER BY ${orderBy}
+            LIMIT ${filters.perPage}
+            OFFSET ${offset}
+          ) AS ids,
+          (SELECT COUNT(*)::bigint FROM filtered) AS total
+      `,
+    );
+
+    const row = rows[0];
+    const ids = Array.isArray(row?.ids)
+      ? row.ids.filter((id) => /^\d+$/.test(String(id))).map(String)
+      : [];
+
+    return {
+      ids,
+      total: Number(row?.total ?? 0),
+    };
+  }
+
+  /**
+   * Builds parameterized SQL predicates for all opportunity discovery filters.
+   *
+   * @param filters Canonical filters produced by normalizeOpportunityQuery.
+   * @returns SQL predicates joined by queryOpportunityPage with `AND`.
+   */
+  private buildOpportunityConditions(
+    filters: NormalizedOpportunityQuery,
+  ): Prisma.Sql[] {
+    const conditions: Prisma.Sql[] = [Prisma.sql`o."deletedAt" IS NULL`];
+
+    if (filters.statuses?.length) {
+      conditions.push(
+        Prisma.sql`(${Prisma.join(
+          filters.statuses.map(
+            (status) =>
+              Prisma.sql`o.status = ${status}::"CopilotOpportunityStatus"`,
+          ),
+          ' OR ',
+        )})`,
+      );
+    }
+
+    if (filters.types?.length) {
+      conditions.push(
+        Prisma.sql`(${Prisma.join(
+          filters.types.map(
+            (type) => Prisma.sql`o.type = ${type}::"CopilotOpportunityType"`,
+          ),
+          ' OR ',
+        )})`,
+      );
+    }
+
+    if (filters.projectId) {
+      conditions.push(Prisma.sql`o."projectId" = ${filters.projectId}`);
+    }
+
+    if (filters.projectName) {
+      const pattern = `%${this.escapeLikePattern(
+        filters.projectName.toLowerCase(),
+      )}%`;
+      conditions.push(
+        Prisma.sql`LOWER(COALESCE(p.name, '')) LIKE ${pattern} ESCAPE E'\\\\'`,
+      );
+    }
+
+    if (filters.search) {
+      const pattern = `%${this.escapeLikePattern(filters.search.toLowerCase())}%`;
+      conditions.push(Prisma.sql`(
+        LOWER(COALESCE(r.data ->> 'opportunityTitle', '')) LIKE ${pattern} ESCAPE E'\\\\'
+        OR LOWER(COALESCE(r.data ->> 'overview', '')) LIKE ${pattern} ESCAPE E'\\\\'
+        OR LOWER(COALESCE(p.name, '')) LIKE ${pattern} ESCAPE E'\\\\'
+        OR LOWER(o.type::text) LIKE ${pattern} ESCAPE E'\\\\'
+        OR LOWER((COALESCE(r.data -> 'skills', '[]'::jsonb))::text) LIKE ${pattern} ESCAPE E'\\\\'
+      )`);
+    }
+
+    if (filters.skills?.length) {
+      const skills = filters.skills.map((skill) => skill.toLowerCase());
+      conditions.push(Prisma.sql`
+        EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(r.data -> 'skills') = 'array'
+                THEN r.data -> 'skills'
+              ELSE '[]'::jsonb
+            END
+          ) AS requested_skill(value)
+          WHERE LOWER(COALESCE(requested_skill.value ->> 'id', '')) IN (${Prisma.join(skills)})
+             OR LOWER(COALESCE(requested_skill.value ->> 'name', '')) IN (${Prisma.join(skills)})
+        )
+      `);
+    }
+
+    if (filters.startDateFrom) {
+      conditions.push(
+        Prisma.sql`(r.data ->> 'startDate') >= ${filters.startDateFrom}`,
+      );
+    }
+
+    if (filters.startDateTo) {
+      conditions.push(
+        Prisma.sql`(r.data ->> 'startDate') <= ${filters.startDateTo}`,
+      );
+    }
+
+    if (filters.createdAtFrom) {
+      conditions.push(Prisma.sql`o."createdAt" >= ${filters.createdAtFrom}`);
+    }
+
+    if (filters.createdAtTo) {
+      conditions.push(Prisma.sql`o."createdAt" <= ${filters.createdAtTo}`);
+    }
+
+    if (
+      filters.currentUserId &&
+      (typeof filters.applied === 'boolean' ||
+        Boolean(filters.applicationStatuses?.length))
+    ) {
+      const applicationConditions: Prisma.Sql[] = [
+        Prisma.sql`a."opportunityId" = o.id`,
+        Prisma.sql`a."userId" = ${filters.currentUserId}`,
+        Prisma.sql`a."deletedAt" IS NULL`,
+      ];
+
+      if (filters.applicationStatuses?.length) {
+        applicationConditions.push(
+          Prisma.sql`(${Prisma.join(
+            filters.applicationStatuses.map(
+              (status) =>
+                Prisma.sql`a.status = ${status}::"CopilotApplicationStatus"`,
+            ),
+            ' OR ',
+          )})`,
+        );
+      }
+
+      const applicationExists = Prisma.sql`
+        EXISTS (
+          SELECT 1
+          FROM "copilot_applications" a
+          WHERE ${Prisma.join(applicationConditions, ' AND ')}
+        )
+      `;
+
+      conditions.push(
+        filters.applied === false
+          ? Prisma.sql`NOT (${applicationExists})`
+          : applicationExists,
+      );
+    }
+
+    return conditions;
+  }
+
+  /**
+   * Builds a stable, allow-listed SQL ordering fragment for the page query.
+   *
+   * @param filters Canonical sort field, direction, and grouping preference.
+   * @returns SQL order expressions including an id tie-breaker.
+   */
+  private buildOpportunityOrderBy(
+    filters: NormalizedOpportunityQuery,
+  ): Prisma.Sql {
+    let expression: Prisma.Sql;
+
+    switch (filters.sortField) {
+      case 'updatedAt':
+        expression = Prisma.sql`f."updatedAt"`;
+        break;
+      case 'status':
+        expression = Prisma.sql`f.status::text`;
+        break;
+      case 'type':
+        expression = Prisma.sql`f.type::text`;
+        break;
+      case 'projectName':
+        expression = Prisma.sql`NULLIF(LOWER(f."projectName"), '')`;
+        break;
+      case 'opportunityTitle':
+        expression = Prisma.sql`NULLIF(LOWER(f."opportunityTitle"), '')`;
+        break;
+      case 'startDate':
+        expression = Prisma.sql`f."startDate"`;
+        break;
+      default:
+        expression = Prisma.sql`f."createdAt"`;
+        break;
+    }
+
+    const directedOrder =
+      filters.sortDirection === 'asc'
+        ? Prisma.sql`${expression} ASC NULLS LAST`
+        : Prisma.sql`${expression} DESC NULLS LAST`;
+    const idOrder =
+      filters.sortDirection === 'asc'
+        ? Prisma.sql`f.id ASC`
+        : Prisma.sql`f.id DESC`;
+
+    if (filters.noGrouping) {
+      return Prisma.sql`${directedOrder}, ${idOrder}`;
+    }
+
+    return Prisma.sql`
+      CASE f.status::text
+        WHEN 'active' THEN 0
+        WHEN 'canceled' THEN 1
+        WHEN 'completed' THEN 2
+        ELSE 3
+      END ASC,
+      ${directedOrder},
+      ${idOrder}
+    `;
+  }
+
+  /**
+   * Normalizes a positive integer query value while enforcing an optional cap.
+   *
+   * @param value Raw numeric query value.
+   * @param label Parameter name used in validation errors.
+   * @param defaultValue Value returned when the parameter is omitted.
+   * @param maximum Optional inclusive maximum.
+   * @returns A validated positive integer.
+   * @throws BadRequestException If the value is not positive or exceeds maximum.
+   */
+  private normalizePositiveInteger(
+    value: unknown,
+    label: string,
+    defaultValue: number,
+    maximum?: number,
+  ): number {
+    const parsed = parseOptionalLooseInteger(value) ?? defaultValue;
+
+    if (
+      !Number.isSafeInteger(parsed) ||
+      parsed < 1 ||
+      (maximum !== undefined && parsed > maximum)
+    ) {
+      const suffix = maximum ? ` and at most ${maximum}` : '';
+      throw new BadRequestException(`${label} must be at least 1${suffix}.`);
+    }
+
+    return parsed;
+  }
+
+  /**
+   * Parses and validates a string-list query against an enum allow-list.
+   *
+   * @param value Raw list, comma-separated string, or bracket-notation object.
+   * @param allowedValues Allowed enum values.
+   * @param label Parameter name used in validation errors.
+   * @returns Unique typed enum values, or undefined when omitted.
+   * @throws BadRequestException If any value is not in the allow-list.
+   */
+  private normalizeEnumFilter<T extends string>(
+    value: unknown,
+    allowedValues: readonly T[],
+    label: string,
+  ): T[] | undefined {
+    const values = parseOptionalStringArray(value);
+
+    if (!values) {
+      return undefined;
+    }
+
+    const invalid = values.find(
+      (valueItem) => !allowedValues.includes(valueItem as T),
+    );
+
+    if (invalid) {
+      throw new BadRequestException(
+        `Invalid ${label} value: ${invalid}. Allowed values: ${allowedValues.join(', ')}.`,
+      );
+    }
+
+    return values as T[];
+  }
+
+  /**
+   * Normalizes a date/date-time boundary to an RFC 3339 UTC timestamp.
+   * Date-only upper bounds are expanded through the end of that UTC day.
+   *
+   * @param value Optional date or date-time string.
+   * @param label Parameter name used in validation errors.
+   * @param upperBoundary Whether a date-only value is an inclusive upper bound.
+   * @returns ISO timestamp, or undefined when omitted.
+   * @throws BadRequestException If the value is not a valid date.
+   */
+  private normalizeDateBoundary(
+    value: unknown,
+    label: string,
+    upperBoundary: boolean,
+  ): string | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (typeof value !== 'string') {
+      throw new BadRequestException(`${label} must be a valid ISO date.`);
+    }
+
+    const rawValue = value.trim();
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(rawValue);
+    const normalizedInput = dateOnly
+      ? `${rawValue}T${upperBoundary ? '23:59:59.999' : '00:00:00.000'}Z`
+      : rawValue;
+    const date = new Date(normalizedInput);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException(`${label} must be a valid ISO date.`);
+    }
+
+    return date.toISOString();
+  }
+
+  /**
+   * Resolves a numeric authenticated user id for application enrichment.
+   *
+   * @param user Optional JWT principal.
+   * @returns BigInt user id, or undefined for anonymous/machine/non-numeric ids.
+   */
+  private getNumericUserId(user: JwtUser | undefined): bigint | undefined {
+    const userId = String(user?.userId ?? '').trim();
+    return /^\d+$/.test(userId) ? BigInt(userId) : undefined;
+  }
+
+  /**
+   * Escapes PostgreSQL LIKE wildcard characters so discovery search treats
+   * user input literally.
+   *
+   * @param value Lower-cased user search input.
+   * @returns LIKE-safe text for use between `%` wildcards.
+   */
+  private escapeLikePattern(value: string): string {
+    return value.replace(/[\\%_]/g, '\\$&');
+  }
+
+  /**
    * Formats an opportunity response DTO.
    * Request data fields are spread directly onto the response.
    *
@@ -525,6 +1158,7 @@ export class CopilotOpportunityService {
    * @param canApplyAsCopilot Whether caller can apply.
    * @param members Optional member userId list.
    * @param includeProjectDetails Whether to include admin/manager project metadata.
+   * @param includeCurrentUserApplication Whether to emit current-user application state.
    * @returns Formatted opportunity response.
    */
   private formatOpportunity(
@@ -532,6 +1166,7 @@ export class CopilotOpportunityService {
     canApplyAsCopilot: boolean,
     members: string[] | undefined,
     includeProjectDetails: boolean,
+    includeCurrentUserApplication: boolean,
   ): CopilotOpportunityResponseDto {
     const normalized = normalizeEntity(input) as Record<string, any>;
     const requestData = getCopilotRequestData(
@@ -574,42 +1209,24 @@ export class CopilotOpportunityService {
       };
     }
 
+    if (includeCurrentUserApplication) {
+      const currentApplication = Array.isArray(normalized.applications)
+        ? normalized.applications[0]
+        : undefined;
+
+      response.hasApplied = Boolean(currentApplication);
+
+      if (currentApplication) {
+        response.currentUserApplication = {
+          id: String(currentApplication.id),
+          status: currentApplication.status,
+          createdAt: currentApplication.createdAt,
+          updatedAt: currentApplication.updatedAt,
+        };
+      }
+    }
+
     return response;
-  }
-
-  /**
-   * Sorts opportunities by status-priority grouping (unless noGrouping) and createdAt.
-   *
-   * @param rows Opportunity rows.
-   * @param sortField Sort field.
-   * @param sortDirection Sort direction.
-   * @param noGrouping When true, skip status-priority grouping.
-   * @returns Sorted opportunities.
-   */
-  private sortOpportunities(
-    rows: OpportunityWithRelations[],
-    sortField: string,
-    sortDirection: 'asc' | 'desc',
-    noGrouping?: boolean,
-  ): OpportunityWithRelations[] {
-    const factor = sortDirection === 'asc' ? 1 : -1;
-
-    return [...rows].sort((left, right) => {
-      if (!noGrouping) {
-        const leftPriority = STATUS_PRIORITY[left.status];
-        const rightPriority = STATUS_PRIORITY[right.status];
-
-        if (leftPriority !== rightPriority) {
-          return leftPriority - rightPriority;
-        }
-      }
-
-      if (sortField === 'createdAt') {
-        return (left.createdAt.getTime() - right.createdAt.getTime()) * factor;
-      }
-
-      return 0;
-    });
   }
 
   /**

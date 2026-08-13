@@ -236,6 +236,18 @@ importers:
         specifier: ^8.64.0
         version: 8.64.0(eslint@9.39.2(patch_hash=dd306e267766b2061f100c6e3d333d20d1ebc2cb8a1bfd88232259825c5dbfdd)(jiti@2.6.1))(typescript@5.9.3)
 
+  packages/projects-prisma-client:
+    dependencies:
+      '@prisma/adapter-pg':
+        specifier: 7.9.0
+        version: 7.9.0
+      '@prisma/client':
+        specifier: 7.9.0
+        version: 7.9.0(prisma@7.9.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
+      '@prisma/client-runtime-utils':
+        specifier: 7.9.0
+        version: 7.9.0
+
 packages:
 
   '@angular-devkit/core@19.2.17':
