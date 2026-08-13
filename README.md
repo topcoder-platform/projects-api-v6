@@ -170,14 +170,32 @@ Talent Manager note:
 | `POST` | `/v6/projects/:projectId/copilots/requests` | JWT / M2M | Create copilot request |
 | `PATCH` | `/v6/projects/copilots/requests/:copilotRequestId` | JWT / M2M | Update copilot request |
 | `POST` | `/v6/projects/:projectId/copilots/requests/:copilotRequestId/approve` | JWT / M2M | Approve request -> creates opportunity |
-| `GET` | `/v6/projects/copilots/opportunities` | **Public** | List copilot opportunities |
-| `GET` | `/v6/projects/copilot/opportunity/:id` | **Public** | Get opportunity details |
+| `GET` | `/v6/projects/copilots/opportunities` | **Public** | Dynamically filter and page copilot opportunities |
+| `GET` | `/v6/projects/copilot/opportunity/:id` (alias: `/copilots/opportunity/:id`) | **Public** | Get opportunity details and current-user application state |
 | `POST` | `/v6/projects/copilots/opportunity/:id/apply` | JWT | Apply as copilot |
 | `GET` | `/v6/projects/copilots/opportunity/:id/applications` | JWT | List applications |
 | `POST` | `/v6/projects/copilots/opportunity/:id/assign` | JWT | Assign copilot (triggers member/state transitions) |
 | `DELETE` | `/v6/projects/copilots/opportunity/:id/cancel` | JWT | Cancel opportunity (cascade) |
 
 Copilot request management routes accept M2M tokens with project-write authorization such as `write:projects`, `all:projects`, or `all:connect_project`.
+
+The opportunity list supports database-level `search`, `status`, `projectId`,
+`projectName`, `type`, `skills`, requested-start/created date ranges, sorting,
+and current-user `applied` / `applicationStatus` filters. The existing response
+array and pagination headers remain compatible. See
+[`docs/copilot-opportunities.md`](docs/copilot-opportunities.md) for the exact
+contract, aliases, current-user fields, and examples.
+
+### Projects Prisma client
+
+Cross-service consumers can install the checked-in
+`packages/projects-prisma-client` subdirectory as
+`@topcoder/projects-api-v6`. It exports all generated Projects Prisma models,
+enums, and `PrismaClient`, plus
+`createProjectsPrismaClient(connectionString, options?)`, which configures the
+required Prisma 7 PostgreSQL adapter. See the package
+[`README`](packages/projects-prisma-client/README.md) for installation and
+lifecycle usage.
 
 ### Metadata
 

@@ -18,6 +18,7 @@ RUN apk upgrade --no-cache \
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml nest-cli.json tsconfig.json tsconfig.build.json \
   eslint.config.mjs .prettierrc ./
+COPY packages/projects-prisma-client/package.json ./packages/projects-prisma-client/package.json
 COPY patches ./patches
 COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile

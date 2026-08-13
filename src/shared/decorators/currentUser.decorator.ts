@@ -8,8 +8,9 @@ import { AuthenticatedRequest } from '../interfaces/request.interface';
 /**
  * Injects `request.user` into a controller handler parameter.
  *
- * Returns `undefined` when auth guards did not populate the request (for
- * example on `@Public()` routes).
+ * Returns `undefined` when auth guards did not populate the request. Public
+ * routes marked with `@OptionalAuthenticated()` receive a user when a valid
+ * bearer token is supplied and remain undefined for anonymous callers.
  */
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): JwtUser | undefined => {

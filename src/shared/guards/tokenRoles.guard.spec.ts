@@ -13,6 +13,7 @@ import { M2MService } from '../modules/global/m2m.service';
 import { ADMIN_ONLY_KEY } from './auth-metadata.constants';
 import {
   ANY_AUTHENTICATED_KEY,
+  OPTIONAL_AUTHENTICATED_KEY,
   ROLES_KEY,
   TokenRolesGuard,
 } from './tokenRoles.guard';
@@ -62,6 +63,52 @@ describe('TokenRolesGuard', () => {
 
     expect(result).toBe(true);
     expect(jwtServiceMock.validateToken).not.toHaveBeenCalled();
+  });
+
+  it('enriches optional-auth public routes when a bearer token is supplied', async () => {
+    const user = {
+      userId: '3001',
+      roles: [UserRole.TC_COPILOT],
+      isMachine: false,
+    };
+    const request: Record<string, any> = {
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+    };
+
+    reflectorMock.getAllAndOverride.mockImplementation((key: string) => {
+      if (key === IS_PUBLIC_KEY || key === OPTIONAL_AUTHENTICATED_KEY) {
+        return true;
+      }
+      return undefined;
+    });
+    jwtServiceMock.validateToken.mockResolvedValue(user);
+
+    await expect(
+      guard.canActivate(createExecutionContext(request)),
+    ).resolves.toBe(true);
+    expect(jwtServiceMock.validateToken).toHaveBeenCalledWith('valid-token');
+    expect(request.user).toEqual(user);
+  });
+
+  it('rejects malformed credentials on optional-auth public routes', async () => {
+    reflectorMock.getAllAndOverride.mockImplementation((key: string) => {
+      if (key === IS_PUBLIC_KEY || key === OPTIONAL_AUTHENTICATED_KEY) {
+        return true;
+      }
+      return undefined;
+    });
+
+    await expect(
+      guard.canActivate(
+        createExecutionContext({
+          headers: {
+            authorization: 'Token invalid-token',
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('throws UnauthorizedException when Authorization header is missing', async () => {

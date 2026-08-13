@@ -327,7 +327,7 @@ model Project {
   settings             ProjectSetting[]
   estimations          ProjectEstimation[]
   history              ProjectHistory[]
-  showcasePosts         ProjectShowcasePost[]
+  showcasePosts        ProjectShowcasePost[]
 
   @@index([createdAt])
   @@index([name])
@@ -387,7 +387,7 @@ model ProjectMemberInvite {
 
 /// Project phases.
 model ProjectPhase {
-  id           BigInt    @id @default(autoincrement())
+  id           BigInt         @id @default(autoincrement())
   projectId    BigInt
   name         String?
   description  String?
@@ -396,14 +396,14 @@ model ProjectPhase {
   startDate    DateTime?
   endDate      DateTime?
   duration     Int?
-  budget       Float     @default(0)
-  spentBudget  Float     @default(0)
-  progress     Float     @default(0)
-  details      Json      @default("{}")
+  budget       Float          @default(0)
+  spentBudget  Float          @default(0)
+  progress     Float          @default(0)
+  details      Json           @default("{}")
   order        Int?
   deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   deletedBy    Int?
   createdBy    Int
   updatedBy    Int
@@ -492,13 +492,13 @@ model ProjectAttachment {
   projectId    BigInt
   title        String?
   type         AttachmentType
-  tags         String[]        @default([])
+  tags         String[]       @default([])
   size         Int?
   category     String?
   description  String?
   path         String         @db.VarChar(2048)
   contentType  String?
-  allowedUsers Int[]           @default([])
+  allowedUsers Int[]          @default([])
   deletedAt    DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -1029,12 +1029,12 @@ model ScopeChangeRequest {
 
 /// Status history of project-level lifecycle transitions.
 model ProjectHistory {
-  id           BigInt    @id @default(autoincrement())
+  id           BigInt   @id @default(autoincrement())
   projectId    BigInt
   status       String
   cancelReason String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   updatedBy    Int
 
   project Project @relation(fields: [projectId], references: [id])
@@ -1074,23 +1074,23 @@ enum ProjectShowcasePostStatus {
 
 /// Showcase content posts linked to a project.
 model ProjectShowcasePost {
-  id             BigInt                    @id @default(autoincrement())
-  title          String
-  content        String                    @db.Text
-  status         ProjectShowcasePostStatus @default(DRAFT)
-  projectId      BigInt
-  challengeIds   String[]                  @default([])
-  createdById    Int
-  updatedById    Int
-  publishedAt    DateTime?
-  publishedBy    Int?
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
+  id           BigInt                    @id @default(autoincrement())
+  title        String
+  content      String                    @db.Text
+  status       ProjectShowcasePostStatus @default(DRAFT)
+  projectId    BigInt
+  challengeIds String[]                  @default([])
+  createdById  Int
+  updatedById  Int
+  publishedAt  DateTime?
+  publishedBy  Int?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
 
-  project        Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  industries     ProjectShowcasePostIndustry[]
-  categories     ProjectShowcasePostCategory[]
-  media          ProjectShowcasePostMedia[]
+  project    Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  industries ProjectShowcasePostIndustry[]
+  categories ProjectShowcasePostCategory[]
+  media      ProjectShowcasePostMedia[]
 
   @@index([status])
   @@index([projectId])
@@ -1099,8 +1099,8 @@ model ProjectShowcasePost {
 
 /// Project showcase post industries taxonomy.
 model ProjectPostIndustry {
-  id    BigInt     @id @default(autoincrement())
-  name  String     @unique
+  id   BigInt @id @default(autoincrement())
+  name String @unique
 
   posts ProjectShowcasePostIndustry[]
 
@@ -1109,8 +1109,8 @@ model ProjectPostIndustry {
 
 /// Project showcase post categories taxonomy.
 model ProjectPostCategory {
-  id    BigInt     @id @default(autoincrement())
-  name  String     @unique
+  id   BigInt @id @default(autoincrement())
+  name String @unique
 
   posts ProjectShowcasePostCategory[]
 
@@ -1119,12 +1119,12 @@ model ProjectPostCategory {
 
 /// Join table linking showcase posts to industries.
 model ProjectShowcasePostIndustry {
-  id                    BigInt                    @id @default(autoincrement())
+  id                    BigInt @id @default(autoincrement())
   projectShowcasePostId BigInt
   industryId            BigInt
 
-  projectShowcasePost    ProjectShowcasePost    @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
-  industry               ProjectPostIndustry    @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  projectShowcasePost ProjectShowcasePost @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
+  industry            ProjectPostIndustry @relation(fields: [industryId], references: [id], onDelete: Cascade)
 
   @@unique([projectShowcasePostId, industryId])
   @@index([projectShowcasePostId])
@@ -1134,12 +1134,12 @@ model ProjectShowcasePostIndustry {
 
 /// Join table linking showcase posts to categories.
 model ProjectShowcasePostCategory {
-  id                    BigInt                    @id @default(autoincrement())
+  id                    BigInt @id @default(autoincrement())
   projectShowcasePostId BigInt
   categoryId            BigInt
 
-  projectShowcasePost    ProjectShowcasePost    @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
-  category               ProjectPostCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  projectShowcasePost ProjectShowcasePost @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
+  category            ProjectPostCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([projectShowcasePostId, categoryId])
   @@index([projectShowcasePostId])
@@ -1149,15 +1149,15 @@ model ProjectShowcasePostCategory {
 
 /// Media assets attached to project showcase posts.
 model ProjectShowcasePostMedia {
-  id                    BigInt                    @id @default(autoincrement())
+  id                    BigInt   @id @default(autoincrement())
   projectShowcasePostId BigInt
   type                  String
   url                   String
   alt                   String?
-  createdAt             DateTime                  @default(now())
+  createdAt             DateTime @default(now())
   createdBy             BigInt
 
-  projectShowcasePost    ProjectShowcasePost    @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
+  projectShowcasePost ProjectShowcasePost @relation(fields: [projectShowcasePostId], references: [id], onDelete: Cascade)
 
   @@index([projectShowcasePostId])
   @@map("project_showcase_post_media")
