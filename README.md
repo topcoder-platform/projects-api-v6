@@ -3,7 +3,7 @@
 NestJS drop-in replacement for `tc-project-service`, serving the Topcoder platform at `/v6/projects`.
 
 [![CircleCI](https://img.shields.io/badge/CircleCI-build%20status-informational?logo=circleci)](https://circleci.com/)
-![Node](https://img.shields.io/badge/node-v26.5.0-339933?logo=node.js&logoColor=white)
+![Node](https://img.shields.io/badge/node-v26.5.1-339933?logo=node.js&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-10.28.2-F69220?logo=pnpm&logoColor=white)
 ![Audit](https://img.shields.io/badge/production%20audit-0%20findings-brightgreen)
 
@@ -370,7 +370,7 @@ Reference source: `.env.example`.
 
 ### Prerequisites
 
-- Node.js `v26.5.0` (`nvm use` in this project folder)
+- Node.js `v26.5.1` (`nvm use` in this project folder)
 - pnpm `10.28.2`
 - PostgreSQL
 
@@ -437,8 +437,10 @@ Must pass before every commit per `AGENTS.md`.
 ## Deployment
 
 - CI/CD: CircleCI -> AWS ECS Fargate.
-- The multi-stage Docker image builds with Node 26.5.0 and copies only compiled
-  output, production dependencies, and Prisma migration assets into its runtime.
+- The multi-stage Docker image builds with Node 26.5.1 and copies only compiled
+  output, production dependencies, and Prisma migration assets into its Alpine
+  3.24 runtime. The runtime installs the dynamically linked Alpine Node package
+  and does not contain npm or other package tooling.
 - Container startup invokes the local Prisma CLI to deploy migrations before
   replacing the shell process with `node dist/src/main`.
 - Blue-green rollout strategy is documented in `docs/MIGRATION_RUNBOOK.md`.
@@ -458,6 +460,7 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 | `src/main.ts` | CORS returns `'*'` for requests with no `Origin` header | Low | Open - consider returning `false` for server-to-server calls |
 | `src/main.ts` | Swagger UI publicly accessible with no auth in production | Medium | Open - restrict by IP or add HTTP Basic auth, or gate behind env flag |
 | `src/main.ts` | Duplicate Swagger mount at `/v6/projects-api-docs` | Low (quality) | Open - consolidate to single path |
+| Event publication logging | Environment-derived Kafka topics and raw client errors could reach clear-text logs | High | Resolved - log fixed operation markers and allowlisted error categories only |
 | `docs/DEPENDENCIES.md` | GitHub-sourced Topcoder packages do not have a registry release stream | Low | Mitigated with immutable commit pins; external API dependencies install only their generated Prisma-client subdirectories |
 
 ## Dependency Status
@@ -465,7 +468,7 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 Summary from `docs/DEPENDENCIES.md`:
 
 - Production audit: no known vulnerabilities.
-- Node 26.5.0, NestJS 11.1.28, Prisma 7.9.0, Axios 1.18.1,
+- Node 26.5.1, NestJS 11.1.28, Prisma 7.9.0, Axios 1.18.1,
   Lodash 4.18.1, qs 6.15.3, and UUID 14.0.1 are locked in the
   security candidate.
 - Security overrides for affected transitives are maintained in
