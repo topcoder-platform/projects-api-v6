@@ -93,6 +93,8 @@ export const USER_ROLE = {
   PROGRAM_MANAGER: 'Program Manager',
   SOLUTION_ARCHITECT: 'Solution Architect',
   PROJECT_MANAGER: 'Project Manager',
+  TALENT_MANAGER: 'Talent Manager',
+  TOPCODER_TALENT_MANAGER: 'Topcoder Talent Manager',
   TOPCODER_USER: 'Topcoder User',
   TG_ADMIN: 'tgadmin',
   TC_COPILOT: 'copilot',
@@ -116,6 +118,16 @@ export const MANAGER_ROLES = [
   USER_ROLE.PROGRAM_MANAGER,
   USER_ROLE.SOLUTION_ARCHITECT,
   USER_ROLE.PROJECT_MANAGER,
+];
+
+/**
+ * Roles allowed to create copilot requests, view applications, and assign copilots.
+ */
+export const COPILOT_REQUEST_MANAGER_ROLES = [
+  USER_ROLE.TOPCODER_ADMIN,
+  USER_ROLE.PROJECT_MANAGER,
+  USER_ROLE.TALENT_MANAGER,
+  USER_ROLE.TOPCODER_TALENT_MANAGER,
 ];
 
 /**

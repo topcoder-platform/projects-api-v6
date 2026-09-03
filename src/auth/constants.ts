@@ -51,6 +51,7 @@ import {
   USER_ROLE,
   ADMIN_ROLES as TOPCODER_ROLES_ADMINS,
   MANAGER_ROLES as TOPCODER_ROLES_MANAGERS_AND_ADMINS,
+  COPILOT_REQUEST_MANAGER_ROLES,
   M2M_SCOPES,
 } from '../shared/constants';
 
@@ -299,7 +300,7 @@ export const PERMISSION = {
       group: 'Copilot Request',
       description: 'Who can create, update, delete copilot request.',
     },
-    topcoderRoles: [USER_ROLE.PROJECT_MANAGER, USER_ROLE.TOPCODER_ADMIN],
+    topcoderRoles: [...COPILOT_REQUEST_MANAGER_ROLES],
     scopes: SCOPES_PROJECTS_WRITE,
   }),
 
@@ -319,7 +320,7 @@ export const PERMISSION = {
       group: 'Assign Copilot',
       description: 'Who can assign for copilot opportunity.',
     },
-    topcoderRoles: [USER_ROLE.PROJECT_MANAGER, USER_ROLE.TOPCODER_ADMIN],
+    topcoderRoles: [...COPILOT_REQUEST_MANAGER_ROLES],
     scopes: SCOPES_PROJECTS_WRITE,
   }),
 
@@ -329,7 +330,7 @@ export const PERMISSION = {
       group: 'Cancel copilot opportunity',
       description: 'Who can cancel copilot opportunity.',
     },
-    topcoderRoles: [USER_ROLE.PROJECT_MANAGER, USER_ROLE.TOPCODER_ADMIN],
+    topcoderRoles: [...COPILOT_REQUEST_MANAGER_ROLES],
     scopes: SCOPES_PROJECTS_WRITE,
   }),
 
