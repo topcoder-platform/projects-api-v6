@@ -8,10 +8,10 @@ lineage.
 
 Toolchain used for this verification cycle:
 
-- Node: `v26.5.0`
+- Node: `v26.5.1`
 - pnpm: `10.28.2`
 - Prisma CLI, client, and PostgreSQL adapter: `7.9.0`
-- Verification date: `2026-07-22`
+- Verification date: `2026-09-01`
 
 Run `nvm use` from this project directory before each Node or pnpm command.
 The standard verification commands are:
@@ -35,7 +35,7 @@ The remediated direct dependency set includes:
 
 | Package group | Version |
 | --- | --- |
-| Node.js | 26.5.0 |
+| Node.js | 26.5.1 |
 | NestJS common, core, platform, and testing | 11.1.28 |
 | NestJS Swagger | 11.4.6 |
 | Prisma CLI, client, and PostgreSQL adapter | 7.9.0 |
@@ -49,13 +49,16 @@ The remediated direct dependency set includes:
 Body Parser, Fast URI, Fast XML Parser, Hono's Node server, Multer,
 Path-to-RegExp, file-type, form-data, js-yaml, brace-expansion, Handlebars, Joi,
 Piscina, UUID, archive utilities, and related packages. The generated lockfile
-is the authoritative record of their resolved versions.
+is the authoritative record of their resolved versions. The September 2026
+security refresh resolves `brace-expansion` 5.0.9, `deepmerge-ts` 8.0.0,
+`fast-uri` 4.1.2, `find-my-way` 9.7.0, `js-yaml` 3.15.1/4.3.1/5.2.2, and
+`valibot` 1.4.2.
 
 Prisma 7.9.0 currently prints an upstream support-list warning under Node 26.
 The four committed external generated clients also retain their existing Prisma
 6.19.x runtimes. Client generation, lint, build, migrations, the primary health
 query, and explicit connection queries through all four external clients are
-verified with Node 26.5.0. Keep this compatibility point in deployment QA until
+verified with Node 26.5.1. Keep this compatibility point in deployment QA until
 the applicable Prisma support messages explicitly include Node 26.
 
 ## External Prisma clients
@@ -105,8 +108,9 @@ package registry would further reduce reliance on Git-hosted installation.
 
 ## Production image
 
-The Dockerfile uses separate build and production stages on Node 26.5.0 with
-Alpine 3.23. The production stage contains only:
+The Dockerfile uses Node 26.5.1 for the build stage and installs Alpine's
+dynamically linked Node 26.5.1 package into an Alpine 3.24 production stage.
+The production stage contains only:
 
 - compiled application output;
 - production dependencies;
@@ -123,11 +127,13 @@ Update this table whenever dependency or image contents change.
 
 | Command | Result |
 | --- | --- |
-| `pnpm install --frozen-lockfile` | Passed; Prisma 7.9.0 client generated |
+| `pnpm install --frozen-lockfile` | Passed in the production-image build; Prisma 7.9.0 client generated |
 | `pnpm audit` | Passed: 0 critical, high, moderate, low, or informational advisories |
 | `pnpm lint` | Passed |
 | `pnpm build` | Passed |
-| `pnpm test --runInBand` | 46 of 57 suites and 360 of 375 tests passed; 10 existing event-publish mock expectations and 5 JWT fixture expectations remain stale on `dev` |
-| Docker migration and health smoke test | Passed: 3 migrations applied, server remained running, and `/v6/projects/health` returned `{"checksRun":1}` |
-| External generated-client query smoke | Passed for challenge, member, resource, and skills clients under Node 26.5.0 |
+| Targeted project/logger tests | Passed: 2 suites and 41 tests |
+| `pnpm test --runInBand` | 49 of 60 suites and 380 of 395 tests passed; the same 10 existing event-publish mock expectations and 5 JWT fixture expectations remain stale on `dev` |
+| Docker build and runtime inspection | Passed: non-root UID/GID 10001, Node 26.5.1, OpenSSL 3.5.8-r0, dynamic system SSL linkage, and no npm executable |
+| Docker migration and health smoke test | Not repeated locally because it requires deployment database configuration; the migration entrypoint is unchanged |
+| External generated-client query smoke | Not repeated because it requires external database configuration; the generated-client pins are unchanged from the previous passing cycle |
 | Trivy 0.72.0 Critical/High/Medium image scan | Passed: 0 / 0 / 0 |

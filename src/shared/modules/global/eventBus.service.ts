@@ -78,7 +78,7 @@ export class EventBusService {
     // TODO (security): The 'topic' parameter is not validated. A caller passing an untrusted or user-supplied topic string could publish to unintended Kafka topics. Validate against an allowlist of known topics.
     if (!this.client) {
       this.logger.error(
-        `Event bus client unavailable for topic ${topic}. initReason=${this.clientInitReason}. configStatus=${this.serializeConfigStatus(this.buildConfigStatus())}`,
+        `Event bus client unavailable. initReason=${this.clientInitReason}. configStatus=${this.serializeConfigStatus(this.buildConfigStatus())}`,
       );
       throw new ServiceUnavailableException(
         'Event bus client is not configured.',
@@ -93,11 +93,8 @@ export class EventBusService {
         'mime-type': 'application/json',
         payload,
       });
-    } catch (error) {
-      this.logger.error(
-        `Failed to publish event to topic ${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
+    } catch {
+      this.logger.error('Event bus publish failed.');
       throw new InternalServerErrorException(
         'Failed to publish event to event bus.',
       );
@@ -126,19 +123,17 @@ export class EventBusService {
       return null;
     }
 
-    const missingAuthEnv = this.getMissingAuthEnv(configStatus);
-    if (missingAuthEnv.length > 0) {
-      this.clientInitReason = `missing-auth-env:${missingAuthEnv.join(',')}`;
+    if (this.hasMissingAuthConfig(configStatus)) {
+      this.clientInitReason = 'missing-auth-env';
       this.logger.warn(
-        `Missing ${missingAuthEnv.join(', ')}. Event publishing disabled. configStatus=${this.serializeConfigStatus(configStatus)}`,
+        `Event bus authentication configuration is incomplete. Event publishing disabled. configStatus=${this.serializeConfigStatus(configStatus)}`,
       );
       return null;
     }
 
-    const missingRequiredEnv = this.getMissingRequiredEnv(configStatus);
-    if (missingRequiredEnv.length > 0) {
+    if (this.hasMissingRequiredConfig(configStatus)) {
       this.logger.warn(
-        `Event bus config has empty required values: ${missingRequiredEnv.join(', ')}. Initialization may fail. configStatus=${this.serializeConfigStatus(configStatus)}`,
+        `Event bus configuration has empty required values. Initialization may fail. configStatus=${this.serializeConfigStatus(configStatus)}`,
       );
     }
 
@@ -156,12 +151,10 @@ export class EventBusService {
       });
       this.clientInitReason = 'initialized';
       return client;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.clientInitReason = `client-init-failed:${errorMessage}`;
+    } catch {
+      this.clientInitReason = 'client-init-failed';
       this.logger.warn(
-        `Failed to initialize event bus client: ${errorMessage}. configStatus=${this.serializeConfigStatus(configStatus)}`,
+        `Failed to initialize event bus client. configStatus=${this.serializeConfigStatus(configStatus)}`,
       );
       return null;
     }
@@ -184,17 +177,27 @@ export class EventBusService {
       : 'empty';
   }
 
-  private getMissingAuthEnv(status: EventBusConfigStatus): string[] {
-    const authKeys: Array<EventBusRequiredEnvKey> = [
-      'AUTH0_URL',
-      'AUTH0_AUDIENCE',
-    ];
-
-    return authKeys.filter((key) => status[key] === 'empty');
+  /**
+   * Determines whether required authentication settings are absent.
+   *
+   * The result is used for diagnostics without logging environment-derived
+   * values or dynamically selected configuration keys.
+   *
+   * @param {EventBusConfigStatus} status Sanitized set/empty configuration map.
+   * @returns {boolean} True when an Auth0 URL or audience is missing.
+   */
+  private hasMissingAuthConfig(status: EventBusConfigStatus): boolean {
+    return status.AUTH0_URL === 'empty' || status.AUTH0_AUDIENCE === 'empty';
   }
 
-  private getMissingRequiredEnv(status: EventBusConfigStatus): string[] {
-    return EVENT_BUS_REQUIRED_ENV_KEYS.filter((key) => status[key] === 'empty');
+  /**
+   * Determines whether any required event-bus setting is absent.
+   *
+   * @param {EventBusConfigStatus} status Sanitized set/empty configuration map.
+   * @returns {boolean} True when at least one required setting is missing.
+   */
+  private hasMissingRequiredConfig(status: EventBusConfigStatus): boolean {
+    return EVENT_BUS_REQUIRED_ENV_KEYS.some((key) => status[key] === 'empty');
   }
 
   private serializeConfigStatus(status: EventBusConfigStatus): string {

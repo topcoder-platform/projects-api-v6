@@ -95,24 +95,48 @@ function buildBusApiConfig(): Record<string, unknown> {
 }
 
 /**
- * Converts unknown errors into safe log messages.
+ * Reads an error message solely for retry classification.
+ *
+ * The returned value must not be logged because upstream clients can include
+ * connection details or credentials in exception text.
+ *
+ * @param {unknown} error Rejected value to inspect.
+ * @returns {string} Raw message used only by local classification logic.
  */
-function toErrorMessage(error: unknown): string {
+function getErrorMessageForClassification(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /**
- * Extracts error stack when available.
+ * Converts an unknown failure into a fixed, non-sensitive diagnostic category.
+ *
+ * @param {unknown} error Rejected value to classify.
+ * @returns {string} An allowlisted failure category safe for log output.
  */
-function toErrorStack(error: unknown): string | undefined {
-  return error instanceof Error ? error.stack : undefined;
+function classifyError(error: unknown): string {
+  if (isTransientError(error)) {
+    return 'transient-network';
+  }
+
+  if (error instanceof TypeError) {
+    return 'type-error';
+  }
+
+  if (error instanceof Error) {
+    return 'application-error';
+  }
+
+  return 'non-error-rejection';
 }
 
 /**
  * Classifies transient network/socket failures for retry logic.
+ *
+ * @param {unknown} error Rejected value to inspect.
+ * @returns {boolean} True when the error is likely transient and retryable.
  */
 function isTransientError(error: unknown): boolean {
-  const message = toErrorMessage(error);
+  const message = getErrorMessageForClassification(error);
   const normalizedMessage = message.toLowerCase();
   const codeValue =
     error && typeof error === 'object' && 'code' in error
@@ -227,8 +251,7 @@ export async function getBusApiClient(): Promise<BusApiClient> {
         attempt < MAX_RETRY_ATTEMPTS && isTransientError(error);
 
       logger.error(
-        `Failed to initialize BUS API client attempt=${attempt + 1}/${MAX_RETRY_ATTEMPTS + 1}: ${toErrorMessage(error)}`,
-        toErrorStack(error),
+        `Failed to initialize BUS API client attempt=${attempt + 1}/${MAX_RETRY_ATTEMPTS + 1} errorCategory=${classifyError(error)}.`,
       );
 
       if (!shouldRetry) {
@@ -241,7 +264,7 @@ export async function getBusApiClient(): Promise<BusApiClient> {
   }
 
   throw new Error(
-    `Unable to initialize BUS API client: ${toErrorMessage(lastError)}`,
+    `Unable to initialize BUS API client. errorCategory=${classifyError(lastError)}.`,
   );
 }
 
@@ -275,7 +298,7 @@ async function postEventWithRetry(
 ): Promise<void> {
   if (isCircuitOpen()) {
     logger.warn(
-      `Skipping event publish because circuit is open operation=${operation} topic=${event.topic}.`,
+      `Skipping event publish because circuit is open operation=${operation}.`,
     );
     return;
   }
@@ -301,8 +324,7 @@ async function postEventWithRetry(
         attempt < MAX_RETRY_ATTEMPTS && isTransientError(error);
 
       logger.error(
-        `Failed to publish ${operation} topic=${event.topic} attempt=${attempt + 1}/${MAX_RETRY_ATTEMPTS + 1} payloadSize=${payloadSize}: ${toErrorMessage(error)}`,
-        toErrorStack(error),
+        `Failed to publish ${operation} attempt=${attempt + 1}/${MAX_RETRY_ATTEMPTS + 1} payloadSize=${payloadSize} errorCategory=${classifyError(error)}.`,
       );
 
       if (!shouldRetry) {
@@ -316,7 +338,7 @@ async function postEventWithRetry(
 
   registerFailure();
   logger.warn(
-    `Event publish abandoned operation=${operation} topic=${event.topic} payloadSize=${payloadSize}: ${toErrorMessage(lastError)}`,
+    `Event publish abandoned operation=${operation} payloadSize=${payloadSize} errorCategory=${classifyError(lastError)}.`,
   );
 }
 
@@ -466,8 +488,7 @@ export async function publishProjectEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish project event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish project event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -488,8 +509,7 @@ export async function publishMemberEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish member event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish member event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -504,8 +524,7 @@ export function publishMemberEventSafely(
 ): void {
   void publishMemberEvent(topic, payload).catch((error) => {
     errorLogger.error(
-      `Failed to publish member event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish member event. errorCategory=${classifyError(error)}.`,
     );
   });
 }
@@ -520,8 +539,7 @@ export function publishInviteEventSafely(
 ): void {
   void publishInviteEvent(topic, payload).catch((error) => {
     errorLogger.error(
-      `Failed to publish invite event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish invite event. errorCategory=${classifyError(error)}.`,
     );
   });
 }
@@ -542,8 +560,7 @@ export async function publishInviteEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish invite event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish invite event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -564,8 +581,7 @@ export async function publishAttachmentEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish attachment event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish attachment event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -586,8 +602,7 @@ export async function publishPhaseEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish phase event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish phase event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -608,8 +623,7 @@ export async function publishPhaseProductEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish phase-product event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish phase-product event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -630,8 +644,7 @@ export async function publishTimelineEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish timeline event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish timeline event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -652,8 +665,7 @@ export async function publishMilestoneEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish milestone event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish milestone event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -674,8 +686,7 @@ export async function publishWorkstreamEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish workstream event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish workstream event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -696,8 +707,7 @@ export async function publishWorkEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish work event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish work event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -718,8 +728,7 @@ export async function publishWorkItemEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish workitem event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish workitem event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -740,8 +749,7 @@ export async function publishSettingEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish setting event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish setting event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
@@ -762,8 +770,7 @@ export async function publishNotificationEvent(
     );
   } catch (error) {
     logger.error(
-      `Failed to publish notification event topic=${topic}: ${toErrorMessage(error)}`,
-      toErrorStack(error),
+      `Failed to publish notification event. errorCategory=${classifyError(error)}.`,
     );
   }
 }
