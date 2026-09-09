@@ -4,6 +4,9 @@
 used by the Opportunities experience. It remains public and returns the legacy
 bare response array. Filtering, total count, stable sorting, offset, and limit
 are performed in PostgreSQL before the selected page's relations are loaded.
+Search and skill predicates normalize legacy `json` and current `jsonb`
+request-data columns to JSONB at query time, so mixed deployment histories use
+the same filtering contract.
 
 ## Query parameters
 

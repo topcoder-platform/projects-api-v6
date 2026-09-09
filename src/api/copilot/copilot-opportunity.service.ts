@@ -902,12 +902,14 @@ export class CopilotOpportunityService {
 
     if (filters.search) {
       const pattern = `%${this.escapeLikePattern(filters.search.toLowerCase())}%`;
+      // Some upgraded v5 databases retain this column as `json`; cast before
+      // the JSONB-only skill operations so both physical types are supported.
       conditions.push(Prisma.sql`(
         LOWER(COALESCE(r.data ->> 'opportunityTitle', '')) LIKE ${pattern} ESCAPE E'\\\\'
         OR LOWER(COALESCE(r.data ->> 'overview', '')) LIKE ${pattern} ESCAPE E'\\\\'
         OR LOWER(COALESCE(p.name, '')) LIKE ${pattern} ESCAPE E'\\\\'
         OR LOWER(o.type::text) LIKE ${pattern} ESCAPE E'\\\\'
-        OR LOWER((COALESCE(r.data -> 'skills', '[]'::jsonb))::text) LIKE ${pattern} ESCAPE E'\\\\'
+        OR LOWER(COALESCE(r.data::jsonb -> 'skills', '[]'::jsonb)::text) LIKE ${pattern} ESCAPE E'\\\\'
       )`);
     }
 
@@ -918,8 +920,8 @@ export class CopilotOpportunityService {
           SELECT 1
           FROM jsonb_array_elements(
             CASE
-              WHEN jsonb_typeof(r.data -> 'skills') = 'array'
-                THEN r.data -> 'skills'
+              WHEN jsonb_typeof(r.data::jsonb -> 'skills') = 'array'
+                THEN r.data::jsonb -> 'skills'
               ELSE '[]'::jsonb
             END
           ) AS requested_skill(value)
