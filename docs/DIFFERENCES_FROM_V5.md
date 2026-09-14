@@ -22,6 +22,9 @@ This document summarizes intentional differences and improvements in `project-se
   - `/v6/projects/metadata/workManagementPermission?id=:id`
 - Invite creation returns `201` when at least one invite is created and keeps partial-success response semantics:
   - `{ success: Invite[], failed: ErrorInfo[] }`
+- Copilot opportunity discovery keeps the legacy response array and route
+  aliases while adding database-side search, status/type/project/skills/date
+  filters, stable pagination, and authenticated-user application state.
 
 ## Authorization Improvements
 
@@ -42,6 +45,9 @@ This document summarizes intentional differences and improvements in `project-se
 - Prisma-based query layer replaced Sequelize.
 - Relation includes are explicit, reducing N+1 query patterns.
 - Connection behavior is standardized through Prisma pool management and environment configuration.
+- Copilot opportunity filtering/count/order/offset/limit now execute in
+  PostgreSQL. Composite opportunity/application indexes and the legacy request
+  JSON `startDate` expression index support the new discovery queries.
 
 ## Code Quality Improvements
 

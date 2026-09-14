@@ -2313,34 +2313,30 @@ export class ProjectService {
   /**
    * Fire-and-forget event publication wrapper.
    *
-   * Logs publication failures and intentionally does not rethrow.
+   * Logs a non-sensitive publication failure marker and intentionally does not
+   * rethrow. Configured topic values and rejected payloads are not logged.
    *
    * @param topic Kafka topic name.
    * @param payload Event payload.
    */
   private publishEvent(topic: string, payload: unknown): void {
-    void publishProjectEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
+    void publishProjectEvent(topic, payload).catch(() => {
+      this.logger.error('Failed to publish project event.');
     });
   }
 
   /**
    * Fire-and-forget raw event publication wrapper (no resource envelope).
    *
-   * Logs publication failures and intentionally does not rethrow.
+   * Logs a non-sensitive publication failure marker and intentionally does not
+   * rethrow. Configured topic values and rejected payloads are not logged.
    *
    * @param topic Kafka topic name.
    * @param payload Raw event payload.
    */
   private publishRawEvent(topic: string, payload: unknown): void {
-    void publishRawBusEvent(topic, payload).catch((error) => {
-      this.logger.error(
-        `Failed to publish raw event topic=${topic}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
+    void publishRawBusEvent(topic, payload).catch(() => {
+      this.logger.error('Failed to publish raw project event.');
     });
   }
 

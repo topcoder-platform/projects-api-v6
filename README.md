@@ -3,7 +3,7 @@
 NestJS drop-in replacement for `tc-project-service`, serving the Topcoder platform at `/v6/projects`.
 
 [![CircleCI](https://img.shields.io/badge/CircleCI-build%20status-informational?logo=circleci)](https://circleci.com/)
-![Node](https://img.shields.io/badge/node-v26.5.0-339933?logo=node.js&logoColor=white)
+![Node](https://img.shields.io/badge/node-v26.5.1-339933?logo=node.js&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-10.28.2-F69220?logo=pnpm&logoColor=white)
 ![Audit](https://img.shields.io/badge/production%20audit-0%20findings-brightgreen)
 
@@ -170,14 +170,32 @@ Talent Manager note:
 | `POST` | `/v6/projects/:projectId/copilots/requests` | JWT / M2M | Create copilot request |
 | `PATCH` | `/v6/projects/copilots/requests/:copilotRequestId` | JWT / M2M | Update copilot request |
 | `POST` | `/v6/projects/:projectId/copilots/requests/:copilotRequestId/approve` | JWT / M2M | Approve request -> creates opportunity |
-| `GET` | `/v6/projects/copilots/opportunities` | **Public** | List copilot opportunities |
-| `GET` | `/v6/projects/copilot/opportunity/:id` | **Public** | Get opportunity details |
+| `GET` | `/v6/projects/copilots/opportunities` | **Public** | Dynamically filter and page copilot opportunities |
+| `GET` | `/v6/projects/copilot/opportunity/:id` (alias: `/copilots/opportunity/:id`) | **Public** | Get opportunity details and current-user application state |
 | `POST` | `/v6/projects/copilots/opportunity/:id/apply` | JWT | Apply as copilot |
 | `GET` | `/v6/projects/copilots/opportunity/:id/applications` | JWT | List applications |
 | `POST` | `/v6/projects/copilots/opportunity/:id/assign` | JWT | Assign copilot (triggers member/state transitions) |
 | `DELETE` | `/v6/projects/copilots/opportunity/:id/cancel` | JWT | Cancel opportunity (cascade) |
 
 Copilot request management routes accept M2M tokens with project-write authorization such as `write:projects`, `all:projects`, or `all:connect_project`.
+
+The opportunity list supports database-level `search`, `status`, `projectId`,
+`projectName`, `type`, `skills`, requested-start/created date ranges, sorting,
+and current-user `applied` / `applicationStatus` filters. The existing response
+array and pagination headers remain compatible. See
+[`docs/copilot-opportunities.md`](docs/copilot-opportunities.md) for the exact
+contract, aliases, current-user fields, and examples.
+
+### Projects Prisma client
+
+Cross-service consumers can install the checked-in
+`packages/projects-prisma-client` subdirectory as
+`@topcoder/projects-api-v6`. It exports all generated Projects Prisma models,
+enums, and `PrismaClient`, plus
+`createProjectsPrismaClient(connectionString, options?)`, which configures the
+required Prisma 7 PostgreSQL adapter. See the package
+[`README`](packages/projects-prisma-client/README.md) for installation and
+lifecycle usage.
 
 ### Metadata
 
@@ -352,7 +370,7 @@ Reference source: `.env.example`.
 
 ### Prerequisites
 
-- Node.js `v26.5.0` (`nvm use` in this project folder)
+- Node.js `v26.5.1` (`nvm use` in this project folder)
 - pnpm `10.28.2`
 - PostgreSQL
 
@@ -419,8 +437,10 @@ Must pass before every commit per `AGENTS.md`.
 ## Deployment
 
 - CI/CD: CircleCI -> AWS ECS Fargate.
-- The multi-stage Docker image builds with Node 26.5.0 and copies only compiled
-  output, production dependencies, and Prisma migration assets into its runtime.
+- The multi-stage Docker image builds with Node 26.5.1 and copies only compiled
+  output, production dependencies, and Prisma migration assets into its Alpine
+  3.24 runtime. The runtime installs the dynamically linked Alpine Node package
+  and does not contain npm or other package tooling.
 - Container startup invokes the local Prisma CLI to deploy migrations before
   replacing the shell process with `node dist/src/main`.
 - Blue-green rollout strategy is documented in `docs/MIGRATION_RUNBOOK.md`.
@@ -440,6 +460,7 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 | `src/main.ts` | CORS returns `'*'` for requests with no `Origin` header | Low | Open - consider returning `false` for server-to-server calls |
 | `src/main.ts` | Swagger UI publicly accessible with no auth in production | Medium | Open - restrict by IP or add HTTP Basic auth, or gate behind env flag |
 | `src/main.ts` | Duplicate Swagger mount at `/v6/projects-api-docs` | Low (quality) | Open - consolidate to single path |
+| Event publication logging | Environment-derived Kafka topics and raw client errors could reach clear-text logs | High | Resolved - log fixed operation markers and allowlisted error categories only |
 | `docs/DEPENDENCIES.md` | GitHub-sourced Topcoder packages do not have a registry release stream | Low | Mitigated with immutable commit pins; external API dependencies install only their generated Prisma-client subdirectories |
 
 ## Dependency Status
@@ -447,7 +468,7 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 Summary from `docs/DEPENDENCIES.md`:
 
 - Production audit: no known vulnerabilities.
-- Node 26.5.0, NestJS 11.1.28, Prisma 7.9.0, Axios 1.18.1,
+- Node 26.5.1, NestJS 11.1.28, Prisma 7.9.0, Axios 1.18.1,
   Lodash 4.18.1, qs 6.15.3, and UUID 14.0.1 are locked in the
   security candidate.
 - Security overrides for affected transitives are maintained in

@@ -73,6 +73,47 @@ export function parseOptionalIntegerArray(
 }
 
 /**
+ * Parses an optional query-string list into unique, non-empty strings.
+ *
+ * Accepts comma-separated strings, repeated query parameters represented as
+ * arrays, and nested query-parser objects such as `{ $in: [...] }`. This keeps
+ * list filters compatible with both modern comma-separated callers and the
+ * bracket notation used by legacy Topcoder clients.
+ *
+ * @param value Raw query-string value supplied by Express/class-transformer.
+ * @returns A de-duplicated string array, or `undefined` when no values exist.
+ */
+export function parseOptionalStringArray(value: unknown): string[] | undefined {
+  const values: string[] = [];
+
+  const append = (entry: unknown): void => {
+    if (Array.isArray(entry)) {
+      entry.forEach(append);
+      return;
+    }
+
+    if (entry && typeof entry === 'object') {
+      Object.values(entry as Record<string, unknown>).forEach(append);
+      return;
+    }
+
+    if (typeof entry !== 'string' && typeof entry !== 'number') {
+      return;
+    }
+
+    String(entry)
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .forEach((item) => values.push(item));
+  };
+
+  append(value);
+
+  return values.length > 0 ? [...new Set(values)] : undefined;
+}
+
+/**
  * Parses optional boolean values from boolean/string input.
  */
 export function parseOptionalBoolean(value: unknown): boolean | undefined {

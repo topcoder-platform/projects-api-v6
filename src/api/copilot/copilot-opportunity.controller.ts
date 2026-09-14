@@ -20,6 +20,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import {
+  CopilotApplicationStatus,
+  CopilotOpportunityStatus,
+  CopilotOpportunityType,
+} from '@prisma/client';
 import { Request, Response } from 'express';
 import { Permission } from 'src/shared/constants/permissions';
 import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
@@ -29,7 +34,10 @@ import { Scopes } from 'src/shared/decorators/scopes.decorator';
 import { Scope } from 'src/shared/enums/scopes.enum';
 import { UserRole } from 'src/shared/enums/userRole.enum';
 import { PermissionGuard } from 'src/shared/guards/permission.guard';
-import { Roles } from 'src/shared/guards/tokenRoles.guard';
+import {
+  OptionalAuthenticated,
+  Roles,
+} from 'src/shared/guards/tokenRoles.guard';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
 import { setProjectPaginationHeaders } from 'src/shared/utils/pagination.utils';
 import { CopilotOpportunityService } from './copilot-opportunity.service';
@@ -61,6 +69,7 @@ export class CopilotOpportunityController {
    */
   @Get('copilots/opportunities')
   @Public()
+  @OptionalAuthenticated()
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECTS_READ,
@@ -71,12 +80,110 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'List copilot opportunities',
     description:
-      'Lists available copilot opportunities. This endpoint is accessible to authenticated users, including copilots. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
+      'Lists copilot opportunities using database-side filtering, sorting, and pagination. Supports discovery by search text, opportunity/application state, project, type, skills, and dates. This route remains public; current-user application filters and enrichment require an authenticated numeric user id. canApplyAsCopilot is true only for eligible authenticated copilot-role users. Admin and manager callers also receive minimal nested project metadata for v5 compatibility; project member ids are never returned.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'pageSize', required: false, type: Number })
-  @ApiQuery({ name: 'sort', required: false, type: String })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    type: Number,
+    description: 'Page size from 1 to 200 (default 20).',
+  })
+  @ApiQuery({
+    name: 'perPage',
+    required: false,
+    type: Number,
+    description: 'Compatibility alias for pageSize.',
+    deprecated: true,
+  })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    type: String,
+    description:
+      'Sort by createdAt, updatedAt, status, type, projectName, opportunityTitle, or startDate, followed by asc or desc.',
+    example: 'createdAt desc',
+  })
   @ApiQuery({ name: 'noGrouping', required: false, type: Boolean })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description:
+      'Case-insensitive search across title, overview, project name, type, and skills.',
+  })
+  @ApiQuery({
+    name: 'keyword',
+    required: false,
+    type: String,
+    description: 'Compatibility alias for search.',
+    deprecated: true,
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: CopilotOpportunityStatus,
+    isArray: true,
+    description:
+      'Comma-separated/repeated statuses; legacy status[$in] is also accepted.',
+  })
+  @ApiQuery({ name: 'projectId', required: false, type: String })
+  @ApiQuery({ name: 'projectName', required: false, type: String })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: CopilotOpportunityType,
+    isArray: true,
+  })
+  @ApiQuery({
+    name: 'projectType',
+    required: false,
+    enum: CopilotOpportunityType,
+    isArray: true,
+    description: 'Compatibility alias for type.',
+    deprecated: true,
+  })
+  @ApiQuery({
+    name: 'skills',
+    required: false,
+    type: String,
+    isArray: true,
+    description: 'Skill ids or names; matches any supplied skill.',
+  })
+  @ApiQuery({
+    name: 'skill',
+    required: false,
+    type: String,
+    isArray: true,
+    description: 'Compatibility alias for skills.',
+    deprecated: true,
+  })
+  @ApiQuery({ name: 'startDateFrom', required: false, type: String })
+  @ApiQuery({ name: 'startDateTo', required: false, type: String })
+  @ApiQuery({ name: 'createdAtFrom', required: false, type: String })
+  @ApiQuery({ name: 'createdAtTo', required: false, type: String })
+  @ApiQuery({
+    name: 'applied',
+    required: false,
+    type: Boolean,
+    description:
+      'Filter by whether the current authenticated user has applied.',
+  })
+  @ApiQuery({
+    name: 'myApplications',
+    required: false,
+    type: Boolean,
+    description: 'Compatibility alias for applied=true.',
+    deprecated: true,
+  })
+  @ApiQuery({
+    name: 'applicationStatus',
+    required: false,
+    enum: CopilotApplicationStatus,
+    isArray: true,
+    description:
+      'Filter current-user applications by status; implies applied=true.',
+  })
   @ApiResponse({ status: 200, type: [CopilotOpportunityResponseDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
@@ -108,10 +215,9 @@ export class CopilotOpportunityController {
    * @param user Authenticated JWT user.
    * @returns One opportunity response.
    */
-  @Get('copilot/opportunity/:id')
-  @Get('copilots/opportunity/:id')
+  @Get(['copilot/opportunity/:id', 'copilots/opportunity/:id'])
   @Public()
-  // TODO [QUALITY]: Two route decorators (singular/plural) map to the same handler for legacy compatibility; document which route is canonical.
+  @OptionalAuthenticated()
   @Roles(...Object.values(UserRole))
   @Scopes(
     Scope.PROJECTS_READ,
@@ -122,7 +228,7 @@ export class CopilotOpportunityController {
   @ApiOperation({
     summary: 'Get copilot opportunity',
     description:
-      'Returns one copilot opportunity with flattened request data and apply eligibility context for /projects/copilots/opportunity/:id. Admin and manager callers also receive minimal nested project metadata for v5 compatibility.',
+      'Returns one copilot opportunity with allow-listed flattened request data and apply eligibility context for /projects/copilots/opportunity/:id. canApplyAsCopilot is false for anonymous and non-copilot callers. Admin and manager callers also receive minimal nested project metadata for v5 compatibility; project member ids are never returned.',
   })
   @ApiParam({ name: 'id', required: true, type: String })
   @ApiResponse({ status: 200, type: CopilotOpportunityResponseDto })

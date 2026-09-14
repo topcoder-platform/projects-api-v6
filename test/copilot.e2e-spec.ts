@@ -332,6 +332,52 @@ describe('Copilot endpoints (e2e)', () => {
     });
   });
 
+  it('preserves the singular opportunity detail alias', async () => {
+    await request(app.getHttpServer())
+      .get('/v6/projects/copilot/opportunity/21')
+      .set('Authorization', 'Bearer user-token')
+      .expect(200);
+
+    expect(copilotOpportunityServiceMock.getOpportunity).toHaveBeenCalledWith(
+      '21',
+      expect.objectContaining({ userId: '9001' }),
+    );
+  });
+
+  it('keeps opportunity discovery anonymous when no bearer token is supplied', async () => {
+    await request(app.getHttpServer())
+      .get('/v6/projects/copilots/opportunities')
+      .query({ page: 1 })
+      .expect(200);
+
+    expect(
+      copilotOpportunityServiceMock.listOpportunities,
+    ).toHaveBeenCalledWith(expect.objectContaining({ page: '1' }), undefined);
+  });
+
+  it('passes authenticated mine filters to opportunity discovery', async () => {
+    await request(app.getHttpServer())
+      .get('/v6/projects/copilots/opportunities')
+      .query({
+        myApplications: true,
+        applicationStatus: 'pending,invited',
+        skill: 'Node.js',
+      })
+      .set('Authorization', 'Bearer copilot-token')
+      .expect(200);
+
+    expect(
+      copilotOpportunityServiceMock.listOpportunities,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        myApplications: 'true',
+        applicationStatus: 'pending,invited',
+        skill: 'Node.js',
+      }),
+      expect.objectContaining({ userId: '3001' }),
+    );
+  });
+
   it('applies to opportunity as copilot', async () => {
     await request(app.getHttpServer())
       .post('/v6/projects/copilots/opportunity/21/apply')
