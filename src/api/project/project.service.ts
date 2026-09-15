@@ -1,3 +1,4 @@
+import { normalizeShowcaseProjectMetadata } from 'src/shared/utils/showcase-metadata.utils';
 import {
   BadRequestException,
   ConflictException,
@@ -320,6 +321,7 @@ export class ProjectService {
    * template-derived phases/products, then records initial project history and
    * publishes `project.created`.
    *
+   * Shared showcase metadata in details is normalized and validated before persistence.
    * @param dto Project creation payload.
    * @param user Authenticated caller context.
    * @returns Created project payload.
@@ -410,7 +412,14 @@ export class ProjectService {
           external: this.toNullableJsonInput(dto.external?.data),
           bookmarks: this.toNullableJsonInput(dto.bookmarks),
           utm: this.toNullableJsonInput(dto.utm),
-          details: this.toNullableJsonInput(dto.details),
+          details: this.toNullableJsonInput(
+            dto.details
+              ? {
+                  ...dto.details,
+                  ...normalizeShowcaseProjectMetadata(dto.details),
+                }
+              : dto.details,
+          ),
           challengeEligibility: this.toNullableJsonInput(
             dto.challengeEligibility?.data,
           ),
@@ -608,8 +617,10 @@ export class ProjectService {
    * `project.action.billingAccount.update` with the legacy
    * tc-project-service payload contract.
    *
+   * Validates Customer, SMU, custom SMU and Deal Close Date when supplied in details.
+   *
    * @param projectId Project id path parameter.
-   * @param dto Patch payload.
+   * @param dto Patch payload, including optional shared showcase metadata in details.
    * @param user Authenticated caller context.
    * @returns Updated project payload.
    * @throws NotFoundException When the project does not exist.
@@ -756,7 +767,14 @@ export class ProjectService {
               : undefined,
           details:
             typeof dto.details !== 'undefined'
-              ? this.toNullableJsonInput(dto.details ?? null)
+              ? this.toNullableJsonInput(
+                  dto.details
+                    ? {
+                        ...dto.details,
+                        ...normalizeShowcaseProjectMetadata(dto.details),
+                      }
+                    : (dto.details ?? null),
+                )
               : undefined,
           challengeEligibility:
             typeof dto.challengeEligibility !== 'undefined'

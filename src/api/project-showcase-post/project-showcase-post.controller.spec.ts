@@ -76,7 +76,7 @@ describe('ProjectShowcasePostController', () => {
   });
 
   it('creates a project post', async () => {
-    const dto = { title: 'New', content: 'Content' };
+    const dto = { title: 'New', content: 'Content', type: 'Open Innovation' };
     serviceMock.createPost.mockResolvedValue({ id: '4' });
 
     const response = await controller.createProjectPost('1001', dto, user);

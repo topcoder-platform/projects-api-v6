@@ -1074,18 +1074,27 @@ enum ProjectShowcasePostStatus {
 
 /// Showcase content posts linked to a project.
 model ProjectShowcasePost {
-  id           BigInt                    @id @default(autoincrement())
-  title        String
-  content      String                    @db.Text
-  status       ProjectShowcasePostStatus @default(DRAFT)
-  projectId    BigInt
-  challengeIds String[]                  @default([])
-  createdById  Int
-  updatedById  Int
-  publishedAt  DateTime?
-  publishedBy  Int?
-  createdAt    DateTime                  @default(now())
-  updatedAt    DateTime                  @updatedAt
+  id             BigInt                    @id @default(autoincrement())
+  title          String
+  content        String                    @db.Text
+  status         ProjectShowcasePostStatus @default(DRAFT)
+  /// Delivery type; nullable for posts created before WIN integration.
+  type           String?
+  challenge      String?                   @db.Text
+  businessImpact String?                   @db.Text
+  keyWin         String?                   @db.VarChar(255)
+  currentStatus  String?
+  owner          String?                   @db.VarChar(255)
+  /// Explicit opt-in to the authenticated WIN report.
+  sendToWin      Boolean                   @default(false)
+  projectId      BigInt
+  challengeIds   String[]                  @default([])
+  createdById    Int
+  updatedById    Int
+  publishedAt    DateTime?
+  publishedBy    Int?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
 
   project    Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   industries ProjectShowcasePostIndustry[]
@@ -1094,6 +1103,7 @@ model ProjectShowcasePost {
 
   @@index([status])
   @@index([projectId])
+  @@index([sendToWin, id])
   @@map("project_showcase_posts")
 }
 
