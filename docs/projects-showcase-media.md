@@ -271,3 +271,9 @@ This sequence avoids downtime during key rotation.
 -   Private key never committed to source control.
 -   Signed URLs expire after a short period (recommended: 5--15
     minutes).
+
+## WIN metadata
+
+See [Showcase metadata and WIN](./showcase-win.md) for the additional post fields,
+shared project metadata, atomic saves, migration, and export behavior. New post
+creation requires a delivery type and complete Customer/SMU/Deal Close Date metadata.
