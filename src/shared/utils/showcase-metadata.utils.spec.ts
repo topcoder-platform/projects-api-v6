@@ -1,5 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { normalizeShowcaseProjectMetadata } from './showcase-metadata.utils';
+import {
+  normalizeShowcaseProjectMetadata,
+  normalizeSmuValue,
+} from './showcase-metadata.utils';
 
 describe('shared showcase project metadata', () => {
   const metadata = {
@@ -44,8 +47,58 @@ describe('shared showcase project metadata', () => {
 
   it('clears a stale custom SMU when a standard SMU is selected', () => {
     expect(
-      normalizeShowcaseProjectMetadata({ ...metadata, smu: 'Europe' }, true)
+      normalizeShowcaseProjectMetadata({ ...metadata, smu: 'EURP' }, true)
         .smuOther,
     ).toBe('');
   });
+
+  it.each([
+    ['APMEA', 'APME'],
+    ['Europe', 'EURP'],
+    ['Americas1', 'AMR1'],
+    ['Americas2', 'AMR2'],
+    ['AMR1', 'AMR1'],
+    ['Others', 'Others'],
+  ])('upgrades the legacy SMU label %s to %s', (stored, expected) => {
+    expect(normalizeSmuValue(stored)).toBe(expected);
+    expect(
+      normalizeShowcaseProjectMetadata({ ...metadata, smu: stored }).smu,
+    ).toBe(expected);
+  });
+
+  it('keeps a Salesforce opportunity id and trims it', () => {
+    expect(
+      normalizeShowcaseProjectMetadata({
+        ...metadata,
+        salesforceOpportunityId: ' 006UN00000XamntYAB ',
+      }).salesforceOpportunityId,
+    ).toBe('006UN00000XamntYAB');
+  });
+
+  it('accepts a cleared Salesforce opportunity id', () => {
+    expect(
+      normalizeShowcaseProjectMetadata({
+        ...metadata,
+        salesforceOpportunityId: '',
+      }).salesforceOpportunityId,
+    ).toBe('');
+  });
+
+  it.each([
+    '006UN00000Xamn',
+    '001UN00000XamntYAB',
+    '006UN00000XamntYA',
+    "006UN00000Xamnt' OR Id != '",
+    42,
+  ])(
+    'rejects an invalid Salesforce opportunity id: %j',
+    (salesforceOpportunityId) => {
+      expect(() =>
+        normalizeShowcaseProjectMetadata({
+          ...metadata,
+          salesforceOpportunityId,
+        }),
+      ).toThrow(BadRequestException);
+    },
+  );
 });
