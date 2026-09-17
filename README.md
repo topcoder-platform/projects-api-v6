@@ -346,6 +346,10 @@ Reference source: `.env.example`.
 | `SALESFORCE_CLIENT_KEY` | ✅ | - | Salesforce private key |
 | `SALESFORCE_LOGIN_BASE_URL` | - | `https://login.salesforce.com` | Salesforce login URL |
 | `SALESFORCE_API_VERSION` | - | `v37.0` | Salesforce API version |
+| `SALESFORCE_API_CONSUMER_KEY` | - | - | Salesforce connected-app consumer key (client-credentials flow) used by the opportunity lookup endpoint |
+| `SALESFORCE_API_CONSUMER_SECRET` | - | - | Salesforce connected-app consumer secret used by the opportunity lookup endpoint |
+| `SALESFORCE_LOGIN_URL` | - | `https://topcoder.my.salesforce.com` | Salesforce origin used for the client-credentials token exchange |
+| `SALESFORCE_REST_API_VERSION` | - | `65.0` | Salesforce REST API version for the opportunity lookup (no leading `v`) |
 | `SFDC_BILLING_ACCOUNT_NAME_FIELD` | - | `Billing_Account_name__c` | SOQL field name |
 | `SFDC_BILLING_ACCOUNT_MARKUP_FIELD` | - | `Mark_Up__c` | SOQL field name |
 | `SFDC_BILLING_ACCOUNT_ACTIVE_FIELD` | - | `Active__c` | SOQL field name |
