@@ -45,6 +45,7 @@ const { ProjectShowcasePostService: ProjectShowcasePostServiceClass } =
 
 describe('ProjectShowcasePostService', () => {
   const prismaMock = {
+    $transaction: jest.fn(),
     projectShowcasePost: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
@@ -53,6 +54,7 @@ describe('ProjectShowcasePostService', () => {
       delete: jest.fn(),
     },
     project: {
+      update: jest.fn(),
       findFirst: jest.fn(),
     },
   };
@@ -115,6 +117,17 @@ describe('ProjectShowcasePostService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(
+      (callback: (tx: typeof prismaMock) => Promise<unknown>) =>
+        callback(prismaMock),
+    );
+    prismaMock.project.update.mockResolvedValue({
+      details: {
+        customer: 'Example',
+        smu: 'Europe',
+        dealCloseDate: '2026-09-16',
+      },
+    });
 
     permissionServiceMock.hasNamedPermission.mockReturnValue(true);
     prismaMock.project.findFirst.mockResolvedValue({
@@ -291,6 +304,7 @@ describe('ProjectShowcasePostService', () => {
     const response = await service.createPost(
       '1001',
       {
+        type: 'Open Innovation',
         title: 'New post',
         content: 'New content',
         industryIds: ['5'],
@@ -302,6 +316,7 @@ describe('ProjectShowcasePostService', () => {
     expect(prismaMock.projectShowcasePost.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          type: 'Open Innovation',
           title: 'New post',
           content: 'New content',
           status: 'DRAFT',
@@ -355,6 +370,7 @@ describe('ProjectShowcasePostService', () => {
     const response = await service.createPost(
       '1001',
       {
+        type: 'Open Innovation',
         title: 'New post',
         content: 'New content',
         industryIds: ['5'],
@@ -408,6 +424,7 @@ describe('ProjectShowcasePostService', () => {
       service.createPost(
         '1001',
         {
+          type: 'Open Innovation',
           title: 'New post',
           content: 'New content',
           industryIds: ['5'],
@@ -433,6 +450,7 @@ describe('ProjectShowcasePostService', () => {
       service.createPost(
         '1001',
         {
+          type: 'Open Innovation',
           title: 'New post',
           content: 'New content',
           industryIds: ['5'],

@@ -45805,6 +45805,13 @@ export namespace Prisma {
     title: string | null
     content: string | null
     status: $Enums.ProjectShowcasePostStatus | null
+    type: string | null
+    challenge: string | null
+    businessImpact: string | null
+    keyWin: string | null
+    currentStatus: string | null
+    owner: string | null
+    sendToWin: boolean | null
     projectId: bigint | null
     createdById: number | null
     updatedById: number | null
@@ -45819,6 +45826,13 @@ export namespace Prisma {
     title: string | null
     content: string | null
     status: $Enums.ProjectShowcasePostStatus | null
+    type: string | null
+    challenge: string | null
+    businessImpact: string | null
+    keyWin: string | null
+    currentStatus: string | null
+    owner: string | null
+    sendToWin: boolean | null
     projectId: bigint | null
     createdById: number | null
     updatedById: number | null
@@ -45833,6 +45847,13 @@ export namespace Prisma {
     title: number
     content: number
     status: number
+    type: number
+    challenge: number
+    businessImpact: number
+    keyWin: number
+    currentStatus: number
+    owner: number
+    sendToWin: number
     projectId: number
     challengeIds: number
     createdById: number
@@ -45866,6 +45887,13 @@ export namespace Prisma {
     title?: true
     content?: true
     status?: true
+    type?: true
+    challenge?: true
+    businessImpact?: true
+    keyWin?: true
+    currentStatus?: true
+    owner?: true
+    sendToWin?: true
     projectId?: true
     createdById?: true
     updatedById?: true
@@ -45880,6 +45908,13 @@ export namespace Prisma {
     title?: true
     content?: true
     status?: true
+    type?: true
+    challenge?: true
+    businessImpact?: true
+    keyWin?: true
+    currentStatus?: true
+    owner?: true
+    sendToWin?: true
     projectId?: true
     createdById?: true
     updatedById?: true
@@ -45894,6 +45929,13 @@ export namespace Prisma {
     title?: true
     content?: true
     status?: true
+    type?: true
+    challenge?: true
+    businessImpact?: true
+    keyWin?: true
+    currentStatus?: true
+    owner?: true
+    sendToWin?: true
     projectId?: true
     challengeIds?: true
     createdById?: true
@@ -45996,6 +46038,13 @@ export namespace Prisma {
     title: string
     content: string
     status: $Enums.ProjectShowcasePostStatus
+    type: string | null
+    challenge: string | null
+    businessImpact: string | null
+    keyWin: string | null
+    currentStatus: string | null
+    owner: string | null
+    sendToWin: boolean
     projectId: bigint
     challengeIds: string[]
     createdById: number
@@ -46030,6 +46079,13 @@ export namespace Prisma {
     title?: boolean
     content?: boolean
     status?: boolean
+    type?: boolean
+    challenge?: boolean
+    businessImpact?: boolean
+    keyWin?: boolean
+    currentStatus?: boolean
+    owner?: boolean
+    sendToWin?: boolean
     projectId?: boolean
     challengeIds?: boolean
     createdById?: boolean
@@ -46050,6 +46106,13 @@ export namespace Prisma {
     title?: boolean
     content?: boolean
     status?: boolean
+    type?: boolean
+    challenge?: boolean
+    businessImpact?: boolean
+    keyWin?: boolean
+    currentStatus?: boolean
+    owner?: boolean
+    sendToWin?: boolean
     projectId?: boolean
     challengeIds?: boolean
     createdById?: boolean
@@ -46066,6 +46129,13 @@ export namespace Prisma {
     title?: boolean
     content?: boolean
     status?: boolean
+    type?: boolean
+    challenge?: boolean
+    businessImpact?: boolean
+    keyWin?: boolean
+    currentStatus?: boolean
+    owner?: boolean
+    sendToWin?: boolean
     projectId?: boolean
     challengeIds?: boolean
     createdById?: boolean
@@ -46082,6 +46152,13 @@ export namespace Prisma {
     title?: boolean
     content?: boolean
     status?: boolean
+    type?: boolean
+    challenge?: boolean
+    businessImpact?: boolean
+    keyWin?: boolean
+    currentStatus?: boolean
+    owner?: boolean
+    sendToWin?: boolean
     projectId?: boolean
     challengeIds?: boolean
     createdById?: boolean
@@ -46092,7 +46169,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ProjectShowcasePostOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "content" | "status" | "projectId" | "challengeIds" | "createdById" | "updatedById" | "publishedAt" | "publishedBy" | "createdAt" | "updatedAt", ExtArgs["result"]["projectShowcasePost"]>
+  export type ProjectShowcasePostOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "content" | "status" | "type" | "challenge" | "businessImpact" | "keyWin" | "currentStatus" | "owner" | "sendToWin" | "projectId" | "challengeIds" | "createdById" | "updatedById" | "publishedAt" | "publishedBy" | "createdAt" | "updatedAt", ExtArgs["result"]["projectShowcasePost"]>
   export type ProjectShowcasePostInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     project?: boolean | ProjectDefaultArgs<ExtArgs>
     industries?: boolean | ProjectShowcasePost$industriesArgs<ExtArgs>
@@ -46120,6 +46197,19 @@ export namespace Prisma {
       title: string
       content: string
       status: $Enums.ProjectShowcasePostStatus
+      /**
+       * Delivery type; nullable for posts created before WIN integration.
+       */
+      type: string | null
+      challenge: string | null
+      businessImpact: string | null
+      keyWin: string | null
+      currentStatus: string | null
+      owner: string | null
+      /**
+       * Explicit opt-in to the authenticated WIN report.
+       */
+      sendToWin: boolean
       projectId: bigint
       challengeIds: string[]
       createdById: number
@@ -46559,6 +46649,13 @@ export namespace Prisma {
     readonly title: FieldRef<"ProjectShowcasePost", 'String'>
     readonly content: FieldRef<"ProjectShowcasePost", 'String'>
     readonly status: FieldRef<"ProjectShowcasePost", 'ProjectShowcasePostStatus'>
+    readonly type: FieldRef<"ProjectShowcasePost", 'String'>
+    readonly challenge: FieldRef<"ProjectShowcasePost", 'String'>
+    readonly businessImpact: FieldRef<"ProjectShowcasePost", 'String'>
+    readonly keyWin: FieldRef<"ProjectShowcasePost", 'String'>
+    readonly currentStatus: FieldRef<"ProjectShowcasePost", 'String'>
+    readonly owner: FieldRef<"ProjectShowcasePost", 'String'>
+    readonly sendToWin: FieldRef<"ProjectShowcasePost", 'Boolean'>
     readonly projectId: FieldRef<"ProjectShowcasePost", 'BigInt'>
     readonly challengeIds: FieldRef<"ProjectShowcasePost", 'String[]'>
     readonly createdById: FieldRef<"ProjectShowcasePost", 'Int'>
@@ -53169,6 +53266,13 @@ export namespace Prisma {
     title: 'title',
     content: 'content',
     status: 'status',
+    type: 'type',
+    challenge: 'challenge',
+    businessImpact: 'businessImpact',
+    keyWin: 'keyWin',
+    currentStatus: 'currentStatus',
+    owner: 'owner',
+    sendToWin: 'sendToWin',
     projectId: 'projectId',
     challengeIds: 'challengeIds',
     createdById: 'createdById',
@@ -53528,6 +53632,12 @@ export namespace Prisma {
   export const ProjectShowcasePostOrderByRelevanceFieldEnum: {
     title: 'title',
     content: 'content',
+    type: 'type',
+    challenge: 'challenge',
+    businessImpact: 'businessImpact',
+    keyWin: 'keyWin',
+    currentStatus: 'currentStatus',
+    owner: 'owner',
     challengeIds: 'challengeIds'
   };
 
@@ -57293,6 +57403,13 @@ export namespace Prisma {
     title?: StringFilter<"ProjectShowcasePost"> | string
     content?: StringFilter<"ProjectShowcasePost"> | string
     status?: EnumProjectShowcasePostStatusFilter<"ProjectShowcasePost"> | $Enums.ProjectShowcasePostStatus
+    type?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    challenge?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    businessImpact?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    keyWin?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    currentStatus?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    owner?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    sendToWin?: BoolFilter<"ProjectShowcasePost"> | boolean
     projectId?: BigIntFilter<"ProjectShowcasePost"> | bigint | number
     challengeIds?: StringNullableListFilter<"ProjectShowcasePost">
     createdById?: IntFilter<"ProjectShowcasePost"> | number
@@ -57312,6 +57429,13 @@ export namespace Prisma {
     title?: SortOrder
     content?: SortOrder
     status?: SortOrder
+    type?: SortOrderInput | SortOrder
+    challenge?: SortOrderInput | SortOrder
+    businessImpact?: SortOrderInput | SortOrder
+    keyWin?: SortOrderInput | SortOrder
+    currentStatus?: SortOrderInput | SortOrder
+    owner?: SortOrderInput | SortOrder
+    sendToWin?: SortOrder
     projectId?: SortOrder
     challengeIds?: SortOrder
     createdById?: SortOrder
@@ -57335,6 +57459,13 @@ export namespace Prisma {
     title?: StringFilter<"ProjectShowcasePost"> | string
     content?: StringFilter<"ProjectShowcasePost"> | string
     status?: EnumProjectShowcasePostStatusFilter<"ProjectShowcasePost"> | $Enums.ProjectShowcasePostStatus
+    type?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    challenge?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    businessImpact?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    keyWin?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    currentStatus?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    owner?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    sendToWin?: BoolFilter<"ProjectShowcasePost"> | boolean
     projectId?: BigIntFilter<"ProjectShowcasePost"> | bigint | number
     challengeIds?: StringNullableListFilter<"ProjectShowcasePost">
     createdById?: IntFilter<"ProjectShowcasePost"> | number
@@ -57354,6 +57485,13 @@ export namespace Prisma {
     title?: SortOrder
     content?: SortOrder
     status?: SortOrder
+    type?: SortOrderInput | SortOrder
+    challenge?: SortOrderInput | SortOrder
+    businessImpact?: SortOrderInput | SortOrder
+    keyWin?: SortOrderInput | SortOrder
+    currentStatus?: SortOrderInput | SortOrder
+    owner?: SortOrderInput | SortOrder
+    sendToWin?: SortOrder
     projectId?: SortOrder
     challengeIds?: SortOrder
     createdById?: SortOrder
@@ -57377,6 +57515,13 @@ export namespace Prisma {
     title?: StringWithAggregatesFilter<"ProjectShowcasePost"> | string
     content?: StringWithAggregatesFilter<"ProjectShowcasePost"> | string
     status?: EnumProjectShowcasePostStatusWithAggregatesFilter<"ProjectShowcasePost"> | $Enums.ProjectShowcasePostStatus
+    type?: StringNullableWithAggregatesFilter<"ProjectShowcasePost"> | string | null
+    challenge?: StringNullableWithAggregatesFilter<"ProjectShowcasePost"> | string | null
+    businessImpact?: StringNullableWithAggregatesFilter<"ProjectShowcasePost"> | string | null
+    keyWin?: StringNullableWithAggregatesFilter<"ProjectShowcasePost"> | string | null
+    currentStatus?: StringNullableWithAggregatesFilter<"ProjectShowcasePost"> | string | null
+    owner?: StringNullableWithAggregatesFilter<"ProjectShowcasePost"> | string | null
+    sendToWin?: BoolWithAggregatesFilter<"ProjectShowcasePost"> | boolean
     projectId?: BigIntWithAggregatesFilter<"ProjectShowcasePost"> | bigint | number
     challengeIds?: StringNullableListFilter<"ProjectShowcasePost">
     createdById?: IntWithAggregatesFilter<"ProjectShowcasePost"> | number
@@ -61558,6 +61703,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
     updatedById: number
@@ -61576,6 +61728,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     projectId: bigint | number
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
@@ -61594,6 +61753,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
@@ -61612,6 +61778,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     projectId?: BigIntFieldUpdateOperationsInput | bigint | number
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
@@ -61630,6 +61803,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     projectId: bigint | number
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
@@ -61645,6 +61825,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
@@ -61659,6 +61846,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     projectId?: BigIntFieldUpdateOperationsInput | bigint | number
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
@@ -65250,6 +65444,13 @@ export namespace Prisma {
     title?: SortOrder
     content?: SortOrder
     status?: SortOrder
+    type?: SortOrder
+    challenge?: SortOrder
+    businessImpact?: SortOrder
+    keyWin?: SortOrder
+    currentStatus?: SortOrder
+    owner?: SortOrder
+    sendToWin?: SortOrder
     projectId?: SortOrder
     challengeIds?: SortOrder
     createdById?: SortOrder
@@ -65273,6 +65474,13 @@ export namespace Prisma {
     title?: SortOrder
     content?: SortOrder
     status?: SortOrder
+    type?: SortOrder
+    challenge?: SortOrder
+    businessImpact?: SortOrder
+    keyWin?: SortOrder
+    currentStatus?: SortOrder
+    owner?: SortOrder
+    sendToWin?: SortOrder
     projectId?: SortOrder
     createdById?: SortOrder
     updatedById?: SortOrder
@@ -65287,6 +65495,13 @@ export namespace Prisma {
     title?: SortOrder
     content?: SortOrder
     status?: SortOrder
+    type?: SortOrder
+    challenge?: SortOrder
+    businessImpact?: SortOrder
+    keyWin?: SortOrder
+    currentStatus?: SortOrder
+    owner?: SortOrder
+    sendToWin?: SortOrder
     projectId?: SortOrder
     createdById?: SortOrder
     updatedById?: SortOrder
@@ -68437,6 +68652,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
     updatedById: number
@@ -68454,6 +68676,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
     updatedById: number
@@ -68884,6 +69113,13 @@ export namespace Prisma {
     title?: StringFilter<"ProjectShowcasePost"> | string
     content?: StringFilter<"ProjectShowcasePost"> | string
     status?: EnumProjectShowcasePostStatusFilter<"ProjectShowcasePost"> | $Enums.ProjectShowcasePostStatus
+    type?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    challenge?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    businessImpact?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    keyWin?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    currentStatus?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    owner?: StringNullableFilter<"ProjectShowcasePost"> | string | null
+    sendToWin?: BoolFilter<"ProjectShowcasePost"> | boolean
     projectId?: BigIntFilter<"ProjectShowcasePost"> | bigint | number
     challengeIds?: StringNullableListFilter<"ProjectShowcasePost">
     createdById?: IntFilter<"ProjectShowcasePost"> | number
@@ -73250,6 +73486,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
     updatedById: number
@@ -73267,6 +73510,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     projectId: bigint | number
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
@@ -73315,6 +73565,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
@@ -73332,6 +73589,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     projectId?: BigIntFieldUpdateOperationsInput | bigint | number
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
@@ -73370,6 +73634,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
     updatedById: number
@@ -73387,6 +73658,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     projectId: bigint | number
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
@@ -73435,6 +73713,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
@@ -73452,6 +73737,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     projectId?: BigIntFieldUpdateOperationsInput | bigint | number
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
@@ -73490,6 +73782,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
     updatedById: number
@@ -73507,6 +73806,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     projectId: bigint | number
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
@@ -73540,6 +73846,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
@@ -73557,6 +73870,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     projectId?: BigIntFieldUpdateOperationsInput | bigint | number
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
@@ -73738,6 +74058,13 @@ export namespace Prisma {
     title: string
     content: string
     status?: $Enums.ProjectShowcasePostStatus
+    type?: string | null
+    challenge?: string | null
+    businessImpact?: string | null
+    keyWin?: string | null
+    currentStatus?: string | null
+    owner?: string | null
+    sendToWin?: boolean
     challengeIds?: ProjectShowcasePostCreatechallengeIdsInput | string[]
     createdById: number
     updatedById: number
@@ -74260,6 +74587,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
@@ -74277,6 +74611,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
@@ -74294,6 +74635,13 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string
     content?: StringFieldUpdateOperationsInput | string
     status?: EnumProjectShowcasePostStatusFieldUpdateOperationsInput | $Enums.ProjectShowcasePostStatus
+    type?: NullableStringFieldUpdateOperationsInput | string | null
+    challenge?: NullableStringFieldUpdateOperationsInput | string | null
+    businessImpact?: NullableStringFieldUpdateOperationsInput | string | null
+    keyWin?: NullableStringFieldUpdateOperationsInput | string | null
+    currentStatus?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: NullableStringFieldUpdateOperationsInput | string | null
+    sendToWin?: BoolFieldUpdateOperationsInput | boolean
     challengeIds?: ProjectShowcasePostUpdatechallengeIdsInput | string[]
     createdById?: IntFieldUpdateOperationsInput | number
     updatedById?: IntFieldUpdateOperationsInput | number
