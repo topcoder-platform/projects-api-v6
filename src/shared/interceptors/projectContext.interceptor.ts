@@ -7,17 +7,22 @@
 import {
   CallHandler,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import {
+  internalBillingAccountIds,
+  isRestrictedTalentManager,
+} from '../utils/internal-project.utils';
 import { AuthenticatedRequest } from '../interfaces/request.interface';
 import { LoggerService } from '../modules/global/logger.service';
 import { PrismaService } from '../modules/global/prisma.service';
 import { parseNumericStringId } from '../utils/service.utils';
 
 /**
- * Interceptor that preloads and caches project membership context per request.
+ * Interceptor that enforces internal-project exclusions and caches membership context.
  */
 @Injectable()
 export class ProjectContextInterceptor implements NestInterceptor {
@@ -36,6 +41,7 @@ export class ProjectContextInterceptor implements NestInterceptor {
    * `projectId` route param is available.
    *
    * Behavior:
+   * - Rejects Talent Manager access to configured internal projects before cache hits.
    * - Initializes `request.projectContext` if absent.
    * - Short-circuits when no project id is present.
    * - Short-circuits on cache hits where project id already matches.
@@ -43,6 +49,8 @@ export class ProjectContextInterceptor implements NestInterceptor {
    * - Queries active project members and maps `role` to plain strings.
    * - On query error, logs a warning and stores `projectMembers = []`.
    *
+   * @throws ForbiddenException for internal projects accessed by a Talent Manager.
+   * @throws Database/configuration errors during internal-project checks propagate.
    * @todo Member query + mapping logic is duplicated in multiple guards.
    * Introduce a shared `ProjectContextService` to centralize loading behavior.
    */
@@ -65,6 +73,25 @@ export class ProjectContextInterceptor implements NestInterceptor {
     }
 
     const parsedProjectId = parseNumericStringId(projectId, 'Project id');
+
+    if (isRestrictedTalentManager(request.user)) {
+      const internalIds = internalBillingAccountIds();
+      if (internalIds.length) {
+        const internalProject = await this.prisma.project.findFirst({
+          where: {
+            id: parsedProjectId,
+            deletedAt: null,
+            billingAccountId: { in: internalIds },
+          },
+          select: { id: true },
+        });
+        if (internalProject) {
+          throw new ForbiddenException(
+            'Talent Managers cannot access internal projects',
+          );
+        }
+      }
+    }
 
     if (
       request.projectContext.projectId === projectId &&

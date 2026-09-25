@@ -270,10 +270,26 @@ describe('ProjectService', () => {
     );
   });
 
-  it.each([
-    ['project manager', UserRole.PROJECT_MANAGER],
-    ['talent manager', UserRole.TALENT_MANAGER],
-  ])(
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'lists non-member projects for %s',
+    async (role) => {
+      permissionServiceMock.hasIntersection.mockImplementation(
+        (roles: string[], allowed: string[]) =>
+          roles.some((value) => allowed.includes(value)),
+      );
+      prismaMock.project.count.mockResolvedValue(0);
+      prismaMock.project.findMany.mockResolvedValue([]);
+      await service.listProjects(
+        { page: 1, perPage: 20 },
+        { isMachine: false, userId: '999', roles: [role] },
+      );
+      expect(prismaMock.project.count).toHaveBeenCalledWith({
+        where: { deletedAt: null },
+      });
+    },
+  );
+
+  it.each([['project manager', UserRole.PROJECT_MANAGER]])(
     'scopes %s project listings to project membership',
     async (_label: string, role: UserRole) => {
       permissionServiceMock.hasNamedPermission.mockImplementation(
@@ -522,11 +538,12 @@ describe('ProjectService', () => {
   });
 
   it.each([
-    ['project manager', UserRole.PROJECT_MANAGER],
-    ['talent manager', UserRole.TALENT_MANAGER],
+    ['project manager', UserRole.PROJECT_MANAGER, false],
+    ['Talent Manager', UserRole.TALENT_MANAGER, true],
+    ['Topcoder Talent Manager', UserRole.TOPCODER_TALENT_MANAGER, true],
   ])(
-    'rejects direct project access for %s callers who are not on the project',
-    async (_label: string, role: UserRole) => {
+    'checks non-member direct access for %s',
+    async (_label: string, role: UserRole, canView: boolean) => {
       const now = new Date();
 
       prismaMock.project.findFirst.mockResolvedValue({
@@ -570,15 +587,19 @@ describe('ProjectService', () => {
           permission === Permission.VIEW_PROJECT ||
           permission === Permission.READ_PROJECT_ANY,
       );
-      permissionServiceMock.hasIntersection.mockReturnValue(false);
+      permissionServiceMock.hasIntersection.mockImplementation(
+        (roles: string[], allowed: string[]) =>
+          roles.some((value) => allowed.includes(value)),
+      );
 
-      await expect(
-        service.getProject('1001', undefined, {
-          userId: '999',
-          roles: [role],
-          isMachine: false,
-        }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      const result = service.getProject('1001', undefined, {
+        userId: '999',
+        roles: [role],
+        isMachine: false,
+      });
+      if (canView)
+        await expect(result).resolves.toMatchObject({ name: 'Demo' });
+      else await expect(result).rejects.toBeInstanceOf(ForbiddenException);
     },
   );
 

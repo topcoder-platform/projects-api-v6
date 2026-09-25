@@ -1,3 +1,7 @@
+import {
+  internalBillingAccountIds,
+  isRestrictedTalentManager,
+} from '../../shared/utils/internal-project.utils';
 import { normalizeShowcaseProjectMetadata } from 'src/shared/utils/showcase-metadata.utils';
 import {
   BadRequestException,
@@ -135,7 +139,7 @@ export class ProjectService {
    * Returns a paginated project list for the caller.
    *
    * Builds query clauses from shared utilities, scopes non-admin callers to
-   * their memberships, enriches member/invite handles, and hydrates billing
+   * their memberships, grants Talent Managers non-internal projects, enriches handles, and hydrates billing
    * account names.
    *
    * @param criteria List filters, paging, sort, and field selection.
@@ -253,6 +257,16 @@ export class ProjectService {
     if (!project) {
       throw new NotFoundException(
         `Project with id ${projectId} was not found.`,
+      );
+    }
+
+    if (
+      isRestrictedTalentManager(user) &&
+      project.billingAccountId !== null &&
+      internalBillingAccountIds().includes(project.billingAccountId)
+    ) {
+      throw new ForbiddenException(
+        'Talent Managers cannot access internal projects',
       );
     }
 
@@ -1466,7 +1480,8 @@ export class ProjectService {
   /**
    * Returns whether the caller may bypass project membership visibility checks.
    *
-   * Human callers only retain global access for admin or legacy manager roles.
+   * Human callers retain global access for admins, legacy managers, and Talent Managers.
+   * Talent Manager internal-account exclusions are enforced separately.
    * Machine principals continue to rely on the named permission so scoped
    * service tokens can read any project when authorized.
    *
@@ -1490,6 +1505,8 @@ export class ProjectService {
       ...ADMIN_ROLES,
       UserRole.MANAGER,
       UserRole.TOPCODER_MANAGER,
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
     ]);
   }
 
