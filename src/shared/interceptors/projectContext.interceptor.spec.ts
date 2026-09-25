@@ -2,12 +2,14 @@ import {
   BadRequestException,
   CallHandler,
   ExecutionContext,
+  ForbiddenException,
 } from '@nestjs/common';
 import { of } from 'rxjs';
 import { ProjectContextInterceptor } from './projectContext.interceptor';
 
 describe('ProjectContextInterceptor', () => {
   const prismaServiceMock = {
+    project: { findFirst: jest.fn() },
     projectMember: {
       findMany: jest.fn(),
     },
@@ -30,6 +32,33 @@ describe('ProjectContextInterceptor', () => {
         getRequest: () => request,
       }),
     }) as ExecutionContext;
+
+  it('rejects internal project routes even when membership was already cached', async () => {
+    const previous = process.env.INTERNAL_BILLING_ACCOUNT_IDS;
+    process.env.INTERNAL_BILLING_ACCOUNT_IDS = '123';
+    try {
+      prismaServiceMock.project.findFirst.mockResolvedValue({ id: 1001n });
+      const request = {
+        params: { projectId: '1001' },
+        user: { userId: '42', roles: ['Talent Manager'] },
+        projectContext: {
+          projectId: '1001',
+          projectMembers: [{ userId: '42', role: 'manager' }],
+        },
+      };
+      await expect(
+        interceptor.intercept(createExecutionContext(request), next),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prismaServiceMock.project.findFirst).toHaveBeenCalledWith({
+        where: { id: 1001n, deletedAt: null, billingAccountId: { in: [123n] } },
+        select: { id: true },
+      });
+    } finally {
+      if (previous === undefined)
+        delete process.env.INTERNAL_BILLING_ACCOUNT_IDS;
+      else process.env.INTERNAL_BILLING_ACCOUNT_IDS = previous;
+    }
+  });
 
   it('loads project members when projectId exists', async () => {
     const request: any = {

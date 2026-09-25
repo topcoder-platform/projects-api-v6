@@ -5,6 +5,10 @@
  * filter nested resources based on caller permissions.
  */
 import { Prisma, ProjectStatus } from '@prisma/client';
+import {
+  internalBillingAccountIds,
+  isRestrictedTalentManager,
+} from './internal-project.utils';
 import { ProjectListQueryDto } from 'src/api/project/dto/project-list-query.dto';
 import { PROJECT_MEMBER_MANAGER_ROLES } from 'src/shared/enums/projectMemberRole.enum';
 import { JwtUser } from 'src/shared/modules/global/jwt.service';
@@ -300,7 +304,8 @@ export function parseFieldsParameter(fields?: string): ParsedProjectFields {
  * full-text terms plus case-insensitive contains matching.
  * - `code`: case-insensitive contains on name.
  * - `customer` / `manager`: member-subquery constraints.
- * - non-admin or `memberOnly=true`: restrict to membership/invite ownership.
+ * - callers without global access or `memberOnly=true`: restrict to membership/invite ownership.
+ * - Talent Managers: exclude configured internal billing accounts, including for memberOnly.
  *   When the caller has no resolvable membership identity (no parseable userId
  *   and no email), applies an impossible `id = -1` guard to return zero rows.
  */
@@ -312,6 +317,18 @@ export function buildProjectWhereClause(
   const where: Prisma.ProjectWhereInput = {
     deletedAt: null,
   };
+
+  if (isRestrictedTalentManager(user)) {
+    const internalIds = internalBillingAccountIds();
+    if (internalIds.length) {
+      appendAndCondition(where, {
+        OR: [
+          { billingAccountId: null },
+          { billingAccountId: { notIn: internalIds } },
+        ],
+      });
+    }
+  }
 
   const idFilter = parseFilterValue(criteria.id);
   if (idFilter.length > 0) {
