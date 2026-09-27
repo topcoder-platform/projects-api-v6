@@ -5,7 +5,7 @@ import { JwtUser } from '../modules/global/jwt.service';
  * Identifies human Talent Managers subject to internal-project restrictions.
  * Used by project queries and the global project-context interceptor.
  * @param user Authenticated caller; administrators and machine tokens retain their policies.
- * @returns Whether the caller must be excluded from internal projects.
+ * @returns Whether the caller needs active membership to access internal projects.
  * @throws Does not throw.
  */
 export function isRestrictedTalentManager(user?: JwtUser): boolean {
@@ -39,4 +39,22 @@ export function internalBillingAccountIds(
     return BigInt(id);
   });
   return [...new Set(ids)];
+}
+
+/**
+ * Builds the active membership filter used to override internal-project exclusions.
+ * Used by project list queries, direct reads, and the project-context interceptor.
+ * @param user Authenticated caller whose numeric user ID identifies membership.
+ * @returns Member criteria; missing or nonnumeric IDs use an impossible user ID.
+ * @throws Does not throw.
+ */
+export function activeProjectMembershipWhere(user?: JwtUser): {
+  userId: bigint;
+  deletedAt: null;
+} {
+  const userId = String(user?.userId ?? '').trim();
+  return {
+    userId: /^\d+$/.test(userId) ? BigInt(userId) : -1n,
+    deletedAt: null,
+  };
 }

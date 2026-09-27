@@ -6,6 +6,7 @@
  */
 import { Prisma, ProjectStatus } from '@prisma/client';
 import {
+  activeProjectMembershipWhere,
   internalBillingAccountIds,
   isRestrictedTalentManager,
 } from './internal-project.utils';
@@ -305,7 +306,7 @@ export function parseFieldsParameter(fields?: string): ParsedProjectFields {
  * - `code`: case-insensitive contains on name.
  * - `customer` / `manager`: member-subquery constraints.
  * - callers without global access or `memberOnly=true`: restrict to membership/invite ownership.
- * - Talent Managers: exclude configured internal billing accounts, including for memberOnly.
+ * - Talent Managers: exclude configured internal billing accounts unless actively a member, including for memberOnly.
  *   When the caller has no resolvable membership identity (no parseable userId
  *   and no email), applies an impossible `id = -1` guard to return zero rows.
  */
@@ -325,6 +326,7 @@ export function buildProjectWhereClause(
         OR: [
           { billingAccountId: null },
           { billingAccountId: { notIn: internalIds } },
+          { members: { some: activeProjectMembershipWhere(user) } },
         ],
       });
     }

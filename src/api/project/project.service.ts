@@ -1,4 +1,5 @@
 import {
+  activeProjectMembershipWhere,
   internalBillingAccountIds,
   isRestrictedTalentManager,
 } from '../../shared/utils/internal-project.utils';
@@ -139,8 +140,8 @@ export class ProjectService {
    * Returns a paginated project list for the caller.
    *
    * Builds query clauses from shared utilities, scopes non-admin callers to
-   * their memberships, grants Talent Managers non-internal projects, enriches handles, and hydrates billing
-   * account names.
+   * their memberships, grants Talent Managers non-internal projects and internal
+   * projects with active membership, enriches handles, and hydrates billing account names.
    *
    * @param criteria List filters, paging, sort, and field selection.
    * @param user Authenticated caller context.
@@ -221,9 +222,11 @@ export class ProjectService {
    *
    * Members and invites are always loaded for permission evaluation regardless
    * of requested `fields`, then relation visibility is filtered by caller
-   * permissions before response serialization. Human PM/TM-style callers must
-   * still be a project member or pending invitee; only admins, legacy manager
-   * roles, and authorized machine principals bypass membership scoping.
+   * permissions before response serialization. Talent Managers can read non-internal
+   * projects without membership, but internal projects require active membership.
+   * Other human callers need membership or a pending invite unless they have an
+   * administrator or legacy manager role; authorized machine principals also bypass
+   * membership scoping.
    *
    * @param projectId Project id path parameter.
    * @param fieldsParam Optional CSV list of relation fields.
@@ -263,10 +266,15 @@ export class ProjectService {
     if (
       isRestrictedTalentManager(user) &&
       project.billingAccountId !== null &&
-      internalBillingAccountIds().includes(project.billingAccountId)
+      internalBillingAccountIds().includes(project.billingAccountId) &&
+      !(project.members || []).some(
+        (member) =>
+          member.userId === activeProjectMembershipWhere(user).userId &&
+          member.deletedAt === null,
+      )
     ) {
       throw new ForbiddenException(
-        'Talent Managers cannot access internal projects',
+        'Talent Managers must be active members to access internal projects',
       );
     }
 
@@ -1481,7 +1489,7 @@ export class ProjectService {
    * Returns whether the caller may bypass project membership visibility checks.
    *
    * Human callers retain global access for admins, legacy managers, and Talent Managers.
-   * Talent Manager internal-account exclusions are enforced separately.
+   * Talent Manager internal-account exclusions and active-membership overrides are enforced separately.
    * Machine principals continue to rely on the named permission so scoped
    * service tokens can read any project when authorized.
    *
