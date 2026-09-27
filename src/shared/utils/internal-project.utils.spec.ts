@@ -1,4 +1,5 @@
 import {
+  activeProjectMembershipWhere,
   internalBillingAccountIds,
   isRestrictedTalentManager,
 } from './internal-project.utils';
@@ -24,6 +25,30 @@ describe('Talent Manager internal project visibility', () => {
       ).toBe(true);
     },
   );
+
+  it.each([undefined, '', 'handle', '42broken'])(
+    'does not grant membership for an unresolved identity %s',
+    (userId) => {
+      expect(
+        activeProjectMembershipWhere({ userId, isMachine: false }),
+      ).toEqual({
+        userId: -1n,
+        deletedAt: null,
+      });
+    },
+  );
+
+  it('normalizes numeric membership identities without precision loss', () => {
+    expect(
+      activeProjectMembershipWhere({
+        userId: ' 9007199254740993 ',
+        isMachine: false,
+      }),
+    ).toEqual({
+      userId: 9007199254740993n,
+      deletedAt: null,
+    });
+  });
 
   it('retains administrator and machine policies', () => {
     expect(
@@ -55,7 +80,7 @@ describe('Talent Manager internal project visibility', () => {
   });
 
   it.each([false, true])(
-    'excludes internal projects with memberOnly=%s',
+    'allows active membership to override internal exclusions with memberOnly=%s',
     (memberOnly) => {
       process.env.INTERNAL_BILLING_ACCOUNT_IDS = '123,456';
       const where = buildProjectWhereClause(
@@ -69,6 +94,7 @@ describe('Talent Manager internal project visibility', () => {
             OR: [
               { billingAccountId: null },
               { billingAccountId: { notIn: [123n, 456n] } },
+              { members: { some: { userId: 42n, deletedAt: null } } },
             ],
           },
         ]),

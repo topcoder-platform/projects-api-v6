@@ -603,6 +603,88 @@ describe('ProjectService', () => {
     },
   );
 
+  describe('Talent Manager internal project membership override', () => {
+    const originalIds = process.env.INTERNAL_BILLING_ACCOUNT_IDS;
+
+    beforeEach(() => {
+      process.env.INTERNAL_BILLING_ACCOUNT_IDS = '123';
+      billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({});
+      permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      if (originalIds === undefined)
+        delete process.env.INTERNAL_BILLING_ACCOUNT_IDS;
+      else process.env.INTERNAL_BILLING_ACCOUNT_IDS = originalIds;
+    });
+
+    it.each([
+      [UserRole.TALENT_MANAGER, 'manager', null, '42', true],
+      [UserRole.TOPCODER_TALENT_MANAGER, 'read', null, '42', true],
+      [UserRole.TALENT_MANAGER, 'customer', null, '42', true],
+      [UserRole.TALENT_MANAGER, 'manager', new Date(), '42', false],
+      [UserRole.TALENT_MANAGER, 'manager', null, '99', false],
+    ])(
+      'checks %s with project role %s, deletedAt %s, and user %s',
+      async (role, memberRole, deletedAt, userId, allowed) => {
+        prismaMock.project.findFirst.mockResolvedValue({
+          id: 1001n,
+          name: 'Internal',
+          billingAccountId: 123n,
+          members: [{ userId: 42n, role: memberRole, deletedAt }],
+          invites: [
+            { userId: BigInt(userId), status: 'pending', deletedAt: null },
+          ],
+        });
+        const result = service.getProject('1001', 'id,name', {
+          userId,
+          roles: [role],
+          isMachine: false,
+        });
+        if (allowed)
+          await expect(result).resolves.toMatchObject({ name: 'Internal' });
+        else await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+      },
+    );
+
+    it.each([false, true])(
+      'uses the membership override for both list results and totals with memberOnly=%s',
+      async (memberOnly) => {
+        prismaMock.project.count.mockResolvedValue(1);
+        prismaMock.project.findMany.mockResolvedValue([
+          {
+            id: 1001n,
+            name: 'Internal',
+            billingAccountId: 123n,
+            members: [{ userId: 42n, role: 'read', deletedAt: null }],
+            invites: [],
+          },
+        ]);
+        const result = await service.listProjects(
+          { memberOnly },
+          {
+            userId: '42',
+            roles: [UserRole.TALENT_MANAGER],
+            isMachine: false,
+          },
+        );
+        expect(result.total).toBe(1);
+        expect(result.data).toEqual([
+          expect.objectContaining({ name: 'Internal' }),
+        ]);
+        const where = prismaMock.project.findMany.mock.calls[0][0].where;
+        expect(prismaMock.project.count).toHaveBeenCalledWith({ where });
+        expect(where.AND).toContainEqual({
+          OR: [
+            { billingAccountId: null },
+            { billingAccountId: { notIn: [123n] } },
+            { members: { some: { userId: 42n, deletedAt: null } } },
+          ],
+        });
+      },
+    );
+  });
+
   it('lists billing accounts for project id', async () => {
     billingAccountServiceMock.getBillingAccountsForProject.mockResolvedValue([
       {
