@@ -521,3 +521,9 @@ Migration runbook (phased rollout, rollback, monitoring): `docs/MIGRATION_RUNBOO
 | `docs/MIGRATION_RUNBOOK.md` | Phased rollout, rollback procedures, monitoring alerts |
 | `docs/DEPENDENCIES.md` | Dependency security audit, outdated packages, overrides |
 | `docs/timeline-milestone-migration.md` | Guidance for future timeline/milestone migration |
+
+### Talent Manager project visibility
+
+`Talent Manager` and `Topcoder Talent Manager` users can list and open all non-internal projects without membership. Set `INTERNAL_BILLING_ACCOUNT_IDS` to the comma-separated positive billing account IDs used for internal projects before deploying this policy (for example, `123,456`); an empty value excludes no accounts, and invalid values reject requests rather than applying a partial list. Projects without a billing account remain visible.
+
+Internal projects are excluded from list results and totals and rejected on direct project and nested project routes unless the Talent Manager is an active project member. Explicit membership in any project role overrides the internal billing account exclusion; deleted memberships and pending invites alone do not. Administrators and machine tokens keep their existing authorization policies. `memberOnly=true` narrows the visible projects to existing membership/pending-invite associations, including internal projects with active membership; Work exposes this as **My Projects**.
