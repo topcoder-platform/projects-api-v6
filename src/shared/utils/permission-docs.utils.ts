@@ -275,7 +275,7 @@ function getNamedPermissionDocumentation(
 
     case NamedPermission.READ_PROJECT_MEMBER:
       return createSummary({
-        userRoles: ADMIN_AND_MANAGER_ROLES,
+        userRoles: [...ADMIN_AND_MANAGER_ROLES, ...TALENT_MANAGER_ROLES],
         allowAnyProjectMember: true,
         scopes: PROJECT_MEMBER_READ_SCOPES,
       });
@@ -312,7 +312,7 @@ function getNamedPermissionDocumentation(
 
     case NamedPermission.READ_PROJECT_INVITE_NOT_OWN:
       return createSummary({
-        userRoles: ADMIN_AND_MANAGER_ROLES,
+        userRoles: [...ADMIN_AND_MANAGER_ROLES, ...TALENT_MANAGER_ROLES],
         allowAnyProjectMember: true,
         scopes: PROJECT_INVITE_READ_SCOPES,
       });
@@ -418,7 +418,7 @@ function getNamedPermissionDocumentation(
 
     case NamedPermission.VIEW_PROJECT_ATTACHMENT:
       return createSummary({
-        userRoles: ADMIN_AND_MANAGER_ROLES,
+        userRoles: [...ADMIN_AND_MANAGER_ROLES, ...TALENT_MANAGER_ROLES],
         allowAnyProjectMember: true,
       });
 

@@ -603,6 +603,54 @@ describe('ProjectService', () => {
     },
   );
 
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'returns members, invites, and attachments of a non-member project to %s',
+    async (role) => {
+      const realPermissionService = new PermissionService({
+        hasRequiredScopes: () => false,
+        validateMachineToken: () => ({ isMachine: false, scopes: [] }),
+      } as any);
+      const serviceWithRealPermissions = new ProjectService(
+        prismaMock as any,
+        realPermissionService,
+        billingAccountServiceMock as any,
+        memberServiceMock as any,
+      );
+      prismaMock.project.findFirst.mockResolvedValue({
+        id: 1001n,
+        name: 'Non-internal',
+        billingAccountId: null,
+        members: [{ id: 1n, userId: 100n, role: 'manager', deletedAt: null }],
+        invites: [
+          {
+            id: 2n,
+            userId: 200n,
+            email: null,
+            status: 'pending',
+            deletedAt: null,
+          },
+        ],
+        attachments: [
+          { id: 3n, createdBy: 100, allowedUsers: [], deletedAt: null },
+        ],
+      });
+
+      const result = await serviceWithRealPermissions.getProject(
+        '1001',
+        'members,invites,attachments',
+        { userId: '999', roles: [role], isMachine: false },
+      );
+
+      expect(result.members).toEqual([
+        expect.objectContaining({ userId: '100', role: 'manager' }),
+      ]);
+      expect(result.invites).toEqual([
+        expect.objectContaining({ userId: '200', status: 'pending' }),
+      ]);
+      expect(result.attachments).toHaveLength(1);
+    },
+  );
+
   describe('Talent Manager internal project membership override', () => {
     const originalIds = process.env.INTERNAL_BILLING_ACCOUNT_IDS;
 
