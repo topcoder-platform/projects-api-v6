@@ -140,6 +140,10 @@ export class PermissionService {
    * check: any non-empty `userId`, any role, any scope, or `isMachine`.
    * @security Legacy manager JWTs use `UserRole.TOPCODER_MANAGER`, which is
    * broader than strict admin access and retained for v5 compatibility.
+   * @security Talent Manager roles can read project members, invites, and
+   * attachments without membership so Work Manager can show non-internal
+   * project workspaces. Internal-project membership is enforced separately by
+   * `ProjectContextInterceptor` and `ProjectService.getProject`.
    */
   hasNamedPermission(
     permission: NamedPermission,
@@ -167,6 +171,8 @@ export class PermissionService {
     ]);
     const hasProjectReadTopcoderRole = this.hasProjectReadTopcoderRole(user);
     const hasManagerTopcoderRole = this.hasManagerTopcoderRole(user);
+    // Internal-project membership for Talent Managers is enforced upstream.
+    const hasTalentManagerRole = this.hasTalentManagerRole(user);
     const hasStrictAdminAccess =
       this.hasIntersection(user.roles || [], ADMIN_ROLES) ||
       this.m2mService.hasRequiredScopes(effectiveScopes, [
@@ -299,6 +305,7 @@ export class PermissionService {
       case NamedPermission.READ_PROJECT_MEMBER:
         return (
           hasManagerTopcoderRole ||
+          hasTalentManagerRole ||
           hasProjectMembership ||
           hasProjectMemberReadScope
         );
@@ -335,6 +342,7 @@ export class PermissionService {
       case NamedPermission.READ_PROJECT_INVITE_NOT_OWN:
         return (
           hasManagerTopcoderRole ||
+          hasTalentManagerRole ||
           hasProjectMembership ||
           hasProjectInviteReadScope
         );
@@ -449,7 +457,9 @@ export class PermissionService {
 
       // Project attachment permissions.
       case NamedPermission.VIEW_PROJECT_ATTACHMENT:
-        return hasManagerTopcoderRole || hasProjectMembership;
+        return (
+          hasManagerTopcoderRole || hasTalentManagerRole || hasProjectMembership
+        );
 
       case NamedPermission.CREATE_PROJECT_ATTACHMENT:
       case NamedPermission.EDIT_PROJECT_ATTACHMENT:
@@ -890,6 +900,9 @@ export class PermissionService {
 
   /**
    * Checks whether user has one of the Talent Manager Topcoder roles.
+   *
+   * Used by {@link hasNamedPermission} to grant read-only access to project
+   * members, invites, and attachments without project membership.
    *
    * @param user authenticated JWT user context
    * @returns `true` when user has Talent Manager access

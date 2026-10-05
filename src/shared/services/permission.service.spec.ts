@@ -513,6 +513,68 @@ describe('PermissionService', () => {
     },
   );
 
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'allows %s to read project members, invites, and attachments without membership',
+    (role) => {
+      const user = {
+        userId: '555',
+        roles: [role],
+        isMachine: false,
+      };
+      const projectMembers = [
+        {
+          userId: '999',
+          role: ProjectMemberRole.MANAGER,
+        },
+      ];
+
+      expect(
+        [
+          Permission.READ_PROJECT_MEMBER,
+          Permission.READ_PROJECT_INVITE_NOT_OWN,
+          Permission.VIEW_PROJECT_ATTACHMENT,
+        ].map((permission) =>
+          service.hasNamedPermission(permission, user, projectMembers),
+        ),
+      ).toEqual([true, true, true]);
+
+      expect(
+        [
+          Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
+          Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
+          Permission.DELETE_PROJECT_MEMBER_TOPCODER,
+          Permission.CREATE_PROJECT_INVITE_TOPCODER,
+          Permission.UPDATE_PROJECT_INVITE_NOT_OWN,
+          Permission.CREATE_PROJECT_ATTACHMENT,
+          Permission.EDIT_PROJECT_ATTACHMENT,
+          Permission.DELETE_PROJECT_ATTACHMENT,
+        ].map((permission) =>
+          service.hasNamedPermission(permission, user, projectMembers),
+        ),
+      ).toEqual([false, false, false, false, false, false, false, false]);
+    },
+  );
+
+  it('requires membership for non-manager roles to read project members, invites, and attachments', () => {
+    const user = {
+      userId: '555',
+      roles: [UserRole.TOPCODER_USER],
+      isMachine: false,
+    };
+
+    expect(
+      [
+        Permission.READ_PROJECT_MEMBER,
+        Permission.READ_PROJECT_INVITE_NOT_OWN,
+        Permission.VIEW_PROJECT_ATTACHMENT,
+      ].map((permission) =>
+        service.hasNamedPermission(permission, user, [
+          { userId: '999', role: ProjectMemberRole.MANAGER },
+        ]),
+      ),
+    ).toEqual([false, false, false]);
+  });
+
   it('allows creating other project members for machine token with project-member write scope', () => {
     const allowed = service.hasNamedPermission(
       Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
