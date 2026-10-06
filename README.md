@@ -104,6 +104,36 @@ Talent Manager note:
 - `Talent Manager` and `Topcoder Talent Manager` callers also receive the elevated per-member response from `GET /v6/projects/:projectId/permissions`, which is used to provision challenge-related actions in Work Manager.
 - Updating `billingAccountId` is restricted to human administrators and project members whose role on that project is `manager` (`Full Access`).
 
+### Salesforce opportunity details
+
+`GET /v6/projects/salesforce/opportunities/:opportunityId` (manager-tier and
+Talent Manager JWT roles) returns the existing Salesforce fields plus:
+
+- `billingAccount`: `{ id: string, name?: string }`, or `null` without a local account.
+- `projectId`: string ID of a non-deleted project whose current `billingAccountId`
+  matches the opportunity account, or `null` without a matching project.
+- `relatedBillingAccounts`: unique `{ id, name? }` summaries from every challenge
+  associated with that project, sorted numerically. This includes inactive
+  accounts and every challenge status. The current account appears in this array
+  only when a challenge uses it. Missing historical metadata retains the ID.
+
+The account lookup uses the Billing Accounts API's `opportunity` filter against
+`BillingAccount.opportunity`, accepting both 15- and 18-character Salesforce IDs.
+If several accounts/projects match, the most recently updated non-deleted project
+wins (then highest project ID). Without a project, the highest matching account
+ID is returned. Without an account, the project is `null` and history is `[]`.
+A billing/project/challenge lookup failure returns a sanitized 502, rather than
+claiming that no account/history exists. Historical metadata uses the existing
+Billing Accounts API/Salesforce fallback, with at most five concurrent requests.
+Only IDs and names are exposed here; no financial or client metadata is added.
+
+Deploy the Billing Accounts API opportunity filter first, then Projects API,
+then the UI. Configure `BILLING_ACCOUNTS_API_URL`, its existing M2M read access,
+and `CHALLENGES_DB_URL`. No new environment variable or schema migration is
+required. History reflects references currently stored on challenges; deleted or overwritten references cannot be reconstructed.
+The Sales popup builds an environment-specific Work link ending in
+`/projects/{projectId}/challenges` and hides all new fields without an account.
+
 ### Members
 
 | Method | Path | Auth | Description |
