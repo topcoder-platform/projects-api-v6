@@ -352,6 +352,30 @@ describe('CopilotOpportunityService', () => {
     );
   });
 
+  it('casts legacy JSON request data before search and skill JSONB operations', async () => {
+    prismaMock.copilotOpportunity.findMany.mockResolvedValue([baseOpportunity]);
+
+    await service.listOpportunities(
+      {
+        search: 'Cadence SKILL',
+        skills: ['Cadence SKILL'],
+      },
+      regularUser,
+    );
+
+    const sql = prismaMock.$queryRaw.mock.calls[0][0] as Prisma.Sql;
+    expect(sql.text).toContain(
+      "LOWER(COALESCE(r.data::jsonb -> 'skills', '[]'::jsonb)::text)",
+    );
+    expect(sql.text).toContain(
+      "WHEN jsonb_typeof(r.data::jsonb -> 'skills') = 'array'",
+    );
+    expect(sql.text).toContain("THEN r.data::jsonb -> 'skills'");
+    expect(sql.values).toEqual(
+      expect.arrayContaining(['%cadence skill%', 'cadence skill']),
+    );
+  });
+
   it('requires authentication for current-user application filters', async () => {
     await expect(
       service.listOpportunities({ applied: true }, undefined),

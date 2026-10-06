@@ -3,7 +3,15 @@ import { ProjectShowcasePostStatus } from '@prisma/client';
 import { ProjectShowcasePostMediaDto } from './project-showcase-post-media.dto';
 import { ChallengeMetadataDto } from './challenge-metadata.dto';
 
-export class ProjectShowcasePostResponseDto {
+import { ShowcaseMetadataDto } from './showcase-metadata.dto';
+
+/** Saved showcase content, including current shared project fields and WIN opt-in. */
+export class ProjectShowcasePostResponseDto extends ShowcaseMetadataDto {
+  @ApiPropertyOptional({
+    description: 'Delivery type; absent on legacy posts.',
+  })
+  type?: string;
+
   @ApiProperty()
   id: string;
 

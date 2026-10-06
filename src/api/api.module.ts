@@ -13,6 +13,7 @@ import { ProjectMemberModule } from './project-member/project-member.module';
 import { ProjectPhaseModule } from './project-phase/project-phase.module';
 import { ProjectSettingModule } from './project-setting/project-setting.module';
 import { ProjectShowcasePostModule } from './project-showcase-post/project-showcase-post.module';
+import { SalesforceModule } from './salesforce/salesforce.module';
 import { ProjectModule } from './project/project.module';
 
 /**
@@ -28,6 +29,7 @@ import { ProjectModule } from './project/project.module';
  * - ProjectSettingModule    - per-project settings
  * - CopilotModule           - copilot request/opportunity/application flow
  * - MetadataModule          - reference metadata (categories, skills, etc.)
+ * - SalesforceModule        - read-only Salesforce opportunity lookups
  *
  * Also registers HealthCheckController directly (not via a sub-module).
  *
@@ -48,6 +50,7 @@ import { ProjectModule } from './project/project.module';
     ProjectPhaseModule,
     PhaseProductModule,
     ProjectSettingModule,
+    SalesforceModule,
     // TODO (quality): WorkStreamModule is included in the Swagger document in main.ts but is not imported here. Add WorkStreamModule to this imports array so its routes are part of the same module graph, or remove it from the Swagger include list.
   ],
   controllers: [HealthCheckController],

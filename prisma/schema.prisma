@@ -1078,6 +1078,15 @@ model ProjectShowcasePost {
   title          String
   content        String                    @db.Text
   status         ProjectShowcasePostStatus @default(DRAFT)
+  /// Delivery type; nullable for posts created before WIN integration.
+  type           String?
+  challenge      String?                   @db.Text
+  businessImpact String?                   @db.Text
+  keyWin         String?                   @db.VarChar(255)
+  currentStatus  String?
+  owner          String?                   @db.VarChar(255)
+  /// Explicit opt-in to the authenticated WIN report.
+  sendToWin      Boolean                   @default(false)
   projectId      BigInt
   challengeIds   String[]                  @default([])
   createdById    Int
@@ -1094,6 +1103,7 @@ model ProjectShowcasePost {
 
   @@index([status])
   @@index([projectId])
+  @@index([sendToWin, id])
   @@map("project_showcase_posts")
 }
 

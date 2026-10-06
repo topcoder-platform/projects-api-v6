@@ -673,6 +673,13 @@ exports.Prisma.ProjectShowcasePostScalarFieldEnum = {
   title: 'title',
   content: 'content',
   status: 'status',
+  type: 'type',
+  challenge: 'challenge',
+  businessImpact: 'businessImpact',
+  keyWin: 'keyWin',
+  currentStatus: 'currentStatus',
+  owner: 'owner',
+  sendToWin: 'sendToWin',
   projectId: 'projectId',
   challengeIds: 'challengeIds',
   createdById: 'createdById',
@@ -915,6 +922,12 @@ exports.Prisma.CustomerPaymentOrderByRelevanceFieldEnum = {
 exports.Prisma.ProjectShowcasePostOrderByRelevanceFieldEnum = {
   title: 'title',
   content: 'content',
+  type: 'type',
+  challenge: 'challenge',
+  businessImpact: 'businessImpact',
+  keyWin: 'keyWin',
+  currentStatus: 'currentStatus',
+  owner: 'owner',
   challengeIds: 'challengeIds'
 };
 

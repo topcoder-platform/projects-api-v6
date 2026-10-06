@@ -1,4 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  normalizeShowcaseProjectMetadata,
+  PROJECT_SHOWCASE_METADATA_KEYS,
+  SHOWCASE_TYPES,
+} from 'src/shared/utils/showcase-metadata.utils';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   Prisma,
   ProjectShowcasePost,
@@ -27,6 +36,7 @@ import {
   getSubmitterRoleId,
 } from 'src/shared/global/external-prisma.client';
 import { ChallengeMetadataDto } from './dto/challenge-metadata.dto';
+/** Manages showcase content and atomically synchronizes its shared project/WIN metadata. */
 @Injectable()
 export class ProjectShowcasePostService {
   constructor(
@@ -47,7 +57,7 @@ export class ProjectShowcasePostService {
       where,
       include: {
         project: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, details: true },
         },
         industries: {
           include: { industry: true },
@@ -105,7 +115,7 @@ export class ProjectShowcasePostService {
       where,
       include: {
         project: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, details: true },
         },
         industries: {
           include: { industry: true },
@@ -181,6 +191,7 @@ export class ProjectShowcasePostService {
           select: {
             id: true,
             name: true,
+            details: true,
           },
         },
         industries: {
@@ -208,6 +219,14 @@ export class ProjectShowcasePostService {
     );
   }
 
+  /**
+   * Creates a showcase and saves required Customer, SMU and Deal Close Date in one transaction.
+   * @param projectId Owning project's numeric ID.
+   * @param dto Validated content, delivery type, shared metadata and optional WIN opt-in.
+   * @param user Authenticated caller whose permissions and audit ID are used.
+   * @returns The saved showcase with current project metadata.
+   * @throws BadRequestException for invalid metadata, access errors, or mapped persistence errors.
+   */
   async createPost(
     projectId: string,
     dto: CreateProjectShowcasePostDto,
@@ -235,45 +254,62 @@ export class ProjectShowcasePostService {
     );
 
     try {
-      const created = await this.prisma.projectShowcasePost.create({
-        data: {
-          title: dto.title,
-          content: dto.content,
-          status,
-          projectId: parsedProjectId,
-          challengeIds: dto.challengeIds || [],
-          createdById: auditUserId,
-          updatedById: auditUserId,
-          ...(status === 'PUBLISHED'
-            ? {
-                publishedAt: new Date(),
-                publishedBy: auditUserId,
-              }
-            : {}),
-          industries: {
-            create: industryIds.map((industryId) => ({ industryId })),
+      const created = await this.prisma.$transaction(async (tx) => {
+        await this.syncProjectMetadata(
+          tx,
+          parsedProjectId,
+          dto,
+          auditUserId,
+          true,
+        );
+        return tx.projectShowcasePost.create({
+          data: {
+            title: dto.title,
+            content: dto.content,
+            type: dto.type,
+            challenge: dto.challenge,
+            businessImpact: dto.businessImpact,
+            keyWin: dto.keyWin,
+            currentStatus: dto.currentStatus || null,
+            owner: dto.owner,
+            sendToWin: dto.sendToWin ?? false,
+            status,
+            projectId: parsedProjectId,
+            challengeIds: dto.challengeIds || [],
+            createdById: auditUserId,
+            updatedById: auditUserId,
+            ...(status === 'PUBLISHED'
+              ? {
+                  publishedAt: new Date(),
+                  publishedBy: auditUserId,
+                }
+              : {}),
+            industries: {
+              create: industryIds.map((industryId) => ({ industryId })),
+            },
+            categories: {
+              create: categoryIds.map((categoryId) => ({ categoryId })),
+            },
+            media: {
+              create: (dto.media || []).map((asset) => ({
+                type: asset.type,
+                url: asset.url,
+                alt: asset.alt,
+                createdBy: BigInt(auditUserId),
+              })),
+            },
           },
-          categories: {
-            create: categoryIds.map((categoryId) => ({ categoryId })),
+          include: {
+            project: { select: { id: true, name: true, details: true } },
+            industries: {
+              include: { industry: true },
+            },
+            categories: {
+              include: { category: true },
+            },
+            media: true,
           },
-          media: {
-            create: (dto.media || []).map((asset) => ({
-              type: asset.type,
-              url: asset.url,
-              alt: asset.alt,
-              createdBy: BigInt(auditUserId),
-            })),
-          },
-        },
-        include: {
-          industries: {
-            include: { industry: true },
-          },
-          categories: {
-            include: { category: true },
-          },
-          media: true,
-        },
+        });
       });
 
       const metadataMap = await this.loadMetadataForPosts([created]);
@@ -288,6 +324,15 @@ export class ProjectShowcasePostService {
     }
   }
 
+  /**
+   * Patches a showcase and any supplied shared project fields atomically.
+   * @param projectId Owning project's numeric ID.
+   * @param id Showcase ID belonging to the project.
+   * @param dto Supplied changes; omitted content/metadata retain their current values.
+   * @param user Authenticated caller used for permissions and auditing.
+   * @returns The saved showcase and current shared project metadata.
+   * @throws NotFoundException, validation/access errors, or mapped persistence errors.
+   */
   async updatePost(
     projectId: string,
     id: string,
@@ -323,6 +368,13 @@ export class ProjectShowcasePostService {
 
     const auditUserId = getAuditUserId(user);
     const updateData: Prisma.ProjectShowcasePostUpdateInput = {
+      type: dto.type,
+      challenge: dto.challenge,
+      businessImpact: dto.businessImpact,
+      keyWin: dto.keyWin,
+      currentStatus: dto.currentStatus === '' ? null : dto.currentStatus,
+      owner: dto.owner,
+      sendToWin: dto.sendToWin,
       ...(typeof dto.title === 'undefined' ? {} : { title: dto.title }),
       ...(typeof dto.content === 'undefined' ? {} : { content: dto.content }),
       ...(typeof dto.status === 'undefined' ? {} : { status: dto.status }),
@@ -373,20 +425,43 @@ export class ProjectShowcasePostService {
     }
 
     try {
-      const updated = await this.prisma.projectShowcasePost.update({
-        where: {
-          id: parsedId,
-        },
-        data: updateData,
-        include: {
-          industries: {
-            include: { industry: true },
+      const updated = await this.prisma.$transaction(async (tx) => {
+        if (
+          dto.sendToWin === true &&
+          !SHOWCASE_TYPES.includes(dto.type ?? existing.type ?? '')
+        ) {
+          throw new BadRequestException(
+            'A valid showcase type is required to send to WIN.',
+          );
+        }
+        if (
+          dto.sendToWin === true ||
+          PROJECT_SHOWCASE_METADATA_KEYS.some((key) => dto[key] !== undefined)
+        ) {
+          await this.syncProjectMetadata(
+            tx,
+            parsedProjectId,
+            dto,
+            auditUserId,
+            dto.sendToWin ?? existing.sendToWin,
+          );
+        }
+        return tx.projectShowcasePost.update({
+          where: {
+            id: parsedId,
           },
-          categories: {
-            include: { category: true },
+          data: updateData,
+          include: {
+            project: { select: { id: true, name: true, details: true } },
+            industries: {
+              include: { industry: true },
+            },
+            categories: {
+              include: { category: true },
+            },
+            media: true,
           },
-          media: true,
-        },
+        });
       });
 
       const metadataMap = await this.loadMetadataForPosts([updated]);
@@ -399,6 +474,56 @@ export class ProjectShowcasePostService {
     } catch (error) {
       this.handlePrismaForeignKeyError(error);
     }
+  }
+
+  /**
+   * Locks the project row before merging only supplied shared metadata fields.
+   * The audit update acquires the row lock, so concurrent showcase saves cannot
+   * overwrite each other's unrelated Project.details keys. All writes roll back
+   * if validation or the following post write fails.
+   * @param tx Transaction containing both project and showcase writes.
+   * @param projectId Owning project ID.
+   * @param dto Supplied showcase metadata.
+   * @param auditUserId User ID used for project auditing.
+   * @param required Whether the merged shared fields must be complete.
+   * @returns Resolves after saving the merged project metadata.
+   * @throws Validation errors and Prisma errors, causing the transaction to roll back.
+   */
+  private async syncProjectMetadata(
+    tx: Prisma.TransactionClient,
+    projectId: bigint,
+    dto: UpdateProjectShowcasePostDto,
+    auditUserId: number,
+    required: boolean,
+  ): Promise<void> {
+    const project = await tx.project.update({
+      where: { id: projectId, deletedAt: null },
+      data: { updatedBy: auditUserId },
+      select: { details: true },
+    });
+    const details =
+      project.details &&
+      typeof project.details === 'object' &&
+      !Array.isArray(project.details)
+        ? project.details
+        : {};
+    const supplied = Object.fromEntries(
+      PROJECT_SHOWCASE_METADATA_KEYS.filter(
+        (key) => dto[key] !== undefined,
+      ).map((key) => [key, dto[key]]),
+    );
+    const metadata = normalizeShowcaseProjectMetadata(
+      { ...details, ...supplied },
+      required,
+    );
+    await tx.project.update({
+      where: { id: projectId },
+      data: {
+        details: { ...details, ...metadata },
+        lastActivityAt: new Date(),
+        lastActivityUserId: String(auditUserId),
+      },
+    });
   }
 
   async deletePost(
@@ -537,9 +662,16 @@ export class ProjectShowcasePostService {
     }
   }
 
+  /**
+   * Serializes stored content, current project metadata and signed media URLs.
+   * @param post Showcase including taxonomy, media and optional project details.
+   * @param challengeMetadata Computed challenge statistics, when available.
+   * @returns API response with bigint IDs represented as strings.
+   * @throws Propagates media-signing errors.
+   */
   private toDto(
     post: ProjectShowcasePost & {
-      project?: { id: bigint; name: string };
+      project?: { id: bigint; name: string; details?: Prisma.JsonValue };
       industries: { industry: { id: bigint; name: string } }[];
       categories: { category: { id: bigint; name: string } }[];
       media: {
@@ -553,7 +685,24 @@ export class ProjectShowcasePostService {
     },
     challengeMetadata?: ChallengeMetadataDto[],
   ): ProjectShowcasePostResponseDto {
+    const details = post.project?.details as
+      | Record<string, unknown>
+      | undefined;
+    const metadata = Object.fromEntries(
+      PROJECT_SHOWCASE_METADATA_KEYS.map((key) => [
+        key,
+        typeof details?.[key] === 'string' ? details[key] : undefined,
+      ]),
+    );
     return {
+      ...metadata,
+      type: post.type ?? undefined,
+      challenge: post.challenge ?? undefined,
+      businessImpact: post.businessImpact ?? undefined,
+      keyWin: post.keyWin ?? undefined,
+      currentStatus: post.currentStatus ?? undefined,
+      owner: post.owner ?? undefined,
+      sendToWin: post.sendToWin,
       id: String(post.id),
       title: post.title,
       content: post.content,

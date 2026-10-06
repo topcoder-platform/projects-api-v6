@@ -405,7 +405,8 @@ export class CreateProjectDto {
   external?: ProjectExternalDto;
 
   @ApiPropertyOptional({
-    description: 'Arbitrary project details metadata',
+    description:
+      'Project details, including customer, smu, smuOther (required for Others), and dealCloseDate (YYYY-MM-DD). Other metadata is preserved as supplied.',
     type: 'object',
     additionalProperties: true,
   })

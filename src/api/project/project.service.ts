@@ -1,4 +1,10 @@
 import {
+  activeProjectMembershipWhere,
+  internalBillingAccountIds,
+  isRestrictedTalentManager,
+} from '../../shared/utils/internal-project.utils';
+import { normalizeShowcaseProjectMetadata } from 'src/shared/utils/showcase-metadata.utils';
+import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -137,9 +143,11 @@ export class ProjectService {
   /**
    * Returns a paginated project list for the caller.
    *
-   * Builds query clauses from shared utilities, scopes non-admin callers to
-   * their memberships, enriches member/invite handles, and hydrates billing
-   * account metadata, clients, and unique challenge billing accounts.
+   * Builds query clauses from shared utilities and scopes callers without global
+   * read access to their memberships. Talent Managers can list non-internal
+   * projects and internal projects with active membership. Enriches member/invite
+   * handles and hydrates billing account metadata, clients, and unique challenge
+   * billing accounts.
    *
    * @param criteria List filters, paging, sort, and field selection.
    * @param user Authenticated caller context.
@@ -213,10 +221,12 @@ export class ProjectService {
    * Members and invites are always loaded for permission evaluation regardless
    * of requested `fields`, then relation visibility is filtered by caller
    * permissions before response serialization. Billing metadata, the full client,
-   * and unique challenge billing accounts are added after authorization. Human
-   * PM/TM-style callers must still be a project member or pending invitee; only
-   * admins, legacy manager
-   * roles, and authorized machine principals bypass membership scoping.
+   * and unique challenge billing accounts are added after authorization.
+   * Talent Managers can read non-internal
+   * projects without membership, but internal projects require active membership.
+   * Other human callers need membership or a pending invite unless they have an
+   * administrator or legacy manager role; authorized machine principals also bypass
+   * membership scoping.
    *
    * @param projectId Project id path parameter.
    * @param fieldsParam Optional CSV list of relation fields.
@@ -250,6 +260,21 @@ export class ProjectService {
     if (!project) {
       throw new NotFoundException(
         `Project with id ${projectId} was not found.`,
+      );
+    }
+
+    if (
+      isRestrictedTalentManager(user) &&
+      project.billingAccountId !== null &&
+      internalBillingAccountIds().includes(project.billingAccountId) &&
+      !(project.members || []).some(
+        (member) =>
+          member.userId === activeProjectMembershipWhere(user).userId &&
+          member.deletedAt === null,
+      )
+    ) {
+      throw new ForbiddenException(
+        'Talent Managers must be active members to access internal projects',
       );
     }
 
@@ -311,6 +336,7 @@ export class ProjectService {
    * template-derived phases/products, then records initial project history and
    * publishes `project.created`.
    *
+   * Shared showcase metadata in details is normalized and validated before persistence.
    * @param dto Project creation payload.
    * @param user Authenticated caller context.
    * @returns Created project payload.
@@ -401,7 +427,14 @@ export class ProjectService {
           external: this.toNullableJsonInput(dto.external?.data),
           bookmarks: this.toNullableJsonInput(dto.bookmarks),
           utm: this.toNullableJsonInput(dto.utm),
-          details: this.toNullableJsonInput(dto.details),
+          details: this.toNullableJsonInput(
+            dto.details
+              ? {
+                  ...dto.details,
+                  ...normalizeShowcaseProjectMetadata(dto.details),
+                }
+              : dto.details,
+          ),
           challengeEligibility: this.toNullableJsonInput(
             dto.challengeEligibility?.data,
           ),
@@ -604,8 +637,10 @@ export class ProjectService {
    * `project.action.billingAccount.update` with the legacy
    * tc-project-service payload contract.
    *
+   * Validates Customer, SMU, custom SMU and Deal Close Date when supplied in details.
+   *
    * @param projectId Project id path parameter.
-   * @param dto Patch payload.
+   * @param dto Patch payload, including optional shared showcase metadata in details.
    * @param user Authenticated caller context.
    * @returns Updated project payload.
    * @throws NotFoundException When the project does not exist.
@@ -752,7 +787,14 @@ export class ProjectService {
               : undefined,
           details:
             typeof dto.details !== 'undefined'
-              ? this.toNullableJsonInput(dto.details ?? null)
+              ? this.toNullableJsonInput(
+                  dto.details
+                    ? {
+                        ...dto.details,
+                        ...normalizeShowcaseProjectMetadata(dto.details),
+                      }
+                    : (dto.details ?? null),
+                )
               : undefined,
           challengeEligibility:
             typeof dto.challengeEligibility !== 'undefined'
@@ -1447,7 +1489,8 @@ export class ProjectService {
   /**
    * Returns whether the caller may bypass project membership visibility checks.
    *
-   * Human callers only retain global access for admin or legacy manager roles.
+   * Human callers retain global access for admins, legacy managers, and Talent Managers.
+   * Talent Manager internal-account exclusions and active-membership overrides are enforced separately.
    * Machine principals continue to rely on the named permission so scoped
    * service tokens can read any project when authorized.
    *
@@ -1471,6 +1514,8 @@ export class ProjectService {
       ...ADMIN_ROLES,
       UserRole.MANAGER,
       UserRole.TOPCODER_MANAGER,
+      UserRole.TALENT_MANAGER,
+      UserRole.TOPCODER_TALENT_MANAGER,
     ]);
   }
 

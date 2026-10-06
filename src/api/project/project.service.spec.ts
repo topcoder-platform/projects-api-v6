@@ -283,10 +283,26 @@ describe('ProjectService', () => {
     );
   });
 
-  it.each([
-    ['project manager', UserRole.PROJECT_MANAGER],
-    ['talent manager', UserRole.TALENT_MANAGER],
-  ])(
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'lists non-member projects for %s',
+    async (role) => {
+      permissionServiceMock.hasIntersection.mockImplementation(
+        (roles: string[], allowed: string[]) =>
+          roles.some((value) => allowed.includes(value)),
+      );
+      prismaMock.project.count.mockResolvedValue(0);
+      prismaMock.project.findMany.mockResolvedValue([]);
+      await service.listProjects(
+        { page: 1, perPage: 20 },
+        { isMachine: false, userId: '999', roles: [role] },
+      );
+      expect(prismaMock.project.count).toHaveBeenCalledWith({
+        where: { deletedAt: null },
+      });
+    },
+  );
+
+  it.each([['project manager', UserRole.PROJECT_MANAGER]])(
     'scopes %s project listings to project membership',
     async (_label: string, role: UserRole) => {
       permissionServiceMock.hasNamedPermission.mockImplementation(
@@ -697,11 +713,12 @@ describe('ProjectService', () => {
   });
 
   it.each([
-    ['project manager', UserRole.PROJECT_MANAGER],
-    ['talent manager', UserRole.TALENT_MANAGER],
+    ['project manager', UserRole.PROJECT_MANAGER, false],
+    ['Talent Manager', UserRole.TALENT_MANAGER, true],
+    ['Topcoder Talent Manager', UserRole.TOPCODER_TALENT_MANAGER, true],
   ])(
-    'rejects direct project access for %s callers who are not on the project',
-    async (_label: string, role: UserRole) => {
+    'checks non-member direct access for %s',
+    async (_label: string, role: UserRole, canView: boolean) => {
       const now = new Date();
 
       prismaMock.project.findFirst.mockResolvedValue({
@@ -745,17 +762,151 @@ describe('ProjectService', () => {
           permission === Permission.VIEW_PROJECT ||
           permission === Permission.READ_PROJECT_ANY,
       );
-      permissionServiceMock.hasIntersection.mockReturnValue(false);
+      permissionServiceMock.hasIntersection.mockImplementation(
+        (roles: string[], allowed: string[]) =>
+          roles.some((value) => allowed.includes(value)),
+      );
 
-      await expect(
-        service.getProject('1001', undefined, {
-          userId: '999',
-          roles: [role],
-          isMachine: false,
-        }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      const result = service.getProject('1001', undefined, {
+        userId: '999',
+        roles: [role],
+        isMachine: false,
+      });
+      if (canView)
+        await expect(result).resolves.toMatchObject({ name: 'Demo' });
+      else await expect(result).rejects.toBeInstanceOf(ForbiddenException);
     },
   );
+
+  it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(
+    'returns members, invites, and attachments of a non-member project to %s',
+    async (role) => {
+      const realPermissionService = new PermissionService({
+        hasRequiredScopes: () => false,
+        validateMachineToken: () => ({ isMachine: false, scopes: [] }),
+      } as any);
+      const serviceWithRealPermissions = new ProjectService(
+        prismaMock as any,
+        realPermissionService,
+        billingAccountServiceMock as any,
+        memberServiceMock as any,
+      );
+      prismaMock.project.findFirst.mockResolvedValue({
+        id: 1001n,
+        name: 'Non-internal',
+        billingAccountId: null,
+        members: [{ id: 1n, userId: 100n, role: 'manager', deletedAt: null }],
+        invites: [
+          {
+            id: 2n,
+            userId: 200n,
+            email: null,
+            status: 'pending',
+            deletedAt: null,
+          },
+        ],
+        attachments: [
+          { id: 3n, createdBy: 100, allowedUsers: [], deletedAt: null },
+        ],
+      });
+
+      const result = await serviceWithRealPermissions.getProject(
+        '1001',
+        'members,invites,attachments',
+        { userId: '999', roles: [role], isMachine: false },
+      );
+
+      expect(result.members).toEqual([
+        expect.objectContaining({ userId: '100', role: 'manager' }),
+      ]);
+      expect(result.invites).toEqual([
+        expect.objectContaining({ userId: '200', status: 'pending' }),
+      ]);
+      expect(result.attachments).toHaveLength(1);
+    },
+  );
+
+  describe('Talent Manager internal project membership override', () => {
+    const originalIds = process.env.INTERNAL_BILLING_ACCOUNT_IDS;
+
+    beforeEach(() => {
+      process.env.INTERNAL_BILLING_ACCOUNT_IDS = '123';
+      billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({});
+      permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      if (originalIds === undefined)
+        delete process.env.INTERNAL_BILLING_ACCOUNT_IDS;
+      else process.env.INTERNAL_BILLING_ACCOUNT_IDS = originalIds;
+    });
+
+    it.each([
+      [UserRole.TALENT_MANAGER, 'manager', null, '42', true],
+      [UserRole.TOPCODER_TALENT_MANAGER, 'read', null, '42', true],
+      [UserRole.TALENT_MANAGER, 'customer', null, '42', true],
+      [UserRole.TALENT_MANAGER, 'manager', new Date(), '42', false],
+      [UserRole.TALENT_MANAGER, 'manager', null, '99', false],
+    ])(
+      'checks %s with project role %s, deletedAt %s, and user %s',
+      async (role, memberRole, deletedAt, userId, allowed) => {
+        prismaMock.project.findFirst.mockResolvedValue({
+          id: 1001n,
+          name: 'Internal',
+          billingAccountId: 123n,
+          members: [{ userId: 42n, role: memberRole, deletedAt }],
+          invites: [
+            { userId: BigInt(userId), status: 'pending', deletedAt: null },
+          ],
+        });
+        const result = service.getProject('1001', 'id,name', {
+          userId,
+          roles: [role],
+          isMachine: false,
+        });
+        if (allowed)
+          await expect(result).resolves.toMatchObject({ name: 'Internal' });
+        else await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+      },
+    );
+
+    it.each([false, true])(
+      'uses the membership override for both list results and totals with memberOnly=%s',
+      async (memberOnly) => {
+        prismaMock.project.count.mockResolvedValue(1);
+        prismaMock.project.findMany.mockResolvedValue([
+          {
+            id: 1001n,
+            name: 'Internal',
+            billingAccountId: 123n,
+            members: [{ userId: 42n, role: 'read', deletedAt: null }],
+            invites: [],
+          },
+        ]);
+        const result = await service.listProjects(
+          { memberOnly },
+          {
+            userId: '42',
+            roles: [UserRole.TALENT_MANAGER],
+            isMachine: false,
+          },
+        );
+        expect(result.total).toBe(1);
+        expect(result.data).toEqual([
+          expect.objectContaining({ name: 'Internal' }),
+        ]);
+        const where = prismaMock.project.findMany.mock.calls[0][0].where;
+        expect(prismaMock.project.count).toHaveBeenCalledWith({ where });
+        expect(where.AND).toContainEqual({
+          OR: [
+            { billingAccountId: null },
+            { billingAccountId: { notIn: [123n] } },
+            { members: { some: { userId: 42n, deletedAt: null } } },
+          ],
+        });
+      },
+    );
+  });
 
   it('lists billing accounts for project id', async () => {
     billingAccountServiceMock.getBillingAccountsForProject.mockResolvedValue([
