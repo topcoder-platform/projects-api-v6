@@ -1,7 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/** ID and name of a current or historical opportunity billing account. */
+export class SalesforceOpportunityBillingAccountDto {
+  @ApiProperty({
+    description: 'Topcoder billing account ID.',
+    example: '80001063',
+  })
+  id: string;
+
+  @ApiPropertyOptional({
+    description: 'Account name, omitted if metadata cannot be resolved.',
+  })
+  name?: string;
+}
+
 /**
- * Salesforce opportunity fields used to populate project details.
+ * Salesforce opportunity fields and project billing context used by Work and Sales.
  *
  * Only read-only, non-sensitive opportunity attributes are exposed. The
  * `smu`/`smuOther` pair is already mapped onto the SMU options accepted by
@@ -61,6 +75,30 @@ export class SalesforceOpportunityResponseDto {
 
   @ApiPropertyOptional({ description: 'Opportunity stage name.' })
   stageName?: string;
+
+  @ApiProperty({
+    description:
+      'Current opportunity billing account, or null when no account is associated.',
+    type: SalesforceOpportunityBillingAccountDto,
+    nullable: true,
+  })
+  billingAccount: SalesforceOpportunityBillingAccountDto | null;
+
+  @ApiProperty({
+    description:
+      'Project whose current billingAccountId matches the opportunity account; null when none exists.',
+    type: String,
+    nullable: true,
+    example: '12345',
+  })
+  projectId: string | null;
+
+  @ApiProperty({
+    description:
+      'Unique accounts referenced by all project challenges, including the current account only if used by a challenge. Sorted by numeric ID; unavailable metadata retains the ID.',
+    type: [SalesforceOpportunityBillingAccountDto],
+  })
+  relatedBillingAccounts: SalesforceOpportunityBillingAccountDto[];
 
   @ApiProperty({
     description: 'Deep link to the opportunity record in Salesforce.',

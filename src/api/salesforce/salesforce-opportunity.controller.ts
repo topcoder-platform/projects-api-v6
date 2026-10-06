@@ -33,7 +33,7 @@ const OPPORTUNITY_ROLES = [
  * Read-only Salesforce opportunity endpoints.
  *
  * Used by the Work app to populate project details from an opportunity, and by
- * the Sales app to show an opportunity description. Responses are never cached
+ * the Sales app to show opportunity details and project billing history. Responses are never cached
  * by intermediaries because Salesforce remains the source of truth.
  */
 @ApiTags('Salesforce')
@@ -50,10 +50,11 @@ export class SalesforceOpportunityController {
   constructor(private readonly opportunities: SalesforceOpportunityService) {}
 
   /**
-   * Returns a single Salesforce opportunity by record id.
+   * Returns a Salesforce opportunity with its current account and project history.
    *
    * @param opportunityId 15 or 18 character Salesforce opportunity id
-   * @returns the opportunity attributes used by Work and Sales
+   * @returns Opportunity attributes, current account, project ID, and related accounts.
+   * @throws Propagates validation, not-found, configuration, and upstream errors from the service.
    */
   @Get(':opportunityId')
   @Roles(...OPPORTUNITY_ROLES)
@@ -61,7 +62,7 @@ export class SalesforceOpportunityController {
   @ApiOperation({
     summary: 'Get a Salesforce opportunity',
     description:
-      'Reads Subcontracting End Customer, Reporting SMU, Close Date and Description for an opportunity. Read-only; nothing is written back to Salesforce.',
+      'Reads opportunity details, the local billing account and matching project, and unique billing accounts used by the project challenges. Read-only; nothing is written back to Salesforce.',
   })
   @ApiParam({
     name: 'opportunityId',
@@ -72,7 +73,8 @@ export class SalesforceOpportunityController {
   @ApiBadRequestResponse({ description: 'Malformed opportunity id.' })
   @ApiNotFoundResponse({ description: 'No opportunity exists for that ID.' })
   @ApiBadGatewayResponse({
-    description: 'Salesforce is unavailable or returned an invalid response.',
+    description:
+      'Salesforce, billing accounts, or project billing history could not be loaded.',
   })
   @ApiServiceUnavailableResponse({
     description: 'Server Salesforce configuration is missing or invalid.',
