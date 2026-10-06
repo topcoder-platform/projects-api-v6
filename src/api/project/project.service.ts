@@ -15,6 +15,7 @@ import {
   ProjectStatus,
 } from '@prisma/client';
 import { Permission } from 'src/shared/constants/permissions';
+import { getChallengesPrismaClient } from 'src/shared/global/external-prisma.client';
 import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
 import { Scope } from 'src/shared/enums/scopes.enum';
 import { ADMIN_ROLES, UserRole } from 'src/shared/enums/userRole.enum';
@@ -105,6 +106,9 @@ type ProjectInviteWithHandle = ProjectMemberInvite & {
 
 type ProjectWithRawRelations = Project & {
   billingAccountName?: string;
+  billingAccount?: BillingAccount | null;
+  client?: Record<string, unknown> | null;
+  relatedBillingAccounts?: BillingAccount[];
   members?: ProjectMemberWithHandle[];
   invites?: ProjectInviteWithHandle[];
   attachments?: ProjectAttachment[];
@@ -135,7 +139,7 @@ export class ProjectService {
    *
    * Builds query clauses from shared utilities, scopes non-admin callers to
    * their memberships, enriches member/invite handles, and hydrates billing
-   * account names.
+   * account metadata, clients, and unique challenge billing accounts.
    *
    * @param criteria List filters, paging, sort, and field selection.
    * @param user Authenticated caller context.
@@ -176,14 +180,12 @@ export class ProjectService {
     ]);
     const projectsWithMemberHandles =
       await this.enrichProjectsWithMemberHandles(projects);
-    const billingAccountNamesById = await this.getBillingAccountNamesById(
+    const projectsWithBilling = await this.enrichProjectsWithBillingAccounts(
       projectsWithMemberHandles,
+      user,
     );
 
-    const data = projectsWithMemberHandles.map((project) => {
-      const billingAccountId = this.toOptionalBigintString(
-        project.billingAccountId,
-      );
+    const data = projectsWithBilling.map((project) => {
       const filteredProject = this.filterProjectRelations(
         project,
         user,
@@ -194,13 +196,7 @@ export class ProjectService {
         requestedFields,
       );
 
-      return this.toDto({
-        ...projectWithRequestedFields,
-        billingAccountName:
-          billingAccountId && billingAccountNamesById.has(billingAccountId)
-            ? billingAccountNamesById.get(billingAccountId)
-            : undefined,
-      });
+      return this.toDto(projectWithRequestedFields);
     });
 
     return {
@@ -216,8 +212,10 @@ export class ProjectService {
    *
    * Members and invites are always loaded for permission evaluation regardless
    * of requested `fields`, then relation visibility is filtered by caller
-   * permissions before response serialization. Human PM/TM-style callers must
-   * still be a project member or pending invitee; only admins, legacy manager
+   * permissions before response serialization. Billing metadata, the full client,
+   * and unique challenge billing accounts are added after authorization. Human
+   * PM/TM-style callers must still be a project member or pending invitee; only
+   * admins, legacy manager
    * roles, and authorized machine principals bypass membership scoping.
    *
    * @param projectId Project id path parameter.
@@ -297,24 +295,17 @@ export class ProjectService {
       filteredProject,
       fields,
     );
-    const billingAccountId = this.toOptionalBigintString(
-      projectWithRelations.billingAccountId,
+    const [enrichedProject] = await this.enrichProjectsWithBillingAccounts(
+      [projectWithRequestedFields],
+      user,
     );
-    const billingAccountNamesById = billingAccountId
-      ? await this.getBillingAccountNamesById([projectWithRelations])
-      : new Map<string, string>();
-
-    return this.toDto({
-      ...projectWithRequestedFields,
-      billingAccountName:
-        billingAccountId && billingAccountNamesById.has(billingAccountId)
-          ? billingAccountNamesById.get(billingAccountId)
-          : undefined,
-    });
+    return this.toDto(enrichedProject);
   }
 
   /**
    * Creates a project and all requested nested resources in one transaction.
+   * Enriches the HTTP response with billing/client data after publishing the
+   * existing lifecycle event payload.
    *
    * Writes project, members, attachments, estimations (+items), and optional
    * template-derived phases/products, then records initial project history and
@@ -593,7 +584,11 @@ export class ProjectService {
     );
     this.publishEvent(KAFKA_TOPIC.PROJECT_CREATED, response);
 
-    return response;
+    const [enrichedProject] = await this.enrichProjectsWithBillingAccounts(
+      [createdProjectWithMemberHandles || createdProject],
+      user,
+    );
+    return this.toDto(enrichedProject);
   }
 
   /**
@@ -602,7 +597,8 @@ export class ProjectService {
    * Performs additional checks for `billingAccountId` and `directProjectId`,
    * supports explicit billing-account clearing, persists optional
    * `cancelReason`, appends project history when status changes, and
-   * publishes `project.updated`.
+   * publishes `project.updated`. The HTTP response also includes billing/client
+   * enrichment; lifecycle event payloads retain their existing shape.
    *
    * When `billingAccountId` changes, also emits
    * `project.action.billingAccount.update` with the legacy
@@ -817,13 +813,12 @@ export class ProjectService {
       projectWithRelations.members || [],
     );
 
-    const response = this.toDto(
-      this.filterProjectRelations(
-        projectWithRelations,
-        user,
-        hasGlobalProjectReadAccess,
-      ),
+    const filteredProject = this.filterProjectRelations(
+      projectWithRelations,
+      user,
+      hasGlobalProjectReadAccess,
     );
+    const response = this.toDto(filteredProject);
 
     this.publishEvent(KAFKA_TOPIC.PROJECT_UPDATED, response);
     if (billingAccountChanged) {
@@ -838,7 +833,11 @@ export class ProjectService {
       });
     }
 
-    return response;
+    const [enrichedProject] = await this.enrichProjectsWithBillingAccounts(
+      [filteredProject],
+      user,
+    );
+    return this.toDto(enrichedProject);
   }
 
   /**
@@ -2456,49 +2455,91 @@ export class ProjectService {
   }
 
   /**
-   * Batch-loads billing account names for project list responses.
+   * Enriches project responses with current account/client details and all unique
+   * accounts referenced by their challenges, regardless of challenge status.
+   * Queries challenges once per page and resolves each account once per response.
    *
-   * @param projects Project rows that may contain billing-account ids.
-   * @returns Map of billing account id to billing account name.
+   * @param projects Authorized project rows to enrich.
+   * @param user Caller used to enforce existing copilot markup visibility.
+   * @returns Enriched rows; missing account metadata retains an id-only record.
+   * Challenge lookup failures are logged and yield an empty related array so
+   * external outages cannot turn a committed project write into an API failure.
    */
-  private async getBillingAccountNamesById(
-    projects: Project[],
-  ): Promise<Map<string, string>> {
-    const billingAccountIds = Array.from(
-      new Set(
-        projects
-          .map((project) =>
-            this.toOptionalBigintString(project.billingAccountId),
-          )
-          .filter((billingAccountId): billingAccountId is string =>
-            Boolean(billingAccountId),
-          ),
-      ),
-    );
+  private async enrichProjectsWithBillingAccounts(
+    projects: ProjectWithRawRelations[],
+    user: JwtUser,
+  ): Promise<ProjectWithRawRelations[]> {
+    if (!projects.length) return projects;
 
-    if (billingAccountIds.length === 0) {
-      return new Map();
-    }
-
-    const billingAccountsById =
-      await this.billingAccountService.getBillingAccountsByIds(
-        billingAccountIds,
-      );
-
-    return Object.entries(billingAccountsById).reduce<Map<string, string>>(
-      (acc, [billingAccountId, billingAccount]) => {
-        const billingAccountName =
-          typeof billingAccount?.name === 'string'
-            ? billingAccount.name.trim()
-            : '';
-
-        if (billingAccountName) {
-          acc.set(billingAccountId, billingAccountName);
+    // Challenges store project ids as PostgreSQL Int, projects use BigInt.
+    const projectIds = projects
+      .map((project) => Number(project.id))
+      .filter((id) => Number.isInteger(id) && id > 0 && id <= 2147483647);
+    const relatedIds = new Map<string, Set<string>>();
+    if (projectIds.length) {
+      try {
+        const challenges = await getChallengesPrismaClient().challenge.findMany(
+          {
+            where: { projectId: { in: projectIds } },
+            select: {
+              projectId: true,
+              billingRecord: { select: { billingAccountId: true } },
+            },
+          },
+        );
+        for (const challenge of challenges) {
+          const rawId = challenge.billingRecord?.billingAccountId?.trim();
+          if (challenge.projectId === null || !rawId || !/^\d+$/.test(rawId))
+            continue;
+          const id = BigInt(rawId).toString();
+          if (id === '0') continue;
+          const projectId = String(challenge.projectId);
+          const ids = relatedIds.get(projectId) || new Set<string>();
+          ids.add(id);
+          relatedIds.set(projectId, ids);
         }
+      } catch {
+        this.logger.warn(
+          'Unable to load related project billing accounts from challenges.',
+        );
+      }
+    }
+    const accountIds = new Set<string>();
+    for (const project of projects) {
+      const id = this.toOptionalBigintString(project.billingAccountId);
+      if (id) accountIds.add(id);
+      for (const relatedId of relatedIds.get(String(project.id)) || [])
+        accountIds.add(relatedId);
+    }
+    const accounts = accountIds.size
+      ? await this.billingAccountService.getBillingAccountsByIds([
+          ...accountIds,
+        ])
+      : {};
+    const hideMarkup = this.shouldHideBillingAccountMarkupForCopilot(user);
+    const resolveAccount = (id: string): BillingAccount => {
+      const account: BillingAccount = {
+        ...accounts[id],
+        tcBillingAccountId: id,
+      };
+      if (hideMarkup) delete account.markup;
+      return account;
+    };
 
-        return acc;
-      },
-      new Map(),
-    );
+    return projects.map((project) => {
+      const id = this.toOptionalBigintString(project.billingAccountId);
+      const billingAccount = id ? resolveAccount(id) : null;
+      return {
+        ...project,
+        billingAccountName: billingAccount?.name?.trim() || undefined,
+        billingAccount,
+        client: billingAccount?.client ?? null,
+        relatedBillingAccounts: [...(relatedIds.get(String(project.id)) || [])]
+          .sort((a, b) =>
+            BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0,
+          )
+          .map(resolveAccount),
+      };
+    });
   }
 }

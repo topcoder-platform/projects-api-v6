@@ -104,6 +104,16 @@ Talent Manager note:
 - `Talent Manager` and `Topcoder Talent Manager` callers also receive the elevated per-member response from `GET /v6/projects/:projectId/permissions`, which is used to provision challenge-related actions in Work Manager.
 - Updating `billingAccountId` is restricted to human administrators and project members whose role on that project is `manager` (`Full Access`).
 
+Project list, detail, create, and update responses include:
+
+- `billingAccount`: the current account's table fields from the Billing Accounts API, including `salesforceBillingAccountId`, `billingAccountType`, `billingNotes`, `billingFrequency`, `opportunity`, `subscription`, `spoc`, `secondarySpoc`, `costCenter`, and `workdayContractNumber`. Existing `billingAccountId` and `billingAccountName` fields remain available. The nested account also includes the legacy `tcBillingAccountId` and `active` aliases.
+- `client`: the full Client record associated with the current billing account, including its Salesforce metadata, billing address, contact details, status, payment terms, and audit dates. The same record is available as `billingAccount.client`. This is `null` if there is no current account or its client cannot be resolved.
+- `relatedBillingAccounts`: account records in the same shape as `billingAccount`, including each account's client. IDs come from `Challenge.billingRecord.billingAccountId` for challenges whose `projectId` matches the project. IDs are deduplicated per project and sorted numerically. All challenge statuses are included; inactive billing accounts are retained. The current project account appears here only if a challenge references it. Clearing or changing the project's current account does not remove accounts still referenced by challenges.
+
+Billing metadata is fetched once per unique account across a response page, using at most five concurrent Billing Accounts API requests. Unresolved accounts use the existing Salesforce fallback; if both lookups fail, an id-only `{ "tcBillingAccountId": "..." }` entry preserves the association. A project with no assigned account returns `billingAccount: null`. Copilot-only callers do not receive `markup` on either current or related accounts. Billing ledger collections and computed budget totals are excluded. Lifecycle event payloads retain their existing shape.
+
+The history lookup uses `CHALLENGES_DB_URL` and the existing challenge Prisma client. No schema migration is needed. If that lookup fails, the API logs a warning and returns `relatedBillingAccounts: []` while preserving the rest of the response. History reflects the billing references currently stored on challenges; deleted challenges and overwritten challenge billing references cannot be reconstructed from these records.
+
 ### Members
 
 | Method | Path | Auth | Description |
@@ -339,7 +349,8 @@ Reference source: `.env.example`.
 | `ENABLE_FILE_UPLOAD` | - | `true` | Toggle S3 file upload |
 | `MEMBER_API_URL` | ✅ | - | Member API base URL |
 | `IDENTITY_API_URL` | ✅ | - | Identity API base URL |
-| `BILLING_ACCOUNTS_API_URL` | - | - | Billing Accounts API base URL used for default billing-account lookup before Salesforce fallback |
+| `BILLING_ACCOUNTS_API_URL` | - | - | Billing Accounts API base URL (including `/v6/billing-accounts`) used for project account metadata/client enrichment and default account lookup before Salesforce fallback |
+| `CHALLENGES_DB_URL` | - | - | Challenge database connection used to resolve related project billing accounts (also used by showcase challenge lookups) |
 | `SALESFORCE_CLIENT_ID` | ✅ | - | Salesforce JWT client ID |
 | `SALESFORCE_CLIENT_AUDIENCE` | ✅ | `https://login.salesforce.com` | Salesforce audience |
 | `SALESFORCE_SUBJECT` | ✅ | - | Salesforce JWT subject |

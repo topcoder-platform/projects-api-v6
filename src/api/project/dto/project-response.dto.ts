@@ -1,5 +1,6 @@
 import { AttachmentType, InviteStatus, ProjectStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { BillingAccount } from 'src/shared/services/billingAccount.service';
 
 /**
  * DTO for serialized project member entries.
@@ -139,6 +140,32 @@ export class ProjectResponseDto {
 
   @ApiPropertyOptional()
   billingAccountName?: string | null;
+
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description:
+      'Current BillingAccount table fields and full client from the Billing Accounts API, with tcBillingAccountId and active compatibility aliases. Includes salesforceBillingAccountId, billingAccountType, billingNotes, billingFrequency, opportunity, subscription, spoc, secondarySpoc, costCenter, and workdayContractNumber. Missing metadata yields an id-only object; no assigned account yields null. Copilot-only callers do not receive markup.',
+  })
+  billingAccount: BillingAccount | null;
+
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description:
+      'Full Client record associated with the current billing account, including Salesforce metadata, contact and billing address fields; null when unavailable.',
+  })
+  client: Record<string, unknown> | null;
+
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'object', additionalProperties: true },
+    description:
+      'Unique billing accounts referenced by project challenges in all statuses, sorted by numeric account id. Each entry has the same metadata/client shape as billingAccount. Includes the current account only if a challenge references it. Empty when no accounts are referenced or the challenge lookup is unavailable.',
+  })
+  relatedBillingAccounts: BillingAccount[];
 
   @ApiPropertyOptional()
   directProjectId?: string | null;

@@ -14,17 +14,19 @@ export interface BillingAccount {
   endDate?: string;
   active?: boolean;
   markup?: number;
+  client?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
 
 /**
- * Salesforce billing-account integration service.
+ * Billing Accounts API and Salesforce integration service.
  *
- * Uses JWT Bearer OAuth against Salesforce and runs SOQL queries to retrieve
- * billing-account data used by Projects API.
+ * Resolves local billing-account metadata and full clients through the Billing
+ * Accounts API, with JWT Bearer OAuth/SOQL as a legacy Salesforce fallback.
  *
  * Injected into the billing-account controller for account listing/detail
- * endpoints. Requires `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_AUDIENCE`
+ * endpoints. The API uses `BILLING_ACCOUNTS_API_URL` and M2M credentials.
+ * Salesforce fallback requires `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_AUDIENCE`
  * (or `SALESFORCE_AUDIENCE`), `SALESFORCE_SUBJECT`, and
  * `SALESFORCE_CLIENT_KEY`.
  */
@@ -205,8 +207,9 @@ export class BillingAccountService {
   /**
    * Resolves a billing-account record from the Billing Accounts API.
    *
-   * Uses an M2M token and maps the response into the legacy billing-account
-   * shape returned by Projects API.
+   * Uses an M2M token, preserves BillingAccount table fields and the full client,
+   * and adds legacy aliases. Ledger collections and computed financial totals
+   * are deliberately excluded from project responses.
    *
    * @param billingAccountId normalized Topcoder billing-account id
    * @returns billing-account details or `null` when lookup fails
@@ -245,7 +248,50 @@ export class BillingAccountService {
         return null;
       }
 
+      // Copy only table metadata, never ledger rows fetched with the M2M token.
+      const metadataFields = [
+        'id',
+        'projectId',
+        'description',
+        'subcontractingEndCustomer',
+        'status',
+        'budget',
+        'clientId',
+        'poNumber',
+        'subscriptionNumber',
+        'isManualPrize',
+        'paymentTerms',
+        'salesTax',
+        'billable',
+        'createdBy',
+        'createdAt',
+        'updatedAt',
+        'salesforceBillingAccountId',
+        'billingAccountType',
+        'billingNotes',
+        'billingFrequency',
+        'opportunity',
+        'subscription',
+        'spoc',
+        'secondarySpoc',
+        'costCenter',
+        'workdayContractNumber',
+      ];
+      const metadata = Object.fromEntries(
+        metadataFields
+          .filter((field) =>
+            Object.prototype.hasOwnProperty.call(payload, field),
+          )
+          .map((field) => [field, payload?.[field]]),
+      );
+      const client = payload?.client;
+
       return {
+        ...metadata,
+        ...(client === null ||
+        (client && typeof client === 'object' && !Array.isArray(client))
+          ? { client: client as Record<string, unknown> | null }
+          : {}),
         tcBillingAccountId: normalizedBillingAccountId,
         name: this.readAsString(payload?.name),
         startDate: this.readAsString(payload?.startDate),
@@ -266,30 +312,56 @@ export class BillingAccountService {
   }
 
   /**
-   * Returns a map of billing-account details keyed by Topcoder account id.
+   * Loads unique accounts from the Billing Accounts API with at most five
+   * concurrent requests, then batch-loads unresolved ids from Salesforce.
    *
-   * Executes a single SOQL query with an `IN` clause over normalized ids.
-   *
-   * @param billingAccountIds billing-account ids to fetch
-   * @returns record keyed by normalized billing-account id
+   * @param billingAccountIds Topcoder billing-account ids to resolve.
+   * @returns Account details keyed by id; unavailable records are omitted.
+   * Transport/authentication failures are logged and handled by the lookups.
    */
   async getBillingAccountsByIds(
     billingAccountIds: string[],
   ): Promise<Record<string, BillingAccount>> {
-    const normalizedBillingAccountIds = Array.from(
+    const ids = Array.from(
       new Set(
         billingAccountIds
-          .map((billingAccountId) => this.parseIntStrictly(billingAccountId))
-          .filter((billingAccountId): billingAccountId is string =>
-            Boolean(billingAccountId),
-          ),
+          .map((id) => this.parseIntStrictly(id))
+          .filter((id): id is string => Boolean(id)),
       ),
     );
+    if (!ids.length) return {};
 
-    if (normalizedBillingAccountIds.length === 0) {
-      return {};
+    const accounts: Record<string, BillingAccount> = {};
+    let nextIndex = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(5, ids.length) }, async () => {
+        while (nextIndex < ids.length) {
+          const id = ids[nextIndex++];
+          const account =
+            await this.getBillingAccountFromBillingAccountsApi(id);
+          if (account) accounts[id] = account;
+        }
+      }),
+    );
+    const missingIds = ids.filter((id) => !accounts[id]);
+    if (missingIds.length) {
+      Object.assign(
+        accounts,
+        await this.getSalesforceBillingAccountsByIds(missingIds),
+      );
     }
+    return accounts;
+  }
 
+  /**
+   * Batch-loads legacy details for accounts unresolved by the Billing Accounts API.
+   * @param normalizedBillingAccountIds Validated, unique integer ids.
+   * @returns Details keyed by id, or an empty map when Salesforce is unavailable.
+   * Authentication and query failures are logged rather than propagated.
+   */
+  private async getSalesforceBillingAccountsByIds(
+    normalizedBillingAccountIds: string[],
+  ): Promise<Record<string, BillingAccount>> {
     if (!this.isSalesforceConfigured()) {
       this.logger.warn('Salesforce integration is not configured.');
       return {};

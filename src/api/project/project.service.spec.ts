@@ -11,6 +11,14 @@ jest.mock('src/shared/utils/event.utils', () => ({
   publishRawEvent: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock('src/shared/global/external-prisma.client', () => ({
+  getChallengesPrismaClient: jest.fn(),
+}));
+
+const { getChallengesPrismaClient } = jest.requireMock(
+  'src/shared/global/external-prisma.client',
+);
+const challengeFindMany = jest.fn();
 const eventUtils = jest.requireMock('src/shared/utils/event.utils');
 
 describe('ProjectService', () => {
@@ -62,6 +70,11 @@ describe('ProjectService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getChallengesPrismaClient.mockReturnValue({
+      challenge: { findMany: challengeFindMany },
+    });
+    challengeFindMany.mockResolvedValue([]);
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({});
     prismaMock.$queryRaw.mockResolvedValue([]);
     memberServiceMock.getMemberDetailsByUserIds.mockResolvedValue([]);
     memberServiceMock.getUserRoles.mockResolvedValue([]);
@@ -508,6 +521,168 @@ describe('ProjectService', () => {
     expect(
       billingAccountServiceMock.getBillingAccountsByIds,
     ).toHaveBeenCalledWith(['80001063']);
+  });
+
+  it('returns current metadata and full client with deduplicated lifetime challenge accounts', async () => {
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: 1001n,
+      billingAccountId: 12n,
+      members: [],
+      invites: [],
+    });
+    const client = {
+      id: 'client-1',
+      name: 'Acme',
+      salesforceAccountId: '001',
+      billingStreet: '1 Main Street',
+      phone: '123',
+      paymentTerms: 'Net 30',
+    };
+    const currentAccount = {
+      tcBillingAccountId: '12',
+      name: 'Current',
+      salesforceBillingAccountId: 'a01',
+      opportunity: '006',
+      subscription: 'sub',
+      costCenter: 'engineering',
+      markup: 0.2,
+      client,
+    };
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({
+      '12': currentAccount,
+      '9': { tcBillingAccountId: '9', name: 'Previous', status: 'INACTIVE' },
+    });
+    challengeFindMany.mockResolvedValue([
+      { projectId: 1001, billingRecord: { billingAccountId: '12' } },
+      { projectId: 1001, billingRecord: { billingAccountId: '9' } },
+      { projectId: 1001, billingRecord: { billingAccountId: '009' } },
+      { projectId: 1001, billingRecord: { billingAccountId: '15' } },
+      { projectId: 1001, billingRecord: null },
+      { projectId: 1001, billingRecord: { billingAccountId: null } },
+      { projectId: 1001, billingRecord: { billingAccountId: 'invalid' } },
+    ]);
+    const result = await service.getProject('1001', undefined, {
+      userId: '100',
+      roles: ['administrator'],
+      isMachine: false,
+    });
+    expect(result.billingAccount).toEqual(currentAccount);
+    expect(result.client).toEqual(client);
+    expect(result.relatedBillingAccounts).toEqual([
+      { tcBillingAccountId: '9', name: 'Previous', status: 'INACTIVE' },
+      currentAccount,
+      { tcBillingAccountId: '15' },
+    ]);
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).toHaveBeenCalledWith(['12', '9', '15']);
+    expect(challengeFindMany).toHaveBeenCalledWith({
+      where: { projectId: { in: [1001] } },
+      select: {
+        projectId: true,
+        billingRecord: { select: { billingAccountId: true } },
+      },
+    });
+  });
+
+  it('shares billing lookups across a page and keeps histories scoped to each project', async () => {
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaMock.project.count.mockResolvedValue(3);
+    prismaMock.project.findMany.mockResolvedValue([
+      { id: 1n, billingAccountId: 12n },
+      { id: 2n, billingAccountId: 12n },
+      { id: 3n, billingAccountId: null },
+    ]);
+    challengeFindMany.mockResolvedValue([
+      { projectId: 1, billingRecord: { billingAccountId: '9' } },
+      { projectId: 2, billingRecord: { billingAccountId: '10' } },
+      { projectId: 3, billingRecord: { billingAccountId: '9' } },
+    ]);
+    const result = await service.listProjects(
+      {},
+      { userId: '100', roles: ['administrator'], isMachine: false },
+    );
+    expect(challengeFindMany).toHaveBeenCalledTimes(1);
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).toHaveBeenCalledWith(['12', '9', '10']);
+    expect(
+      result.data.map((project) => project.relatedBillingAccounts),
+    ).toEqual([
+      [{ tcBillingAccountId: '9' }],
+      [{ tcBillingAccountId: '10' }],
+      [{ tcBillingAccountId: '9' }],
+    ]);
+    expect(result.data[2].billingAccount).toBeNull();
+    expect(result.data[2].client).toBeNull();
+  });
+
+  it('removes markup from current and historical accounts for copilot-only callers', async () => {
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: 1001n,
+      billingAccountId: 12n,
+      members: [{ userId: 100n, role: 'copilot', deletedAt: null }],
+      invites: [],
+    });
+    const account = { tcBillingAccountId: '12', markup: 0.3, name: 'Current' };
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({
+      '12': account,
+    });
+    challengeFindMany.mockResolvedValue([
+      { projectId: 1001, billingRecord: { billingAccountId: '12' } },
+    ]);
+    const result = await service.getProject('1001', undefined, {
+      userId: '100',
+      roles: ['copilot'],
+      isMachine: false,
+    });
+    expect(result.billingAccount).not.toHaveProperty('markup');
+    expect(result.relatedBillingAccounts[0]).not.toHaveProperty('markup');
+    expect(account.markup).toBe(0.3);
+  });
+
+  it('returns empty billing relations when no current or challenge accounts exist', async () => {
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: 1n,
+      billingAccountId: null,
+    });
+    const result = await service.getProject('1', undefined, {
+      userId: '100',
+      roles: ['administrator'],
+      isMachine: false,
+    });
+    expect(result).toMatchObject({
+      billingAccount: null,
+      client: null,
+      relatedBillingAccounts: [],
+    });
+    expect(
+      billingAccountServiceMock.getBillingAccountsByIds,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('preserves current billing data during a challenge database outage', async () => {
+    permissionServiceMock.hasNamedPermission.mockReturnValue(true);
+    prismaMock.project.findFirst.mockResolvedValue({
+      id: 1n,
+      billingAccountId: 12n,
+    });
+    challengeFindMany.mockRejectedValue(new Error('database unavailable'));
+    const result = await service.getProject('1', undefined, {
+      userId: '100',
+      roles: ['administrator'],
+      isMachine: false,
+    });
+    expect(result).toMatchObject({
+      billingAccount: { tcBillingAccountId: '12' },
+      relatedBillingAccounts: [],
+    });
   });
 
   it('throws NotFoundException when project is missing', async () => {
@@ -1277,6 +1452,11 @@ describe('ProjectService', () => {
     );
 
     expect(result.id).toBe('1001');
+    expect(result).toMatchObject({
+      billingAccount: null,
+      client: null,
+      relatedBillingAccounts: [],
+    });
     expect(transactionProjectCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -2084,7 +2264,24 @@ describe('ProjectService', () => {
     );
     permissionServiceMock.hasNamedPermission.mockReturnValue(true);
 
-    await service.updateProject(
+    const currentAccount = {
+      tcBillingAccountId: '22',
+      costCenter: 'New contract',
+      client: { id: 'client-1', name: 'Acme' },
+    };
+    const previousAccount = {
+      tcBillingAccountId: '11',
+      costCenter: 'Previous contract',
+    };
+    billingAccountServiceMock.getBillingAccountsByIds.mockResolvedValue({
+      '22': currentAccount,
+      '11': previousAccount,
+    });
+    challengeFindMany.mockResolvedValue([
+      { projectId: 1001, billingRecord: { billingAccountId: '11' } },
+    ]);
+
+    const result = await service.updateProject(
       '1001',
       {
         status: 'active',
@@ -2096,6 +2293,12 @@ describe('ProjectService', () => {
       },
     );
 
+    expect(result.billingAccount).toEqual(currentAccount);
+    expect(result.client).toEqual(currentAccount.client);
+    expect(result.relatedBillingAccounts).toEqual([previousAccount]);
+    expect(eventUtils.publishProjectEvent.mock.calls[0][1]).not.toHaveProperty(
+      'relatedBillingAccounts',
+    );
     expect(eventUtils.publishProjectEvent).toHaveBeenCalledWith(
       KAFKA_TOPIC.PROJECT_UPDATED,
       expect.any(Object),
