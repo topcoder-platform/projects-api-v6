@@ -1,11 +1,22 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+} from '@nestjs/common';
 import { createPrivateKey, KeyObject } from 'crypto';
 import { firstValueFrom } from 'rxjs';
 import * as jwt from 'jsonwebtoken';
 import { SERVICE_ENDPOINTS } from 'src/shared/config/service-endpoints.config';
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import { M2MService } from 'src/shared/modules/global/m2m.service';
+import { SALESFORCE_OPPORTUNITY_ID_PATTERN } from 'src/shared/utils/showcase-metadata.utils';
+
+/** Account identity exposed by the Salesforce opportunity integration. */
+export interface BillingAccountSummary {
+  id: string;
+  name?: string;
+}
 
 export interface BillingAccount {
   tcBillingAccountId?: string;
@@ -18,13 +29,15 @@ export interface BillingAccount {
 }
 
 /**
- * Salesforce billing-account integration service.
+ * Billing Accounts API and Salesforce integration service.
  *
- * Uses JWT Bearer OAuth against Salesforce and runs SOQL queries to retrieve
- * billing-account data used by Projects API.
+ * Resolves opportunity accounts and batch metadata through the Billing Accounts
+ * API. Uses JWT Bearer OAuth/SOQL as a fallback for unresolved account IDs.
  *
  * Injected into the billing-account controller for account listing/detail
- * endpoints. Requires `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_AUDIENCE`
+ * endpoints and the Salesforce opportunity popup. API lookups use
+ * `BILLING_ACCOUNTS_API_URL` and M2M credentials. The fallback requires
+ * `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_AUDIENCE`
  * (or `SALESFORCE_AUDIENCE`), `SALESFORCE_SUBJECT`, and
  * `SALESFORCE_CLIENT_KEY`.
  */
@@ -55,6 +68,80 @@ export class BillingAccountService {
     private readonly httpService: HttpService,
     private readonly m2mService: M2MService,
   ) {}
+
+  /**
+   * Finds local billing accounts associated with a Salesforce opportunity.
+   * Used by the opportunity popup to resolve Project.billingAccountId. Reads
+   * every filtered page, including inactive accounts, in descending ID order.
+   * Only account identity is returned; M2M-only financial data stays private.
+   *
+   * @param opportunityId Valid 15- or 18-character Salesforce opportunity ID.
+   * @returns Matching account IDs/names, or an empty array when none exist.
+   * @throws BadRequestException for an invalid ID; BadGatewayException when
+   * configuration, authentication, transport, or the upstream response fails.
+   */
+  async getBillingAccountsForOpportunity(
+    opportunityId: string,
+  ): Promise<BillingAccountSummary[]> {
+    if (!SALESFORCE_OPPORTUNITY_ID_PATTERN.test(opportunityId)) {
+      throw new BadRequestException('Invalid Salesforce opportunity ID.');
+    }
+    try {
+      if (!this.billingAccountsApiUrl) {
+        throw new Error('Billing Accounts API is not configured.');
+      }
+      const token = await this.m2mService.getM2MToken();
+      const accounts = new Map<string, BillingAccountSummary>();
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const response = await firstValueFrom(
+          this.httpService.get<{
+            data: Record<string, unknown>[];
+            totalPages: number;
+          }>(this.billingAccountsApiUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: {
+              opportunity: opportunityId,
+              page,
+              perPage: 100,
+              sortBy: 'id',
+              sortOrder: 'desc',
+            },
+            timeout: 5000,
+          }),
+        );
+        const payload = response.data;
+        if (
+          !Array.isArray(payload?.data) ||
+          !Number.isSafeInteger(payload.totalPages) ||
+          payload.totalPages < 0
+        ) {
+          throw new Error('Invalid billing account listing.');
+        }
+        for (const account of payload.data) {
+          const id = this.readAsIdString(account?.id);
+          if (
+            !id ||
+            !/^[1-9]\d*$/.test(id) ||
+            typeof account.opportunity !== 'string' ||
+            account.opportunity.slice(0, 15) !== opportunityId.slice(0, 15)
+          ) {
+            throw new Error('Invalid opportunity billing account.');
+          }
+          accounts.set(id, { id, name: this.readAsString(account.name) });
+        }
+        totalPages = payload.totalPages;
+        page += 1;
+      } while (page <= totalPages);
+      return [...accounts.values()];
+    } catch {
+      this.logger.warn('Unable to resolve billing accounts for opportunity.');
+      throw new BadGatewayException(
+        'Unable to load opportunity billing accounts.',
+      );
+    }
+  }
 
   /**
    * Returns billing accounts available to the current project user.
@@ -266,30 +353,56 @@ export class BillingAccountService {
   }
 
   /**
-   * Returns a map of billing-account details keyed by Topcoder account id.
+   * Loads unique accounts from the Billing Accounts API with at most five
+   * concurrent requests, then batch-loads unresolved ids from Salesforce.
    *
-   * Executes a single SOQL query with an `IN` clause over normalized ids.
-   *
-   * @param billingAccountIds billing-account ids to fetch
-   * @returns record keyed by normalized billing-account id
+   * @param billingAccountIds Topcoder billing-account ids to resolve.
+   * @returns Account details keyed by id; unavailable records are omitted.
+   * Transport/authentication failures are logged and handled by the lookups.
    */
   async getBillingAccountsByIds(
     billingAccountIds: string[],
   ): Promise<Record<string, BillingAccount>> {
-    const normalizedBillingAccountIds = Array.from(
+    const ids = Array.from(
       new Set(
         billingAccountIds
-          .map((billingAccountId) => this.parseIntStrictly(billingAccountId))
-          .filter((billingAccountId): billingAccountId is string =>
-            Boolean(billingAccountId),
-          ),
+          .map((id) => this.parseIntStrictly(id))
+          .filter((id): id is string => Boolean(id)),
       ),
     );
+    if (!ids.length) return {};
 
-    if (normalizedBillingAccountIds.length === 0) {
-      return {};
+    const accounts: Record<string, BillingAccount> = {};
+    let nextIndex = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(5, ids.length) }, async () => {
+        while (nextIndex < ids.length) {
+          const id = ids[nextIndex++];
+          const account =
+            await this.getBillingAccountFromBillingAccountsApi(id);
+          if (account) accounts[id] = account;
+        }
+      }),
+    );
+    const missingIds = ids.filter((id) => !accounts[id]);
+    if (missingIds.length) {
+      Object.assign(
+        accounts,
+        await this.getSalesforceBillingAccountsByIds(missingIds),
+      );
     }
+    return accounts;
+  }
 
+  /**
+   * Batch-loads legacy details for accounts unresolved by the Billing Accounts API.
+   * @param normalizedBillingAccountIds Validated, unique integer ids.
+   * @returns Details keyed by id, or an empty map when Salesforce is unavailable.
+   * Authentication and query failures are logged rather than propagated.
+   */
+  private async getSalesforceBillingAccountsByIds(
+    normalizedBillingAccountIds: string[],
+  ): Promise<Record<string, BillingAccount>> {
     if (!this.isSalesforceConfigured()) {
       this.logger.warn('Salesforce integration is not configured.');
       return {};
