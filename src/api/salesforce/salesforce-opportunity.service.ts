@@ -26,14 +26,15 @@ interface OpportunityRecord {
   CloseDate?: unknown;
   StageName?: unknown;
   Reporting_SMU__c?: unknown;
+  TC_Connect_Project_Id__c?: unknown;
   Subcontracting_End_Customer__r?: { Name?: unknown } | null;
 }
 
 /**
  * Fields read from `Opportunity` for the Work and Sales integrations.
  *
- * Only the attributes listed in PM-6363 are projected, so no additional
- * Salesforce data reaches the API surface.
+ * Includes the explicit Work/Connect project reference so extensions can resolve
+ * their shared project even when its current billing account differs.
  */
 const OPPORTUNITY_FIELDS = [
   'Id',
@@ -42,6 +43,7 @@ const OPPORTUNITY_FIELDS = [
   'CloseDate',
   'StageName',
   'Reporting_SMU__c',
+  'TC_Connect_Project_Id__c',
   'Subcontracting_End_Customer__r.Name',
 ].join(',');
 
@@ -60,7 +62,7 @@ export class SalesforceOpportunityService {
 
   /**
    * @param client Shared read-only Salesforce REST client.
-   * @param prisma Project database used to resolve the account's current project.
+   * @param prisma Project database used to resolve current accounts and explicit project references.
    * @param billingAccounts Billing Accounts API lookup and account metadata resolver.
    */
   constructor(
@@ -72,10 +74,14 @@ export class SalesforceOpportunityService {
   /**
    * Resolves an opportunity's current account and the project's lifetime accounts.
    * For multiple matches, uses the most recently updated non-deleted project;
-   * without a project, uses the highest account ID from the filtered listing.
+   * if none matches, falls back to the opportunity's explicit Work project ID.
+   * The opportunity's account is retained even if the shared project uses another.
+   * Without a matching project account, uses the highest account ID from the listing.
    * Challenge status and account active status do not restrict history.
    *
    * @param opportunityId Salesforce record ID returned by the opportunity query.
+   * @param salesforceProjectId Raw TC_Connect_Project_Id__c value. Only positive
+   * safe integer IDs resolving to a non-deleted project are used as a fallback.
    * @returns Account, project ID, and unique challenge account summaries. Missing
    * historical metadata preserves an ID-only entry. No account yields nulls/[].
    * @throws BadGatewayException when billing, project, or challenge lookup fails;
@@ -83,6 +89,7 @@ export class SalesforceOpportunityService {
    */
   private async getBillingContext(
     opportunityId: string,
+    salesforceProjectId: unknown,
   ): Promise<
     Pick<
       SalesforceOpportunityResponseDto,
@@ -101,7 +108,7 @@ export class SalesforceOpportunityService {
       };
     }
     try {
-      const project = await this.prisma.project.findFirst({
+      let project = await this.prisma.project.findFirst({
         where: {
           billingAccountId: {
             in: accounts.map((account) => BigInt(account.id)),
@@ -111,6 +118,21 @@ export class SalesforceOpportunityService {
         select: { id: true, billingAccountId: true },
         orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       });
+      const referencedProjectId =
+        typeof salesforceProjectId === 'number'
+          ? String(salesforceProjectId)
+          : this.readString(salesforceProjectId);
+      if (
+        !project &&
+        referencedProjectId &&
+        /^[1-9]\d*$/.test(referencedProjectId) &&
+        Number.isSafeInteger(Number(referencedProjectId))
+      ) {
+        project = await this.prisma.project.findFirst({
+          where: { id: BigInt(referencedProjectId), deletedAt: null },
+          select: { id: true, billingAccountId: true },
+        });
+      }
       const billingAccount =
         accounts.find(
           (account) => account.id === project?.billingAccountId?.toString(),
@@ -235,7 +257,10 @@ export class SalesforceOpportunityService {
 
     const resolvedId = this.readString(record.Id) || id;
     const reportingSmu = this.readString(record.Reporting_SMU__c);
-    const billingContext = await this.getBillingContext(resolvedId);
+    const billingContext = await this.getBillingContext(
+      resolvedId,
+      record.TC_Connect_Project_Id__c,
+    );
 
     return {
       id: resolvedId,

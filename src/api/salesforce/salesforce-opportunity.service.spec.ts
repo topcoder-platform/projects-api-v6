@@ -88,6 +88,9 @@ describe('SalesforceOpportunityService', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining("WHERE Id = '006UN00000XamntYAB'"),
     );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('TC_Connect_Project_Id__c'),
+    );
   });
 
   it('upgrades a legacy Reporting SMU to the supported option', async () => {
@@ -238,6 +241,133 @@ describe('SalesforceOpportunityService', () => {
       projectId: '123',
       relatedBillingAccounts: [],
     });
+  });
+
+  it.each([' 123 ', 123])(
+    'resolves an extension to the original Work project using its explicit reference (%j)',
+    async (projectReference) => {
+      const originalAccount = { id: '11', name: 'Original contract' };
+      const extensionAccount = { id: '22', name: 'October extension' };
+      const project = { id: BigInt(123), billingAccountId: BigInt(11) };
+      findAccounts
+        .mockResolvedValueOnce([originalAccount])
+        .mockResolvedValueOnce([extensionAccount]);
+      findProject
+        .mockResolvedValueOnce(project)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(project);
+      findChallenges.mockResolvedValue([
+        { billingRecord: { billingAccountId: '11' } },
+        { billingRecord: { billingAccountId: '22' } },
+      ]);
+      accountMetadata.mockResolvedValue({
+        '11': originalAccount,
+        '22': extensionAccount,
+      });
+      const original = build();
+      const extension = build([
+        {
+          ...record,
+          Id: '006UN00000XamnuYAB',
+          Name: 'October extension',
+          StageName: 'Won - SOW Signed',
+          TC_Connect_Project_Id__c: projectReference,
+        },
+      ]);
+
+      const originalResponse = await original.service.getOpportunity(record.Id);
+      const extensionResponse =
+        await extension.service.getOpportunity('006UN00000XamnuYAB');
+
+      expect(extensionResponse).toMatchObject({
+        billingAccount: extensionAccount,
+        projectId: originalResponse.projectId,
+        relatedBillingAccounts: [originalAccount, extensionAccount],
+      });
+      expect(extensionResponse.projectId).toBe('123');
+      expect(findProject).toHaveBeenNthCalledWith(3, {
+        where: { id: BigInt(123), deletedAt: null },
+        select: { id: true, billingAccountId: true },
+      });
+      expect(findChallenges).toHaveBeenLastCalledWith({
+        where: { projectId: 123 },
+        select: { billingRecord: { select: { billingAccountId: true } } },
+      });
+    },
+  );
+
+  it('prefers a current billing-account match over the Salesforce project reference', async () => {
+    findAccounts.mockResolvedValue([{ id: '22', name: 'Current' }]);
+    findProject.mockResolvedValue({
+      id: BigInt(456),
+      billingAccountId: BigInt(22),
+    });
+    const { service } = build([{ ...record, TC_Connect_Project_Id__c: '123' }]);
+
+    await expect(service.getOpportunity(record.Id)).resolves.toMatchObject({
+      projectId: '456',
+    });
+    expect(findProject).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    undefined,
+    null,
+    '',
+    '0',
+    '-123',
+    '123.5',
+    '../123',
+    'https://connect.topcoder.com/projects/123',
+    '9007199254740992',
+    9007199254740992,
+    {},
+    true,
+  ])(
+    'ignores an unusable Salesforce project reference (%j)',
+    async (reference) => {
+      findAccounts.mockResolvedValue([{ id: '22', name: 'Extension' }]);
+      const { service } = build([
+        { ...record, TC_Connect_Project_Id__c: reference },
+      ]);
+
+      await expect(service.getOpportunity(record.Id)).resolves.toMatchObject({
+        billingAccount: { id: '22', name: 'Extension' },
+        projectId: null,
+        relatedBillingAccounts: [],
+      });
+      expect(findProject).toHaveBeenCalledTimes(1);
+      expect(findChallenges).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps an extension account without a link when the referenced project is missing or deleted', async () => {
+    findAccounts.mockResolvedValue([{ id: '22', name: 'Extension' }]);
+    const { service } = build([{ ...record, TC_Connect_Project_Id__c: '123' }]);
+
+    await expect(service.getOpportunity(record.Id)).resolves.toMatchObject({
+      billingAccount: { id: '22', name: 'Extension' },
+      projectId: null,
+      relatedBillingAccounts: [],
+    });
+    expect(findProject).toHaveBeenLastCalledWith({
+      where: { id: BigInt(123), deletedAt: null },
+      select: { id: true, billingAccountId: true },
+    });
+    expect(findChallenges).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed project reference lookup instead of hiding the Work link', async () => {
+    findAccounts.mockResolvedValue([{ id: '22', name: 'Extension' }]);
+    findProject
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error('database connection failed'));
+    const { service } = build([{ ...record, TC_Connect_Project_Id__c: '123' }]);
+
+    await expect(service.getOpportunity(record.Id)).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(findChallenges).not.toHaveBeenCalled();
   });
 
   it('does not query challenges outside their project ID integer range', async () => {
