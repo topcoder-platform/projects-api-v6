@@ -10,8 +10,11 @@ The generated Prisma package is updated with the new fields.
 `Project.details` stores `customer`, `smu`, `smuOther`, and `dealCloseDate`.
 Project create/update validates supplied values while accepting projects with no
 showcase metadata. Strings are trimmed; Customer and custom SMU have a 255-character
-limit. SMU accepts APMEA, Europe, Americas1, Americas2, or Others. Others requires
-`smuOther`; a standard SMU clears a previous custom value. Dates must be valid
+limit. SMU accepts AMPE, EURP, AMR1, AMR2, or Others, matching the Work forms.
+Legacy values remain accepted and are normalized on save: APME/APMEA to AMPE,
+Europe to EURP, Americas1 to AMR1, and Americas2 to AMR2. The same mapping applies
+to imported Salesforce opportunities. Others requires `smuOther`; a standard
+SMU clears a previous custom value. Dates must be valid
 `YYYY-MM-DD` calendar dates (timestamps and impossible dates are rejected).
 
 Post create/update accepts these four fields at the top level. They are merged
