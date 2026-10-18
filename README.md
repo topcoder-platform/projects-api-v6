@@ -113,7 +113,10 @@ Talent Manager JWT roles) returns the existing Salesforce fields plus:
 - `projectId`: string ID of a non-deleted project whose current `billingAccountId`
   matches the opportunity account. If none matches, the opportunity's explicit
   Salesforce `TC_Connect_Project_Id__c` resolves the shared Work project for
-  extensions. Returns `null` when neither lookup finds a non-deleted project.
+  extensions. If neither resolves, challenges billed to the opportunity's accounts
+  identify the shared project, including completed challenges whose account
+  differs from the project's current account. Returns `null` when none of these
+  lookups finds a non-deleted project.
 - `relatedBillingAccounts`: unique `{ id, name? }` summaries from every challenge
   associated with that project, sorted numerically. This includes inactive
   accounts and every challenge status. The current account appears in this array
@@ -128,7 +131,11 @@ IDs and retains the opportunity's own billing account even when the shared proje
 uses a different account. It uses the same Work/Connect field as the Sales report,
 not the legacy Direct project ID or the Salesforce `Connect_Project__c` record ID;
 the Salesforce integration user must have read access to that field. Missing or
-invalid references do not infer a project from opportunity names or customers.
+invalid references still allow the challenge billing lookup; project relationships
+are never inferred from opportunity names or customers. The challenge fallback
+checks every matching opportunity account and every challenge status, ignores
+challenges without a positive project ID, and applies the same project ordering
+and deletion filter as the current-account lookup.
 Without an account, the project is `null` and history is `[]`.
 A billing/project/challenge lookup failure returns a sanitized 502, rather than
 claiming that no account/history exists. Historical metadata uses the existing

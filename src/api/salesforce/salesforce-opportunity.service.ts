@@ -75,6 +75,8 @@ export class SalesforceOpportunityService {
    * Resolves an opportunity's current account and the project's lifetime accounts.
    * For multiple matches, uses the most recently updated non-deleted project;
    * if none matches, falls back to the opportunity's explicit Work project ID.
+   * If that does not resolve, finds projects through challenges billed to the
+   * opportunity's accounts, using the same project ordering and deletion filter.
    * The opportunity's account is retained even if the shared project uses another.
    * Without a matching project account, uses the highest account ID from the listing.
    * Challenge status and account active status do not restrict history.
@@ -132,6 +134,29 @@ export class SalesforceOpportunityService {
           where: { id: BigInt(referencedProjectId), deletedAt: null },
           select: { id: true, billingAccountId: true },
         });
+      }
+      if (!project) {
+        const billedChallenges =
+          await getChallengesPrismaClient().challenge.findMany({
+            where: {
+              billingRecord: {
+                billingAccountId: { in: accounts.map((account) => account.id) },
+              },
+              projectId: { gt: 0 },
+            },
+            select: { projectId: true },
+            distinct: ['projectId'],
+          });
+        const projectIds = billedChallenges.flatMap((challenge) =>
+          challenge.projectId === null ? [] : [BigInt(challenge.projectId)],
+        );
+        if (projectIds.length) {
+          project = await this.prisma.project.findFirst({
+            where: { id: { in: projectIds }, deletedAt: null },
+            select: { id: true, billingAccountId: true },
+            orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+          });
+        }
       }
       const billingAccount =
         accounts.find(

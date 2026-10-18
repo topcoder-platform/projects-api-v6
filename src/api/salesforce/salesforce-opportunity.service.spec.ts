@@ -174,7 +174,7 @@ describe('SalesforceOpportunityService', () => {
     expect(accountMetadata).not.toHaveBeenCalled();
   });
 
-  it('keeps the account when no non-deleted project currently uses it', async () => {
+  it('keeps the account when no project or challenge uses it', async () => {
     findAccounts.mockResolvedValue([{ id: '22', name: 'Current account' }]);
     const { service } = build();
     await expect(service.getOpportunity(record.Id)).resolves.toMatchObject({
@@ -182,7 +182,15 @@ describe('SalesforceOpportunityService', () => {
       projectId: null,
       relatedBillingAccounts: [],
     });
-    expect(findChallenges).not.toHaveBeenCalled();
+    expect(findChallenges).toHaveBeenCalledTimes(1);
+    expect(findChallenges).toHaveBeenCalledWith({
+      where: {
+        billingRecord: { billingAccountId: { in: ['22'] } },
+        projectId: { gt: 0 },
+      },
+      select: { projectId: true },
+      distinct: ['projectId'],
+    });
   });
 
   it('resolves all unique challenge accounts and retains IDs with missing metadata', async () => {
@@ -293,6 +301,7 @@ describe('SalesforceOpportunityService', () => {
         where: { projectId: 123 },
         select: { billingRecord: { select: { billingAccountId: true } } },
       });
+      expect(findChallenges).toHaveBeenCalledTimes(2);
     },
   );
 
@@ -308,7 +317,155 @@ describe('SalesforceOpportunityService', () => {
       projectId: '456',
     });
     expect(findProject).toHaveBeenCalledTimes(1);
+    expect(findChallenges).toHaveBeenCalledTimes(1);
+    expect(findChallenges).toHaveBeenCalledWith({
+      where: { projectId: 456 },
+      select: { billingRecord: { select: { billingAccountId: true } } },
+    });
   });
+
+  it.each([undefined, null, '../123', '999'])(
+    'resolves a billed extension to the original project when its Salesforce reference does not resolve (%j)',
+    async (reference) => {
+      const originalAccount = { id: '11', name: 'Original contract' };
+      const extensionAccount = { id: '22', name: 'October extension' };
+      const project = { id: BigInt(123), billingAccountId: BigInt(11) };
+      const history = [
+        { billingRecord: { billingAccountId: '11' } },
+        { billingRecord: { billingAccountId: '22' } },
+      ];
+      findAccounts
+        .mockResolvedValueOnce([originalAccount])
+        .mockResolvedValueOnce([extensionAccount]);
+      findProject.mockResolvedValueOnce(project).mockResolvedValueOnce(null);
+      if (reference === '999') findProject.mockResolvedValueOnce(null);
+      findProject.mockResolvedValueOnce(project);
+      findChallenges
+        .mockResolvedValueOnce(history)
+        .mockResolvedValueOnce([{ projectId: 123 }])
+        .mockResolvedValueOnce(history);
+      accountMetadata.mockResolvedValue({
+        '11': originalAccount,
+        '22': extensionAccount,
+      });
+      const original = build();
+      const extension = build([
+        {
+          ...record,
+          Id: '006UN00000XamnuYAB',
+          StageName: 'Won - SOW Signed',
+          TC_Connect_Project_Id__c: reference,
+        },
+      ]);
+
+      const originalResponse = await original.service.getOpportunity(record.Id);
+      const extensionResponse =
+        await extension.service.getOpportunity('006UN00000XamnuYAB');
+
+      expect(extensionResponse).toMatchObject({
+        billingAccount: extensionAccount,
+        projectId: originalResponse.projectId,
+        relatedBillingAccounts: [originalAccount, extensionAccount],
+      });
+      expect(extensionResponse.projectId).toBe('123');
+      // No status filter: completed challenges retain earlier billing accounts.
+      expect(findChallenges).toHaveBeenNthCalledWith(2, {
+        where: {
+          billingRecord: { billingAccountId: { in: ['22'] } },
+          projectId: { gt: 0 },
+        },
+        select: { projectId: true },
+        distinct: ['projectId'],
+      });
+      expect(findProject).toHaveBeenLastCalledWith({
+        where: { id: { in: [BigInt(123)] }, deletedAt: null },
+        select: { id: true, billingAccountId: true },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      });
+      expect(findChallenges).toHaveBeenLastCalledWith({
+        where: { projectId: 123 },
+        select: { billingRecord: { select: { billingAccountId: true } } },
+      });
+    },
+  );
+
+  it('checks every opportunity account and orders matching historical projects consistently', async () => {
+    findAccounts.mockResolvedValue([
+      { id: '99', name: 'Latest opportunity account' },
+      { id: '22', name: 'Earlier opportunity account' },
+    ]);
+    findChallenges.mockResolvedValueOnce([
+      { projectId: 123 },
+      { projectId: 456 },
+    ]);
+    findProject.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: BigInt(456),
+      billingAccountId: BigInt(11),
+    });
+    const { service } = build();
+
+    await expect(service.getOpportunity(record.Id)).resolves.toMatchObject({
+      billingAccount: { id: '99', name: 'Latest opportunity account' },
+      projectId: '456',
+    });
+    expect(findChallenges).toHaveBeenNthCalledWith(1, {
+      where: {
+        billingRecord: { billingAccountId: { in: ['99', '22'] } },
+        projectId: { gt: 0 },
+      },
+      select: { projectId: true },
+      distinct: ['projectId'],
+    });
+    expect(findProject).toHaveBeenLastCalledWith({
+      where: { id: { in: [BigInt(123), BigInt(456)] }, deletedAt: null },
+      select: { id: true, billingAccountId: true },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    });
+  });
+
+  it('does not link a missing or deleted historical project', async () => {
+    findAccounts.mockResolvedValue([{ id: '22', name: 'Extension' }]);
+    findChallenges.mockResolvedValueOnce([{ projectId: 123 }]);
+    const { service } = build();
+
+    await expect(service.getOpportunity(record.Id)).resolves.toMatchObject({
+      billingAccount: { id: '22', name: 'Extension' },
+      projectId: null,
+      relatedBillingAccounts: [],
+    });
+    expect(findProject).toHaveBeenLastCalledWith({
+      where: { id: { in: [BigInt(123)] }, deletedAt: null },
+      select: { id: true, billingAccountId: true },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    });
+    expect(findChallenges).toHaveBeenCalledTimes(1);
+    expect(accountMetadata).not.toHaveBeenCalled();
+  });
+
+  it.each(['challenge', 'project'])(
+    'reports a failed historical %s lookup instead of hiding the Work link',
+    async (lookup) => {
+      findAccounts.mockResolvedValue([{ id: '22', name: 'Extension' }]);
+      if (lookup === 'challenge') {
+        findChallenges.mockRejectedValueOnce(
+          new Error('database connection failed'),
+        );
+      } else {
+        findChallenges.mockResolvedValueOnce([{ projectId: 123 }]);
+        findProject
+          .mockResolvedValueOnce(null)
+          .mockRejectedValueOnce(new Error('database connection failed'));
+      }
+      const { service } = build();
+
+      await expect(service.getOpportunity(record.Id)).rejects.toThrow(
+        new BadGatewayException(
+          'Unable to load opportunity project billing history.',
+        ),
+      );
+      expect(accountMetadata).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     undefined,
@@ -337,7 +494,8 @@ describe('SalesforceOpportunityService', () => {
         relatedBillingAccounts: [],
       });
       expect(findProject).toHaveBeenCalledTimes(1);
-      expect(findChallenges).not.toHaveBeenCalled();
+      expect(findChallenges).toHaveBeenCalledTimes(1);
+      expect(accountMetadata).not.toHaveBeenCalled();
     },
   );
 
@@ -354,7 +512,8 @@ describe('SalesforceOpportunityService', () => {
       where: { id: BigInt(123), deletedAt: null },
       select: { id: true, billingAccountId: true },
     });
-    expect(findChallenges).not.toHaveBeenCalled();
+    expect(findChallenges).toHaveBeenCalledTimes(1);
+    expect(accountMetadata).not.toHaveBeenCalled();
   });
 
   it('reports a failed project reference lookup instead of hiding the Work link', async () => {
