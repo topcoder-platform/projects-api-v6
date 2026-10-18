@@ -101,6 +101,19 @@ describe('SalesforceOpportunityService', () => {
     ).resolves.toMatchObject({ smu: 'AMR2', reportingSmu: 'Americas2' });
   });
 
+  it.each(['AMPE', 'APME', 'APMEA'])(
+    'maps Reporting SMU %s to the current AMPE option',
+    async (reportingSmu) => {
+      const { service } = build([
+        { ...record, Reporting_SMU__c: reportingSmu },
+      ]);
+
+      await expect(
+        service.getOpportunity('006UN00000XamntYAB'),
+      ).resolves.toMatchObject({ smu: 'AMPE', reportingSmu });
+    },
+  );
+
   it('surfaces an unrecognized Reporting SMU as a custom value', async () => {
     const { service } = build([{ ...record, Reporting_SMU__c: 'INTERNAL' }]);
 

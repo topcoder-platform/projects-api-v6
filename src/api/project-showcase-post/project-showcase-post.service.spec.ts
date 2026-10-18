@@ -351,6 +351,43 @@ describe('ProjectShowcasePostService', () => {
     );
   });
 
+  it.each(['DRAFT', 'PUBLISHED'] as const)(
+    'creates an AMPE showcase with status %s',
+    async (status) => {
+      prismaMock.projectShowcasePost.create.mockResolvedValue(
+        buildPostRecord({ status }),
+      );
+
+      const response = await service.createPost(
+        '1001',
+        {
+          type: 'Private POD Delivery',
+          title: 'AMPE showcase',
+          content: 'Solution',
+          smu: 'AMPE',
+          status,
+        },
+        user,
+      );
+
+      expect(prismaMock.project.update).toHaveBeenLastCalledWith({
+        where: { id: BigInt(1001) },
+        data: expect.objectContaining({
+          details: {
+            customer: 'Example',
+            smu: 'AMPE',
+            smuOther: '',
+            dealCloseDate: '2026-09-16',
+          },
+        }),
+      });
+      expect(prismaMock.projectShowcasePost.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status }) }),
+      );
+      expect(response.status).toBe(status);
+    },
+  );
+
   it('creates a new project showcase post with media assets', async () => {
     prismaMock.projectShowcasePost.create.mockResolvedValue(
       buildPostRecord({
@@ -506,6 +543,41 @@ describe('ProjectShowcasePostService', () => {
     );
     expect(response.title).toBe('Updated title');
   });
+
+  it.each(['DRAFT', 'PUBLISHED'] as const)(
+    'saves an existing showcase with AMPE and status %s',
+    async (status) => {
+      prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
+        buildPostRecord(),
+      );
+      prismaMock.projectShowcasePost.update.mockResolvedValue(
+        buildPostRecord({ status }),
+      );
+
+      const response = await service.updatePost(
+        '1001',
+        '10',
+        { smu: 'AMPE', status },
+        user,
+      );
+
+      expect(prismaMock.project.update).toHaveBeenLastCalledWith({
+        where: { id: BigInt(1001) },
+        data: expect.objectContaining({
+          details: {
+            customer: 'Example',
+            smu: 'AMPE',
+            smuOther: '',
+            dealCloseDate: '2026-09-16',
+          },
+        }),
+      });
+      expect(prismaMock.projectShowcasePost.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status }) }),
+      );
+      expect(response.status).toBe(status);
+    },
+  );
 
   it('updates a post with media assets', async () => {
     prismaMock.projectShowcasePost.findFirst.mockResolvedValue(
