@@ -86,7 +86,7 @@ export class SalesforceOpportunityResponseDto {
 
   @ApiProperty({
     description:
-      'Non-deleted project matched by the current billing account, or by the opportunity Work/Connect project reference when no account matches; null when neither resolves.',
+      'Non-deleted project matched by the current billing account, then the opportunity Work/Connect project reference, then challenges billed to the opportunity accounts; null when none resolves.',
     type: String,
     nullable: true,
     example: '12345',
