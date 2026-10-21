@@ -1,21 +1,20 @@
 import { BadRequestException } from '@nestjs/common';
 
 /**
- * Supported SMU options.
- *
- * These match the Salesforce `Opportunity.Reporting_SMU__c` codes so an
- * imported opportunity maps onto a project without translation.
+ * Supported SMU options, matching the Work project and showcase forms.
+ * Legacy project labels and Salesforce codes are normalized to these values.
  */
-export const SMU_VALUES = ['APME', 'EURP', 'AMR1', 'AMR2', 'Others'];
+export const SMU_VALUES = ['AMPE', 'EURP', 'AMR1', 'AMR2', 'Others'];
 
 /**
- * SMU labels used before the Salesforce naming alignment.
+ * Legacy SMU labels, including the earlier APME code for AMPE.
  *
  * Projects saved with the old labels are upgraded in place the next time their
  * details are written, so historical records stay valid.
  */
 export const LEGACY_SMU_VALUES: Readonly<Record<string, string>> = {
-  APMEA: 'APME',
+  APME: 'AMPE',
+  APMEA: 'AMPE',
   Europe: 'EURP',
   Americas1: 'AMR1',
   Americas2: 'AMR2',

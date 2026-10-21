@@ -52,8 +52,23 @@ describe('shared showcase project metadata', () => {
     ).toBe('');
   });
 
+  it.each(['AMPE', 'EURP', 'AMR1', 'AMR2'])(
+    'accepts the current Work SMU option %s',
+    (smu) => {
+      expect(
+        normalizeShowcaseProjectMetadata({ ...metadata, smu }, true),
+      ).toEqual({
+        customer: 'Customer',
+        smu,
+        smuOther: '',
+        dealCloseDate: '2024-02-29',
+      });
+    },
+  );
+
   it.each([
-    ['APMEA', 'APME'],
+    ['APME', 'AMPE'],
+    ['APMEA', 'AMPE'],
     ['Europe', 'EURP'],
     ['Americas1', 'AMR1'],
     ['Americas2', 'AMR2'],
