@@ -1559,27 +1559,12 @@ export class ProjectInviteService {
   }
 
   /**
-   * Extracts user email claim from token payload.
-   *
-   * @param user Authenticated caller.
-   * @returns Lower-cased email if present.
-   * @throws {BadRequestException} If payload claims are malformed.
+   * Reads the verified normalized email for invite matching and email templates.
+   * @param user Verified caller; arbitrary namespaced claims are ignored.
+   * @returns Lowercase email or undefined; does not throw.
    */
-  // TODO: SECURITY: Iterating all payload keys ending with `email` is fragile
-  // and may match unintended claims. Use explicit claim key(s).
   private getUserEmail(user: JwtUser): string | undefined {
-    const payload = user.tokenPayload || {};
-
-    for (const key of Object.keys(payload)) {
-      if (key.toLowerCase().endsWith('email')) {
-        const value = payload[key];
-        if (typeof value === 'string' && value.trim().length > 0) {
-          return value.trim().toLowerCase();
-        }
-      }
-    }
-
-    return undefined;
+    return user.email?.trim().toLowerCase() || undefined;
   }
 
   /**

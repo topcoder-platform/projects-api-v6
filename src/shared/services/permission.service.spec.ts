@@ -1,3 +1,4 @@
+import { M2MService } from '../modules/global/m2m.service';
 import { ProjectMemberRole } from '../enums/projectMemberRole.enum';
 import { Scope } from '../enums/scopes.enum';
 import { UserRole } from '../enums/userRole.enum';
@@ -6,40 +7,13 @@ import { PERMISSION } from '../constants/permissions.constants';
 import { PermissionService } from './permission.service';
 
 describe('PermissionService', () => {
-  const m2mServiceMock = {
-    validateMachineToken: jest.fn((payload?: Record<string, unknown>) => {
-      const rawScope =
-        payload?.scope ??
-        payload?.scopes ??
-        payload?.scp ??
-        payload?.permissions;
-      const scopes =
-        typeof rawScope === 'string'
-          ? rawScope.split(/\s+/u).map((scope) => scope.trim().toLowerCase())
-          : Array.isArray(rawScope)
-            ? rawScope.map((scope) => String(scope).trim().toLowerCase())
-            : [];
-
-      return {
-        isMachine: payload?.gty === 'client-credentials' || scopes.length > 0,
-        scopes: scopes.filter((scope) => scope.length > 0),
-      };
-    }),
-    hasRequiredScopes: jest.fn(
-      (tokenScopes: string[], requiredScopes: string[]) =>
-        requiredScopes.some((requiredScope) =>
-          tokenScopes
-            .map((scope) => scope.toLowerCase())
-            .includes(requiredScope.toLowerCase()),
-        ),
-    ),
-  };
+  const m2mServiceMock = new M2MService();
 
   let service: PermissionService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new PermissionService(m2mServiceMock as any);
+    service = new PermissionService(m2mServiceMock);
   });
 
   it('matches permission rule for topcoder role', () => {
@@ -84,6 +58,7 @@ describe('PermissionService', () => {
       },
       {
         scopes: [Scope.PROJECTS_READ],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -216,6 +191,7 @@ describe('PermissionService', () => {
       Permission.READ_PROJECT_BILLING_ACCOUNT_DETAILS,
       {
         scopes: [Scope.PROJECTS_READ_PROJECT_BILLING_ACCOUNT_DETAILS],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -287,6 +263,7 @@ describe('PermissionService', () => {
       Permission.MANAGE_PROJECT_BILLING_ACCOUNT_ID,
       {
         scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        kind: 'service' as const,
         isMachine: true,
       },
       [
@@ -341,6 +318,7 @@ describe('PermissionService', () => {
   it('allows viewing project for machine token with project read scope', () => {
     const allowed = service.hasNamedPermission(Permission.VIEW_PROJECT, {
       scopes: [Scope.PROJECTS_READ],
+      kind: 'service' as const,
       isMachine: true,
     });
 
@@ -350,13 +328,14 @@ describe('PermissionService', () => {
   it('allows reading any project for machine token with project read scope', () => {
     const allowed = service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
       scopes: [Scope.PROJECTS_READ],
+      kind: 'service' as const,
       isMachine: true,
     });
 
     expect(allowed).toBe(true);
   });
 
-  it('allows reading any project when machine scope is inferred from token claims', () => {
+  it('denies raw machine markers on a member principal', () => {
     const allowed = service.hasNamedPermission(Permission.READ_PROJECT_ANY, {
       scopes: [],
       isMachine: false,
@@ -366,7 +345,7 @@ describe('PermissionService', () => {
       },
     });
 
-    expect(allowed).toBe(true);
+    expect(allowed).toBe(false);
   });
 
   it.each([
@@ -407,6 +386,7 @@ describe('PermissionService', () => {
   it('allows reading project members for machine token with project-member read scope', () => {
     const allowed = service.hasNamedPermission(Permission.READ_PROJECT_MEMBER, {
       scopes: [Scope.PROJECT_MEMBERS_READ],
+      kind: 'service' as const,
       isMachine: true,
     });
 
@@ -478,6 +458,7 @@ describe('PermissionService', () => {
     expect(
       service.hasNamedPermission(Permission.WORKSTREAM_VIEW, {
         scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        kind: 'service' as const,
         isMachine: true,
       }),
     ).toBe(true);
@@ -485,6 +466,7 @@ describe('PermissionService', () => {
     expect(
       service.hasNamedPermission(Permission.WORK_VIEW, {
         scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        kind: 'service' as const,
         isMachine: true,
       }),
     ).toBe(true);
@@ -492,6 +474,7 @@ describe('PermissionService', () => {
     expect(
       service.hasNamedPermission(Permission.WORKITEM_VIEW, {
         scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        kind: 'service' as const,
         isMachine: true,
       }),
     ).toBe(true);
@@ -580,6 +563,7 @@ describe('PermissionService', () => {
       Permission.CREATE_PROJECT_MEMBER_NOT_OWN,
       {
         scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -592,6 +576,7 @@ describe('PermissionService', () => {
       Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
       {
         scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -604,6 +589,7 @@ describe('PermissionService', () => {
       Permission.DELETE_PROJECT_MEMBER_TOPCODER,
       {
         scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -616,6 +602,7 @@ describe('PermissionService', () => {
       Permission.DELETE_PROJECT_MEMBER_CUSTOMER,
       {
         scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -628,6 +615,7 @@ describe('PermissionService', () => {
       Permission.DELETE_PROJECT_MEMBER_COPILOT,
       {
         scopes: [Scope.PROJECT_MEMBERS_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -640,7 +628,7 @@ describe('PermissionService', () => {
     Permission.UPDATE_PROJECT_MEMBER_NON_CUSTOMER,
     Permission.DELETE_PROJECT_MEMBER_TOPCODER,
   ])(
-    'allows %s when raw M2M token scopes are broader than user.scopes',
+    'denies %s when only raw token scopes claim the permission',
     (permission) => {
       const allowed = service.hasNamedPermission(permission, {
         scopes: [Scope.PROJECTS_READ],
@@ -652,7 +640,7 @@ describe('PermissionService', () => {
         },
       });
 
-      expect(allowed).toBe(true);
+      expect(allowed).toBe(false);
     },
   );
 
@@ -661,6 +649,7 @@ describe('PermissionService', () => {
       Permission.READ_PROJECT_INVITE_NOT_OWN,
       {
         scopes: [Scope.PROJECT_INVITES_READ],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -673,6 +662,7 @@ describe('PermissionService', () => {
       Permission.CREATE_PROJECT_INVITE_TOPCODER,
       {
         scopes: [Scope.PROJECT_INVITES_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -685,6 +675,7 @@ describe('PermissionService', () => {
       Permission.UPDATE_PROJECT_INVITE_NOT_OWN,
       {
         scopes: [Scope.PROJECT_INVITES_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -697,6 +688,7 @@ describe('PermissionService', () => {
       Permission.DELETE_PROJECT_INVITE_NOT_OWN_TOPCODER,
       {
         scopes: [Scope.PROJECT_INVITES_WRITE],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -724,15 +716,13 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
-  it('allows viewing project for pending email invite using namespaced email claim', () => {
+  it('allows viewing project for a verified normalized email invite', () => {
     const allowed = service.hasNamedPermission(
       Permission.VIEW_PROJECT,
       {
         userId: '88770025',
         isMachine: false,
-        tokenPayload: {
-          'https://topcoder-dev.com/email': 'jmgasper+devtest140@gmail.com',
-        },
+        email: 'jmgasper+devtest140@gmail.com',
       },
       [],
       [
@@ -749,6 +739,7 @@ describe('PermissionService', () => {
   it('allows editing project for machine token with project write scope', () => {
     const allowed = service.hasNamedPermission(Permission.EDIT_PROJECT, {
       scopes: [Scope.PROJECTS_WRITE],
+      kind: 'service' as const,
       isMachine: true,
     });
 
@@ -834,6 +825,7 @@ describe('PermissionService', () => {
   it('allows deleting project for machine token with project write scope', () => {
     const allowed = service.hasNamedPermission(Permission.DELETE_PROJECT, {
       scopes: [Scope.PROJECTS_ALL],
+      kind: 'service' as const,
       isMachine: true,
     });
 
@@ -845,6 +837,7 @@ describe('PermissionService', () => {
       Permission.MANAGE_COPILOT_REQUEST,
       {
         scopes: [Scope.CONNECT_PROJECT_ADMIN],
+        kind: 'service' as const,
         isMachine: true,
       },
     );
@@ -852,7 +845,7 @@ describe('PermissionService', () => {
     expect(allowed).toBe(true);
   });
 
-  it('allows managing copilot requests when machine scope is only present on the raw token payload', () => {
+  it('denies copilot access based only on raw machine scope claims', () => {
     const allowed = service.hasNamedPermission(
       Permission.MANAGE_COPILOT_REQUEST,
       {
@@ -865,7 +858,7 @@ describe('PermissionService', () => {
       },
     );
 
-    expect(allowed).toBe(true);
+    expect(allowed).toBe(false);
   });
 
   it.each([UserRole.TALENT_MANAGER, UserRole.TOPCODER_TALENT_MANAGER])(

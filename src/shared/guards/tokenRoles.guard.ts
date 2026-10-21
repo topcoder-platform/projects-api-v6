@@ -124,7 +124,7 @@ export class TokenRolesGuard implements CanActivate {
    *   metadata so the route-specific `AdminOnlyGuard` can make the final
    *   authorization decision.
    * - For M2M tokens: requires declared scopes and checks scope intersection.
-   * - For human tokens: allows if any required role or scope matches.
+   * - For human tokens: allows only explicit member roles; OAuth scopes never grant machine access.
    * - Throws `ForbiddenException('Insufficient permissions')` otherwise.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -175,7 +175,7 @@ export class TokenRolesGuard implements CanActivate {
       ]) || [];
 
     const normalizedRequiredRoles = this.normalizeValues(requiredRoles);
-    const normalizedRequiredScopes = this.normalizeValues(requiredScopes);
+    const normalizedRequiredScopes = requiredScopes;
     const isAnyAuthenticated =
       this.reflector.getAllAndOverride<boolean>(ANY_AUTHENTICATED_KEY, [
         context.getHandler(),
@@ -208,21 +208,14 @@ export class TokenRolesGuard implements CanActivate {
       return true;
     }
 
-    const machineContext = this.m2mService.validateMachineToken(
-      user.tokenPayload,
-    );
+    const machineContext = this.m2mService.validateMachineToken(user);
 
     if (machineContext.isMachine) {
       if (normalizedRequiredScopes.length === 0) {
         throw new ForbiddenException('M2M token not allowed for this endpoint');
       }
 
-      if (
-        this.m2mService.hasRequiredScopes(
-          machineContext.scopes,
-          normalizedRequiredScopes,
-        )
-      ) {
+      if (this.m2mService.hasRequiredScopes(user, normalizedRequiredScopes)) {
         return true;
       }
 
@@ -230,22 +223,11 @@ export class TokenRolesGuard implements CanActivate {
     }
 
     const normalizedUserRoles = this.normalizeValues(user.roles || []);
-    const normalizedUserScopes = this.normalizeValues(user.scopes || []);
 
     if (
       normalizedRequiredRoles.length > 0 &&
       normalizedRequiredRoles.some((requiredRole) =>
         normalizedUserRoles.includes(requiredRole),
-      )
-    ) {
-      return true;
-    }
-
-    if (
-      normalizedRequiredScopes.length > 0 &&
-      this.m2mService.hasRequiredScopes(
-        normalizedUserScopes,
-        normalizedRequiredScopes,
       )
     ) {
       return true;
@@ -284,9 +266,9 @@ export class TokenRolesGuard implements CanActivate {
   }
 
   /**
-   * Normalizes role/scope strings for case-insensitive comparison.
+   * Normalizes role strings for case-insensitive comparison.
    *
-   * @param values Role/scope values to normalize.
+   * @param values Role values to normalize.
    * @returns Trimmed, lowercase, non-empty values.
    */
   private normalizeValues(values: string[]): string[] {

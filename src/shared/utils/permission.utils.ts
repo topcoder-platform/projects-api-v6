@@ -1,3 +1,4 @@
+import { auth, Principal } from 'tc-core-library-js';
 /**
  * Stateless helper functions for common permission checks.
  *
@@ -9,7 +10,7 @@ import { Scope } from '../enums/scopes.enum';
 import { ADMIN_ROLES, UserRole } from '../enums/userRole.enum';
 
 /**
- * Normalizes role/scope values for case-insensitive comparisons.
+ * Normalizes role values for case-insensitive comparisons.
  *
  * @todo Duplicate normalization helper also exists in `member.utils.ts`,
  * `project.utils.ts`, and `permission.service.ts`. Extract a shared
@@ -34,17 +35,20 @@ export function hasRoles(user: JwtUser, roles: string[]): boolean {
 /**
  * Returns `true` if the user has an admin role or admin-equivalent scope.
  *
+ * @param user Verified principal from the common validator.
+ * @returns Admin access based on member roles or exact service scopes; does not throw.
  * Accepted scope overrides:
  * - `all:connect_project`
  * - `all:project` (legacy alias)
  */
 export function hasAdminRole(user: JwtUser): boolean {
-  const normalizedScopes = (user.scopes || []).map(normalize);
-
   return (
-    hasRoles(user, ADMIN_ROLES) ||
-    normalizedScopes.includes(normalize(Scope.CONNECT_PROJECT_ADMIN)) ||
-    normalizedScopes.includes(normalize(Scope.CONNECT_PROJECT_ADMIN_ALIAS))
+    (!user.isMachine && hasRoles(user, ADMIN_ROLES)) ||
+    auth.hasScopes(
+      user as unknown as Principal,
+      [Scope.CONNECT_PROJECT_ADMIN, Scope.CONNECT_PROJECT_ADMIN_ALIAS],
+      'any',
+    )
   );
 }
 

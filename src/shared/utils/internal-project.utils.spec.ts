@@ -58,7 +58,11 @@ describe('Talent Manager internal project visibility', () => {
       }),
     ).toBe(false);
     expect(
-      isRestrictedTalentManager({ roles: ['Talent Manager'], isMachine: true }),
+      isRestrictedTalentManager({
+        roles: ['Talent Manager'],
+        kind: 'service' as const,
+        isMachine: true,
+      }),
     ).toBe(false);
     expect(
       isRestrictedTalentManager({

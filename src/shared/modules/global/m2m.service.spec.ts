@@ -1,68 +1,81 @@
 import { Scope } from 'src/shared/enums/scopes.enum';
 import { M2MService } from './m2m.service';
+import { JwtUser } from './jwt.service';
 
-describe('M2MService', () => {
-  let service: M2MService;
+/** Creates a normalized service fixture with supplied scopes; returns a principal without I/O or exceptions. */
+function machine(scopes: string[]): JwtUser {
+  return { kind: 'service', isMachine: true, roles: [], scopes };
+}
 
-  beforeEach(() => {
-    service = new M2MService();
+describe('M2MService route policy', () => {
+  const service = new M2MService();
+  it('expands granted all scopes and explicit legacy aliases', () => {
+    expect(service.expandScopes([Scope.PROJECTS_ALL])).toEqual(
+      expect.arrayContaining([Scope.PROJECTS_READ, Scope.PROJECTS_WRITE]),
+    );
+    expect(service.expandScopes([Scope.CONNECT_PROJECT_ADMIN_ALIAS])).toEqual(
+      expect.arrayContaining([
+        Scope.CONNECT_PROJECT_ADMIN,
+        Scope.PROJECT_MEMBERS_READ,
+      ]),
+    );
   });
-
-  describe('expandScopes', () => {
-    it('expands hierarchy for all:projects', () => {
-      const expandedScopes = service.expandScopes([Scope.PROJECTS_ALL]);
-
-      expect(expandedScopes).toEqual(
-        expect.arrayContaining([
-          Scope.PROJECTS_ALL,
-          Scope.PROJECTS_READ,
-          Scope.PROJECTS_WRITE,
-        ]),
-      );
-    });
-
-    it('normalizes all:project alias and expands connect project scopes', () => {
-      const expandedScopes = service.expandScopes([
-        Scope.CONNECT_PROJECT_ADMIN_ALIAS,
-      ]);
-
-      expect(expandedScopes).toEqual(
-        expect.arrayContaining([
-          Scope.CONNECT_PROJECT_ADMIN,
-          Scope.PROJECTS_READ,
-          Scope.PROJECT_MEMBERS_READ,
-        ]),
-      );
-    });
+  it('accepts a granted parent or configured alias', () => {
+    expect(
+      service.hasRequiredScopes(machine([Scope.PROJECTS_ALL]), [
+        Scope.PROJECTS_WRITE,
+      ]),
+    ).toBe(true);
+    expect(
+      service.hasRequiredScopes(machine([Scope.CONNECT_PROJECT_ADMIN_ALIAS]), [
+        Scope.PROJECT_INVITES_WRITE,
+      ]),
+    ).toBe(true);
   });
-
-  describe('hasRequiredScopes', () => {
-    it('returns true when token has hierarchical parent scope', () => {
-      expect(
-        service.hasRequiredScopes([Scope.PROJECTS_ALL], [Scope.PROJECTS_WRITE]),
-      ).toBe(true);
-    });
-
-    it('returns true when token has synonym alias scope', () => {
-      expect(
-        service.hasRequiredScopes(
-          [Scope.CONNECT_PROJECT_ADMIN_ALIAS],
-          [Scope.PROJECT_INVITES_WRITE],
-        ),
-      ).toBe(true);
-    });
-
-    it('returns false when required scopes are not present', () => {
-      expect(
-        service.hasRequiredScopes(
-          [Scope.PROJECT_MEMBERS_READ],
-          [Scope.PROJECTS_WRITE],
-        ),
-      ).toBe(false);
-    });
-
-    it('returns true when requiredScopes is empty', () => {
-      expect(service.hasRequiredScopes([Scope.PROJECTS_READ], [])).toBe(true);
-    });
+  it('never promotes read or write to all/admin', () => {
+    expect(
+      service.hasRequiredScopes(machine([Scope.PROJECTS_READ]), [
+        Scope.PROJECTS_ALL,
+      ]),
+    ).toBe(false);
+    expect(
+      service.hasRequiredScopes(machine([Scope.PROJECTS_WRITE]), [
+        Scope.CONNECT_PROJECT_ADMIN,
+      ]),
+    ).toBe(false);
+    expect(
+      service.hasRequiredScopes(machine([Scope.PROJECTS_READ]), [
+        Scope.PROJECTS_WRITE,
+      ]),
+    ).toBe(false);
+  });
+  it('denies members, wrong case and an empty policy', () => {
+    expect(
+      service.hasRequiredScopes(
+        { kind: 'user', isMachine: false, scopes: [Scope.PROJECTS_ALL] },
+        [Scope.PROJECTS_READ],
+      ),
+    ).toBe(false);
+    expect(
+      service.hasRequiredScopes(machine(['ALL:PROJECTS']), [
+        Scope.PROJECTS_READ,
+      ]),
+    ).toBe(false);
+    expect(service.hasRequiredScopes(machine([Scope.PROJECTS_READ]), [])).toBe(
+      false,
+    );
+  });
+  it('ignores raw machine markers and broader raw scope claims', () => {
+    expect(
+      service.validateMachineToken({
+        kind: 'user',
+        isMachine: false,
+        scopes: [],
+        tokenPayload: {
+          gty: 'client-credentials',
+          scope: Scope.CONNECT_PROJECT_ADMIN,
+        },
+      }),
+    ).toEqual({ isMachine: false, scopes: [] });
   });
 });

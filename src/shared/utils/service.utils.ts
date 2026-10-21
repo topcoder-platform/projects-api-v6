@@ -73,54 +73,21 @@ export function parseOptionalNumericStringId(
 }
 
 /**
- * Determines whether the authenticated principal is a machine token.
+ * Reads machine status from the common verified principal.
+ * @param user Verified caller; raw token claims are ignored.
+ * @returns Whether this is a service principal; does not throw.
  */
 export function isMachinePrincipal(user: JwtUser): boolean {
-  if (user?.isMachine) {
-    return true;
-  }
-
-  if (!user?.tokenPayload) {
-    return false;
-  }
-
-  const grantType = user.tokenPayload.gty;
-  if (
-    typeof grantType === 'string' &&
-    grantType.trim().toLowerCase() === 'client-credentials'
-  ) {
-    return true;
-  }
-
-  const rawScopes = user.tokenPayload.scope ?? user.tokenPayload.scopes;
-
-  if (typeof rawScopes === 'string') {
-    return rawScopes.trim().length > 0;
-  }
-
-  if (Array.isArray(rawScopes)) {
-    return rawScopes.some((scope) => String(scope).trim().length > 0);
-  }
-
-  return false;
+  return user?.kind === 'service' && user.isMachine === true;
 }
 
 /**
- * Resolves a stable machine-principal identifier from token claims.
+ * Resolves the common verified service client ID for audit attribution.
+ * @param user Verified caller.
+ * @returns Client ID for a machine, otherwise undefined; does not throw.
  */
 export function getMachineActorId(user: JwtUser): string | undefined {
-  if (!isMachinePrincipal(user) || !user?.tokenPayload) {
-    return undefined;
-  }
-
-  for (const key of ['sub', 'azp', 'client_id', 'clientId']) {
-    const value = user.tokenPayload[key];
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-
-  return undefined;
+  return isMachinePrincipal(user) ? user.clientId : undefined;
 }
 
 /**

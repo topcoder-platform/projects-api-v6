@@ -1,85 +1,77 @@
 import * as jwt from 'jsonwebtoken';
-import { Scope } from 'src/shared/enums/scopes.enum';
+import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from './jwt.service';
 
+/** Signs synthetic member claims for the adapter boundary; returns a short-lived JWT or throws for malformed test data. */
 function signToken(payload: Record<string, unknown>): string {
-  return jwt.sign(payload, 'test-secret');
+  return jwt.sign(
+    { iss: 'https://members.example.test', sub: 'auth0|abcd', ...payload },
+    'test-secret',
+    { expiresIn: 120 },
+  );
 }
 
 describe('JwtService', () => {
   let service: JwtService;
-
+  const originalEnv = process.env;
   beforeEach(() => {
+    process.env = {
+      ...originalEnv,
+      AUTH_SECRET: 'test-secret',
+      VALID_ISSUERS: '["https://members.example.test"]',
+    };
     service = new JwtService();
+    service.onModuleInit();
+  });
+  afterEach(() => {
+    process.env = originalEnv;
   });
 
-  it('prefers numeric userId claim over non-numeric sub', async () => {
-    const token = signToken({
-      userId: 12345,
-      sub: 'auth0|abcd',
+  it('preserves numeric member IDs as strings', async () => {
+    await expect(
+      service.validateToken(signToken({ userId: 12345 })),
+    ).resolves.toMatchObject({
+      userId: '12345',
+      kind: 'user',
+      isMachine: false,
     });
-
-    const user = await service.validateToken(token);
-
-    expect(user.userId).toBe('12345');
   });
-
-  it('uses namespaced userId claim when sub is non-numeric', async () => {
-    const token = signToken({
-      sub: 'auth0|abcd',
-      'https://topcoder.com/userId': 67890,
-    });
-
-    const user = await service.validateToken(token);
-
-    expect(user.userId).toBe('67890');
+  it('accepts configured exact namespaced member claims', async () => {
+    await expect(
+      service.validateToken(
+        signToken({ 'https://topcoder.com/userId': 67890 }),
+      ),
+    ).resolves.toMatchObject({ userId: '67890' });
   });
-
-  it('falls back to sub when user id claim is unavailable', async () => {
-    const token = signToken({
-      sub: 'auth0|abcd',
-    });
-
-    const user = await service.validateToken(token);
-
-    expect(user.userId).toBe('auth0|abcd');
-  });
-
-  it('extracts Auth0 client-credentials scopes for machine subjects', async () => {
-    const token = signToken({
-      sub: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
-      azp: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8',
-      gty: 'client-credentials',
-      scope: `${Scope.PROJECTS_READ} ${Scope.PROJECT_MEMBERS_WRITE}`,
-    });
-
-    const user = await service.validateToken(token);
-
-    expect(user).toEqual(
-      expect.objectContaining({
-        userId: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
-        isMachine: true,
-        scopes: expect.arrayContaining([
-          Scope.PROJECTS_READ,
-          Scope.PROJECT_MEMBERS_WRITE,
-        ]),
-        tokenPayload: expect.objectContaining({
-          sub: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8@clients',
-          azp: 'VYWpLOVcDTMvUUlZmNaqhwxjqXWn0qu8',
-          gty: 'client-credentials',
-        }),
-      }),
+  it('rejects a nonnumeric subject without a member ID', async () => {
+    await expect(service.validateToken(signToken({}))).rejects.toBeInstanceOf(
+      UnauthorizedException,
     );
   });
-
-  it('extracts lower-cased email from namespaced email claim', async () => {
-    const token = signToken({
-      sub: 'auth0|abcd',
-      'https://topcoder-dev.com/email': 'User+Alias@Example.com',
-    });
-
-    const user = await service.validateToken(token);
-
-    expect(user.email).toBe('user+alias@example.com');
+  it('discards member scopes and rejects machine-like member tokens', async () => {
+    await expect(
+      service.validateToken(
+        signToken({ userId: 12345, scope: 'read:projects' }),
+      ),
+    ).resolves.toMatchObject({ kind: 'user', scopes: [] });
+    await expect(
+      service.validateToken(
+        signToken({
+          gty: 'client-credentials',
+          azp: 'm2m-test',
+          scope: 'read:projects',
+        }),
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+  it('adapts only verified normalized email', async () => {
+    await expect(
+      service.validateToken(
+        signToken({
+          userId: 42,
+          'https://topcoder-dev.com/email': 'User+Alias@Example.com',
+        }),
+      ),
+    ).resolves.toMatchObject({ email: 'user+alias@example.com' });
   });
 });

@@ -111,7 +111,7 @@ describe('ProjectMemberService', () => {
     expect((result as any).id).toBe('1');
   });
 
-  it('adds a project member for machine principals inferred from token claims', async () => {
+  it('adds a project member for normalized service principals', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [],
@@ -156,7 +156,9 @@ describe('ProjectMemberService', () => {
         role: ProjectMemberRole.customer,
       },
       {
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:project-members'],
         tokenPayload: {
           gty: 'client-credentials',
@@ -287,7 +289,7 @@ describe('ProjectMemberService', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
-  it('updates a project member for machine principals inferred from token claims', async () => {
+  it('updates a project member for normalized service principals', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [
@@ -342,7 +344,9 @@ describe('ProjectMemberService', () => {
         role: ProjectMemberRole.customer,
       },
       {
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:project-members'],
         tokenPayload: {
           gty: 'client-credentials',
@@ -445,7 +449,7 @@ describe('ProjectMemberService', () => {
     },
   );
 
-  it('deletes a project member for machine principals inferred from token claims', async () => {
+  it('deletes a project member for normalized service principals', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [
@@ -494,7 +498,9 @@ describe('ProjectMemberService', () => {
     );
 
     await service.deleteMember('1001', '9', {
-      isMachine: false,
+      kind: 'service' as const,
+      isMachine: true,
+      clientId: 'svc-projects',
       scopes: ['write:project-members'],
       tokenPayload: {
         gty: 'client-credentials',

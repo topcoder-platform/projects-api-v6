@@ -2,10 +2,12 @@ import { ForbiddenException } from '@nestjs/common';
 import { getAuditUserIdBigInt, getAuditUserIdNumber } from './metadata-utils';
 
 describe('metadata utils', () => {
-  it('returns -1 for machine principals inferred from token claims in number audit fields', () => {
+  it('returns -1 for normalized service principals in number audit fields', () => {
     expect(
       getAuditUserIdNumber({
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:projects'],
         tokenPayload: {
           gty: 'client-credentials',
@@ -16,10 +18,12 @@ describe('metadata utils', () => {
     ).toBe(-1);
   });
 
-  it('returns -1n for machine principals inferred from token claims in bigint audit fields', () => {
+  it('returns -1n for normalized service principals in bigint audit fields', () => {
     expect(
       getAuditUserIdBigInt({
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:projects'],
         tokenPayload: {
           gty: 'client-credentials',

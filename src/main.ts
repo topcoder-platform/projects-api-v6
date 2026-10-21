@@ -236,9 +236,9 @@ Machine-to-Machine (M2M) Token
 Development token example:
 
 curl --request POST \\
-  --url https://topcoder-dev.auth0.com/oauth/token \\
+  --url https://keycloak.topcoder-dev.com/m2m/token \\
   --header 'content-type: application/json' \\
-  --data '{"client_id":"your-client-id","client_secret":"your-client-secret","audience":"https://m2m.topcoder-dev.com/","grant_type":"client_credentials"}'
+  --data '{"client_id":"your-client-id","client_secret":"your-client-secret","audience":"https://api.topcoder-dev.com","grant_type":"client_credentials"}'
       `,
     )
     .setVersion('1.0')

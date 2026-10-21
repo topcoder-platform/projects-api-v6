@@ -122,36 +122,12 @@ function normalizeEmail(value: unknown): string {
 }
 
 /**
- * Extracts normalized user email from parsed claims.
- *
- * Prefers `JwtUser.email` and falls back to namespaced payload keys ending in
- * `email`.
+ * Reads normalized verified email for project membership and invite matching.
+ * @param user Verified member principal; arbitrary namespaced claim suffixes are ignored.
+ * @returns Lowercase email or empty string; does not throw.
  */
 function getUserEmail(user: JwtUser): string {
-  const directEmail = normalizeEmail(user.email);
-  if (directEmail.length > 0) {
-    return directEmail;
-  }
-
-  const payload = user.tokenPayload;
-  if (!payload || typeof payload !== 'object') {
-    return '';
-  }
-
-  for (const key of Object.keys(payload)) {
-    if (!key.toLowerCase().endsWith('email')) {
-      continue;
-    }
-
-    const normalizedEmail = normalizeEmail(
-      (payload as Record<string, unknown>)[key],
-    );
-    if (normalizedEmail.length > 0) {
-      return normalizedEmail;
-    }
-  }
-
-  return '';
+  return normalizeEmail(user.email);
 }
 
 /**

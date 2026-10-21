@@ -1,5 +1,6 @@
 module.exports = {
   preset: 'ts-jest',
+  setupFiles: ['<rootDir>/test-keycloak.setup.ts'],
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',

@@ -21,7 +21,8 @@
     "test:load": "jest --config ./test/jest-e2e.json --runInBand --testRegex \"test/load/performance.test.ts$\"",
     "test:deployment": "jest --config ./test/jest-e2e.json --runInBand test/deployment-validation.e2e-spec.ts",
     "deploy:dev": "BRANCH=$(git rev-parse --abbrev-ref HEAD) && TAG=\"dev-${BRANCH}\" && git tag -d \"$TAG\" 2>/dev/null; git push origin \":refs/tags/$TAG\" 2>/dev/null; git tag \"$TAG\" && git push origin \"$TAG\"",
-    "postinstall": "pnpm exec prisma generate"
+    "postinstall": "pnpm exec prisma generate",
+    "test:keycloak": "node --test test/keycloak-auth.test.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",
@@ -51,7 +52,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "tc-bus-api-wrapper": "github:topcoder-platform/tc-bus-api-wrapper#297a9c0adcdb97661257e7825bee9c3f5578b833",
-    "tc-core-library-js": "github:topcoder-platform/tc-core-library-js#1075136355e1e1c4779f2138a30f3ffbd718bfa4",
+    "tc-core-library-js": "https://codeload.github.com/topcoder-platform/tc-core-library-js/tar.gz/c262f4aca971904f308085bdeaaed35cdf3cfa7d",
     "uuid": "^14.0.1",
     "winston": "^3.17.0"
   },

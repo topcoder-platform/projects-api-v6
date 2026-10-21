@@ -89,11 +89,11 @@ export class AdminOnlyGuard implements CanActivate {
       ADMIN_ROLES,
     );
 
-    if (hasAdminRole) {
+    if (!user.isMachine && hasAdminRole) {
       return true;
     }
 
-    const hasAdminScope = this.m2mService.hasRequiredScopes(user.scopes || [], [
+    const hasAdminScope = this.m2mService.hasRequiredScopes(user, [
       Scope.CONNECT_PROJECT_ADMIN,
     ]);
 

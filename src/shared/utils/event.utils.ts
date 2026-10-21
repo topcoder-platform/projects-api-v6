@@ -78,18 +78,18 @@ const logger = LoggerService.forRoot('EventUtils');
 /**
  * Builds `tc-bus-api-wrapper` configuration from environment variables.
  *
- * @security `AUTH0_CLIENT_SECRET` is injected from environment and must never
+ * @security `KEYCLOAK_CLIENT_SECRET` is injected from environment and must never
  * be logged.
  */
 function buildBusApiConfig(): Record<string, unknown> {
   return {
     BUSAPI_URL: process.env.BUSAPI_URL,
     KAFKA_ERROR_TOPIC: process.env.KAFKA_ERROR_TOPIC,
-    AUTH0_URL: process.env.AUTH0_URL,
-    AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
-    AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
-    AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
-    AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
+    AUTH0_URL: process.env.KEYCLOAK_TOKEN_URL,
+    AUTH0_AUDIENCE: process.env.KEYCLOAK_AUDIENCE,
+    AUTH0_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
+    AUTH0_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
+    AUTH0_PROXY_SERVER_URL: process.env.KEYCLOAK_TOKEN_URL,
     TOKEN_CACHE_TIME: 900,
   };
 }

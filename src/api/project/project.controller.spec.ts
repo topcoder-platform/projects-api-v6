@@ -191,6 +191,7 @@ describe('ProjectController', () => {
     });
 
     const result = await controller.getProjectPermissions('303', {
+      kind: 'service' as const,
       isMachine: true,
       scopes: ['read:projects'],
     });
@@ -213,7 +214,7 @@ describe('ProjectController', () => {
     });
     expect(serviceMock.getProjectPermissions).toHaveBeenCalledWith(
       '303',
-      expect.objectContaining({ isMachine: true }),
+      expect.objectContaining({ kind: 'service' as const, isMachine: true }),
     );
   });
 

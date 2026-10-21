@@ -5,6 +5,7 @@ describe('copilot utils', () => {
   it('returns -1 for machine tokens without numeric user ids', () => {
     expect(
       getAuditUserId({
+        kind: 'service' as const,
         isMachine: true,
         tokenPayload: {
           gty: 'client-credentials',
@@ -13,10 +14,12 @@ describe('copilot utils', () => {
     ).toBe(-1);
   });
 
-  it('returns -1 for machine principals inferred from token claims', () => {
+  it('returns -1 for normalized service principals', () => {
     expect(
       getAuditUserId({
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:projects'],
         tokenPayload: {
           gty: 'client-credentials',

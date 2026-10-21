@@ -354,7 +354,7 @@ describe('TokenRolesGuard', () => {
     );
   });
 
-  it('allows human token when required scope is present', async () => {
+  it('denies member OAuth scopes as a machine permission', async () => {
     const request: Record<string, any> = {
       headers: {
         authorization: 'Bearer human-token',
@@ -388,13 +388,10 @@ describe('TokenRolesGuard', () => {
     });
     m2mServiceMock.hasRequiredScopes.mockReturnValue(true);
 
-    const result = await guard.canActivate(createExecutionContext(request));
-
-    expect(result).toBe(true);
-    expect(m2mServiceMock.hasRequiredScopes).toHaveBeenCalledWith(
-      ['all:projects'],
-      ['read:projects'],
-    );
+    await expect(
+      guard.canActivate(createExecutionContext(request)),
+    ).rejects.toThrow(ForbiddenException);
+    expect(m2mServiceMock.hasRequiredScopes).not.toHaveBeenCalled();
   });
 
   it('throws ForbiddenException when human token lacks required roles/scopes', async () => {
@@ -453,12 +450,14 @@ describe('TokenRolesGuard', () => {
     jwtServiceMock.validateToken.mockResolvedValue({
       roles: [],
       scopes: [],
+      kind: 'service' as const,
       isMachine: true,
       tokenPayload: {
         gty: 'client-credentials',
       },
     });
     m2mServiceMock.validateMachineToken.mockReturnValue({
+      kind: 'service' as const,
       isMachine: true,
       scopes: ['all:projects'],
     });
@@ -540,12 +539,14 @@ describe('TokenRolesGuard', () => {
     jwtServiceMock.validateToken.mockResolvedValue({
       roles: [],
       scopes: ['all:connect_project'],
+      kind: 'service' as const,
       isMachine: true,
       tokenPayload: {
         gty: 'client-credentials',
       },
     });
     m2mServiceMock.validateMachineToken.mockReturnValue({
+      kind: 'service' as const,
       isMachine: true,
       scopes: ['all:connect_project'],
     });
@@ -578,12 +579,14 @@ describe('TokenRolesGuard', () => {
     jwtServiceMock.validateToken.mockResolvedValue({
       roles: [],
       scopes: [],
+      kind: 'service' as const,
       isMachine: true,
       tokenPayload: {
         gty: 'client-credentials',
       },
     });
     m2mServiceMock.validateMachineToken.mockReturnValue({
+      kind: 'service' as const,
       isMachine: true,
       scopes: ['read:project-members'],
     });

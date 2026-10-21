@@ -2185,57 +2185,21 @@ export class ProjectService {
   }
 
   /**
-   * Resolves a stable machine-principal identifier from token claims.
+   * Resolves the common service client ID for audit attribution.
+   * @param user Verified caller.
+   * @returns Client ID for a verified service, otherwise undefined; does not throw.
    */
   private getMachineActorId(user: JwtUser): string | undefined {
-    if (!this.isMachinePrincipal(user) || !user.tokenPayload) {
-      return undefined;
-    }
-
-    for (const key of ['sub', 'azp', 'client_id', 'clientId']) {
-      const value = user.tokenPayload[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim();
-      }
-    }
-
-    return undefined;
+    return this.isMachinePrincipal(user) ? user.clientId : undefined;
   }
 
   /**
-   * Determines whether the caller is a machine principal.
-   *
-   * Falls back to raw token claims so service-layer audit logic still works
-   * when upstream normalization omits `user.isMachine`.
+   * Reads the common validator's service identity without raw-claim fallbacks.
+   * @param user Verified caller.
+   * @returns Whether this is a service principal; does not throw.
    */
   private isMachinePrincipal(user: JwtUser): boolean {
-    if (user.isMachine) {
-      return true;
-    }
-
-    if (!user.tokenPayload) {
-      return false;
-    }
-
-    const grantType = user.tokenPayload.gty;
-    if (
-      typeof grantType === 'string' &&
-      grantType.trim().toLowerCase() === 'client-credentials'
-    ) {
-      return true;
-    }
-
-    const rawScopes = user.tokenPayload.scope ?? user.tokenPayload.scopes;
-
-    if (typeof rawScopes === 'string') {
-      return rawScopes.trim().length > 0;
-    }
-
-    if (Array.isArray(rawScopes)) {
-      return rawScopes.some((scope) => String(scope).trim().length > 0);
-    }
-
-    return false;
+    return user.kind === 'service' && user.isMachine === true;
   }
 
   /**

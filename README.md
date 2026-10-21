@@ -361,11 +361,12 @@ Reference source: `.env.example`.
 | `DATABASE_URL` | ✅ | - | PostgreSQL connection string for Prisma |
 | `AUTH_SECRET` | ✅ | - | JWT signing secret (from `tc-core-library-js`) |
 | `VALID_ISSUERS` | ✅ | - | JSON array of accepted JWT issuers |
-| `AUTH0_URL` | ✅ | - | Auth0 token endpoint for M2M |
-| `AUTH0_AUDIENCE` | ✅ | - | M2M audience |
-| `AUTH0_PROXY_SERVER_URL` | - | - | Auth0 proxy (optional) |
-| `AUTH0_CLIENT_ID` | ✅ | - | M2M client ID |
-| `AUTH0_CLIENT_SECRET` | ✅ | - | M2M client secret |
+| `KEYCLOAK_TOKEN_URL` | ✅ | - | Managed Keycloak token endpoint |
+| `KEYCLOAK_AUDIENCE` | ✅ | - | M2M audience |
+| `M2M_PROVIDER` | ✅ | - | Must be `keycloak`; no Auth0 fallback |
+| `KEYCLOAK_ISSUER` | ✅ | - | Exact trusted realm URL |
+| `KEYCLOAK_CLIENT_ID` | ✅ | - | M2M client ID |
+| `KEYCLOAK_CLIENT_SECRET` | ✅ | - | M2M client secret |
 | `KAFKA_URL` | - | - | Legacy/compatibility setting; not used by current `tc-bus-api-wrapper` client init |
 | `KAFKA_ERROR_TOPIC` | ✅ | - | Kafka topic used by `tc-bus-api-wrapper` for `postError` routing (required by wrapper init) |
 | `KAFKA_CLIENT_CERT` | - | - | Legacy/compatibility setting; not used by current `tc-bus-api-wrapper` client init |
@@ -572,3 +573,7 @@ Migration runbook (phased rollout, rollback, monitoring): `docs/MIGRATION_RUNBOO
 `Talent Manager` and `Topcoder Talent Manager` users can list and open all non-internal projects without membership, including read-only access to their members, invites, and attachments. Set `INTERNAL_BILLING_ACCOUNT_IDS` to the comma-separated positive billing account IDs used for internal projects before deploying this policy (for example, `123,456`); an empty value excludes no accounts, and invalid values reject requests rather than applying a partial list. Projects without a billing account remain visible.
 
 Internal projects are excluded from list results and totals and rejected on direct project and nested project routes unless the Talent Manager is an active project member. Explicit membership in any project role overrides the internal billing account exclusion; deleted memberships and pending invites alone do not. Administrators and machine tokens keep their existing authorization policies. `memberOnly=true` narrows the visible projects to existing membership/pending-invite associations, including internal projects with active membership; Work exposes this as **My Projects**.
+
+## Keycloak migration branch
+
+Follow [Keycloak configuration and rollout](docs/keycloak-m2m.md). Keycloak configuration is mandatory on this isolated branch.

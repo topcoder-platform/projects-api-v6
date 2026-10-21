@@ -317,7 +317,7 @@ describe('ProjectInviteService', () => {
     );
   });
 
-  it('creates invites for machine principals inferred from token claims', async () => {
+  it('creates invites for normalized service principals', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       name: 'Demo',
@@ -378,7 +378,9 @@ describe('ProjectInviteService', () => {
         role: ProjectMemberRole.customer,
       },
       {
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:project-invites'],
         tokenPayload: {
           gty: 'client-credentials',
@@ -572,9 +574,7 @@ describe('ProjectInviteService', () => {
       {
         userId: '88770025',
         isMachine: false,
-        tokenPayload: {
-          email: 'jmgasper+devtest140@gmail.com',
-        },
+        email: 'jmgasper+devtest140@gmail.com',
       },
       undefined,
     );
@@ -639,7 +639,7 @@ describe('ProjectInviteService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('updates invites for machine principals inferred from token claims', async () => {
+  it('updates invites for normalized service principals', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [],
@@ -697,7 +697,9 @@ describe('ProjectInviteService', () => {
         status: InviteStatus.refused,
       },
       {
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:project-invites'],
         tokenPayload: {
           gty: 'client-credentials',
@@ -783,7 +785,7 @@ describe('ProjectInviteService', () => {
     );
   });
 
-  it('deletes invites for machine principals inferred from token claims', async () => {
+  it('deletes invites for normalized service principals', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [],
@@ -832,7 +834,9 @@ describe('ProjectInviteService', () => {
     );
 
     await service.deleteInvite('1001', '41', {
-      isMachine: false,
+      kind: 'service' as const,
+      isMachine: true,
+      clientId: 'svc-projects',
       scopes: ['write:project-invites'],
       tokenPayload: {
         gty: 'client-credentials',

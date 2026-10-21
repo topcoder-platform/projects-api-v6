@@ -818,6 +818,7 @@ describe('ProjectService', () => {
 
     const result = await service.getProjectBillingAccount('1001', {
       scopes: ['read:project-billing-account-details'],
+      kind: 'service' as const,
       isMachine: true,
     });
 
@@ -828,7 +829,7 @@ describe('ProjectService', () => {
     });
   });
 
-  it('returns project billing account markup for machine principals inferred from token claims', async () => {
+  it('returns project billing account markup for normalized service principals', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       billingAccountId: BigInt(12),
@@ -840,7 +841,9 @@ describe('ProjectService', () => {
     });
 
     const result = await service.getProjectBillingAccount('1001', {
-      isMachine: false,
+      kind: 'service' as const,
+      isMachine: true,
+      clientId: 'svc-projects',
       scopes: [],
       tokenPayload: {
         gty: 'client-credentials',
@@ -1104,6 +1107,7 @@ describe('ProjectService', () => {
       .mockResolvedValueOnce([]);
 
     const result = await service.getProjectPermissions('1001', {
+      kind: 'service' as const,
       isMachine: true,
       scopes: [Scope.PROJECTS_READ],
       tokenPayload: {
@@ -1352,7 +1356,7 @@ describe('ProjectService', () => {
     expect(memberServiceMock.getUserRoles).toHaveBeenCalledWith('300');
   });
 
-  it('creates projects for machine principals inferred from token claims without creating a synthetic owner member', async () => {
+  it('creates projects for normalized service principals without creating a synthetic owner member', async () => {
     const transactionProjectCreate = jest.fn().mockResolvedValue({
       id: BigInt(1001),
       status: 'in_review',
@@ -1417,7 +1421,9 @@ describe('ProjectService', () => {
         type: 'app',
       },
       {
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:projects'],
         tokenPayload: {
           gty: 'client-credentials',
@@ -1531,7 +1537,7 @@ describe('ProjectService', () => {
     expect(transactionProjectHistoryCreate).toHaveBeenCalled();
   });
 
-  it('updates projects for machine principals inferred from token claims using fallback audit identity', async () => {
+  it('updates projects for normalized service principals using fallback audit identity', async () => {
     const transactionUpdate = jest.fn().mockResolvedValue({
       id: BigInt(1001),
       name: 'Updated by machine',
@@ -1603,7 +1609,9 @@ describe('ProjectService', () => {
         status: 'active',
       },
       {
-        isMachine: false,
+        kind: 'service' as const,
+        isMachine: true,
+        clientId: 'svc-projects',
         scopes: ['write:projects'],
         tokenPayload: {
           gty: 'client-credentials',
@@ -1623,7 +1631,7 @@ describe('ProjectService', () => {
     );
   });
 
-  it('deletes projects for machine principals inferred from token claims using fallback audit identity', async () => {
+  it('deletes projects for normalized service principals using fallback audit identity', async () => {
     prismaMock.project.findFirst.mockResolvedValue({
       id: BigInt(1001),
       members: [],
@@ -1637,7 +1645,9 @@ describe('ProjectService', () => {
     );
 
     await service.deleteProject('1001', {
-      isMachine: false,
+      kind: 'service' as const,
+      isMachine: true,
+      clientId: 'svc-projects',
       scopes: ['write:projects'],
       tokenPayload: {
         gty: 'client-credentials',

@@ -55,8 +55,6 @@ export class PermissionService {
       return false;
     }
 
-    const machineContext = this.resolveMachineContext(user);
-
     if (permissionRule.projectRoles && projectMembers) {
       const member = this.getProjectMember(user.userId, projectMembers);
 
@@ -88,10 +86,7 @@ export class PermissionService {
     }
 
     if (permissionRule.scopes) {
-      hasScope = this.m2mService.hasRequiredScopes(
-        machineContext.scopes,
-        permissionRule.scopes,
-      );
+      hasScope = this.m2mService.hasRequiredScopes(user, permissionRule.scopes);
     }
 
     return hasProjectRole || hasTopcoderRole || hasScope;
@@ -175,57 +170,41 @@ export class PermissionService {
     const hasTalentManagerRole = this.hasTalentManagerRole(user);
     const hasStrictAdminAccess =
       this.hasIntersection(user.roles || [], ADMIN_ROLES) ||
-      this.m2mService.hasRequiredScopes(effectiveScopes, [
-        Scope.CONNECT_PROJECT_ADMIN,
-      ]);
-    const hasProjectReadScope = this.m2mService.hasRequiredScopes(
-      effectiveScopes,
-      [
-        Scope.CONNECT_PROJECT_ADMIN,
-        Scope.PROJECTS_ALL,
-        Scope.PROJECTS_READ,
-        Scope.PROJECTS_WRITE,
-      ],
-    );
-    const hasProjectWriteScope = this.m2mService.hasRequiredScopes(
-      effectiveScopes,
-      [Scope.CONNECT_PROJECT_ADMIN, Scope.PROJECTS_ALL, Scope.PROJECTS_WRITE],
-    );
+      this.m2mService.hasRequiredScopes(user, [Scope.CONNECT_PROJECT_ADMIN]);
+    const hasProjectReadScope = this.m2mService.hasRequiredScopes(user, [
+      Scope.CONNECT_PROJECT_ADMIN,
+      Scope.PROJECTS_ALL,
+      Scope.PROJECTS_READ,
+      Scope.PROJECTS_WRITE,
+    ]);
+    const hasProjectWriteScope = this.m2mService.hasRequiredScopes(user, [
+      Scope.CONNECT_PROJECT_ADMIN,
+      Scope.PROJECTS_ALL,
+      Scope.PROJECTS_WRITE,
+    ]);
     const hasMachineProjectWriteScope = Boolean(
       machineContext.isMachine && hasProjectWriteScope,
     );
-    const hasProjectMemberReadScope = this.m2mService.hasRequiredScopes(
-      effectiveScopes,
-      [
-        Scope.CONNECT_PROJECT_ADMIN,
-        Scope.PROJECT_MEMBERS_ALL,
-        Scope.PROJECT_MEMBERS_READ,
-      ],
-    );
-    const hasProjectMemberWriteScope = this.m2mService.hasRequiredScopes(
-      effectiveScopes,
-      [
-        Scope.CONNECT_PROJECT_ADMIN,
-        Scope.PROJECT_MEMBERS_ALL,
-        Scope.PROJECT_MEMBERS_WRITE,
-      ],
-    );
-    const hasProjectInviteReadScope = this.m2mService.hasRequiredScopes(
-      effectiveScopes,
-      [
-        Scope.CONNECT_PROJECT_ADMIN,
-        Scope.PROJECT_INVITES_ALL,
-        Scope.PROJECT_INVITES_READ,
-      ],
-    );
-    const hasProjectInviteWriteScope = this.m2mService.hasRequiredScopes(
-      effectiveScopes,
-      [
-        Scope.CONNECT_PROJECT_ADMIN,
-        Scope.PROJECT_INVITES_ALL,
-        Scope.PROJECT_INVITES_WRITE,
-      ],
-    );
+    const hasProjectMemberReadScope = this.m2mService.hasRequiredScopes(user, [
+      Scope.CONNECT_PROJECT_ADMIN,
+      Scope.PROJECT_MEMBERS_ALL,
+      Scope.PROJECT_MEMBERS_READ,
+    ]);
+    const hasProjectMemberWriteScope = this.m2mService.hasRequiredScopes(user, [
+      Scope.CONNECT_PROJECT_ADMIN,
+      Scope.PROJECT_MEMBERS_ALL,
+      Scope.PROJECT_MEMBERS_WRITE,
+    ]);
+    const hasProjectInviteReadScope = this.m2mService.hasRequiredScopes(user, [
+      Scope.CONNECT_PROJECT_ADMIN,
+      Scope.PROJECT_INVITES_ALL,
+      Scope.PROJECT_INVITES_READ,
+    ]);
+    const hasProjectInviteWriteScope = this.m2mService.hasRequiredScopes(user, [
+      Scope.CONNECT_PROJECT_ADMIN,
+      Scope.PROJECT_INVITES_ALL,
+      Scope.PROJECT_INVITES_WRITE,
+    ]);
 
     const member = this.getProjectMember(user.userId, projectMembers);
     const hasProjectMembership = Boolean(member);
@@ -418,7 +397,7 @@ export class PermissionService {
           isManagementMember ||
           this.isCopilot(member?.role) ||
           this.hasProjectBillingTopcoderRole(user) ||
-          this.m2mService.hasRequiredScopes(effectiveScopes, [
+          this.m2mService.hasRequiredScopes(user, [
             Scope.CONNECT_PROJECT_ADMIN,
             Scope.PROJECTS_READ_USER_BILLING_ACCOUNTS,
           ])
@@ -429,7 +408,7 @@ export class PermissionService {
           isManagementMember ||
           this.isCopilot(member?.role) ||
           this.hasProjectBillingTopcoderRole(user) ||
-          this.m2mService.hasRequiredScopes(effectiveScopes, [
+          this.m2mService.hasRequiredScopes(user, [
             Scope.PROJECTS_READ_PROJECT_BILLING_ACCOUNT_DETAILS,
           ])
         );
@@ -650,37 +629,15 @@ export class PermissionService {
   }
 
   /**
-   * Resolves machine-token status and effective scopes from the normalized user
-   * and the raw token payload so guard and permission checks stay aligned.
-   *
-   * Merges both scope sources because upstream auth middleware can populate
-   * `user.scopes` differently from the raw token payload used by
-   * `TokenRolesGuard`. Keeping the union here avoids false 403s when one source
-   * is stale or incomplete but the other still carries the granted M2M scopes.
-   *
-   * @param user authenticated JWT user context
-   * @returns machine classification and the scopes to evaluate
+   * Reads only the common validator's machine identity and scopes for domain policy.
+   * @param user Verified domain principal.
+   * @returns Authoritative machine flag and exact scope set; does not throw.
    */
   private resolveMachineContext(user: JwtUser): {
     isMachine: boolean;
     scopes: string[];
   } {
-    const payloadMachineContext = this.m2mService.validateMachineToken(
-      user.tokenPayload,
-    );
-    const userScopes = Array.isArray(user.scopes)
-      ? user.scopes
-          .map((scope) => String(scope).trim())
-          .filter((scope) => scope.length > 0)
-      : [];
-    const mergedScopes = Array.from(
-      new Set([...userScopes, ...payloadMachineContext.scopes]),
-    );
-
-    return {
-      isMachine: Boolean(user.isMachine || payloadMachineContext.isMachine),
-      scopes: mergedScopes,
-    };
+    return this.m2mService.validateMachineToken(user);
   }
 
   /**
@@ -719,45 +676,12 @@ export class PermissionService {
   }
 
   /**
-   * Reads normalized user email from parsed claims.
-   *
-   * Uses `JwtUser.email` first, then falls back to suffix-based lookup in
-   * `tokenPayload` for compatibility with namespaced claims.
-   *
-   * @param user authenticated JWT user
-   * @returns lower-cased email or `undefined`
+   * Reads the normalized verified email used for project invite matching.
+   * @param user Verified member principal; raw namespaced claims are ignored.
+   * @returns Lowercase email or undefined; does not throw.
    */
   private getUserEmail(user: JwtUser): string | undefined {
-    const directEmail = this.normalizeEmail(user.email);
-
-    if (directEmail) {
-      return directEmail;
-    }
-
-    const payload = user.tokenPayload;
-
-    if (!payload || typeof payload !== 'object') {
-      return undefined;
-    }
-
-    for (const key of Object.keys(payload)) {
-      if (!key.toLowerCase().endsWith('email')) {
-        continue;
-      }
-
-      const value = (payload as Record<string, unknown>)[key];
-      if (typeof value !== 'string') {
-        continue;
-      }
-
-      const normalizedEmail = this.normalizeEmail(value);
-
-      if (normalizedEmail) {
-        return normalizedEmail;
-      }
-    }
-
-    return undefined;
+    return this.normalizeEmail(user.email);
   }
 
   /**
