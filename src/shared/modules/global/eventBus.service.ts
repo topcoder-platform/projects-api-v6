@@ -11,7 +11,10 @@ import * as busApi from 'tc-bus-api-wrapper';
  * Event bus integration for publishing project events.
  *
  * Wraps the tc bus API client and degrades gracefully when required runtime
- * configuration is unavailable.
+ * configuration is unavailable. Tokens come from the Keycloak M2M settings
+ * (`KEYCLOAK_TOKEN_URL`, `KEYCLOAK_AUDIENCE`, `KEYCLOAK_CLIENT_ID`,
+ * `KEYCLOAK_CLIENT_SECRET`), the same ones `event.utils.ts` uses. They are passed
+ * to the wrapper under its legacy `AUTH0_*` option names.
  */
 /**
  * Event bus client contract used by this service.
@@ -40,10 +43,10 @@ type EventBusClient = {
 const EVENT_BUS_REQUIRED_ENV_KEYS = [
   'BUSAPI_URL',
   'KAFKA_ERROR_TOPIC',
-  'AUTH0_URL',
-  'AUTH0_AUDIENCE',
-  'AUTH0_CLIENT_ID',
-  'AUTH0_CLIENT_SECRET',
+  'KEYCLOAK_TOKEN_URL',
+  'KEYCLOAK_AUDIENCE',
+  'KEYCLOAK_CLIENT_ID',
+  'KEYCLOAK_CLIENT_SECRET',
 ] as const;
 
 type EventBusRequiredEnvKey = (typeof EVENT_BUS_REQUIRED_ENV_KEYS)[number];
@@ -104,8 +107,15 @@ export class EventBusService {
   /**
    * Creates a bus API client from environment configuration.
    *
+   * Maps the Keycloak M2M settings onto the wrapper's legacy option names
+   * (`AUTH0_URL`, `AUTH0_AUDIENCE`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`,
+   * `AUTH0_PROXY_SERVER_URL`). The Keycloak core reads its issuer, audience and
+   * token URL from the environment and uses the explicit client credentials.
    * Returns null when configuration is insufficient or client initialization
    * fails, so callers can degrade gracefully.
+   *
+   * @security `KEYCLOAK_CLIENT_SECRET` must never be logged; only set/empty
+   * status is reported.
    *
    * @returns {EventBusClient | null} Initialized client or null when unavailable.
    */
@@ -138,15 +148,15 @@ export class EventBusService {
     }
 
     try {
-      // TODO (quality): TOKEN_CACHE_TIME is hardcoded to 900 seconds. Expose as an environment variable (e.g., AUTH0_TOKEN_CACHE_TIME) for operational flexibility.
+      // TOKEN_CACHE_TIME satisfies the wrapper's schema; the Keycloak core caches by token expiry.
       const client = busApiFactory({
         BUSAPI_URL: process.env.BUSAPI_URL,
         KAFKA_ERROR_TOPIC: process.env.KAFKA_ERROR_TOPIC,
-        AUTH0_URL: process.env.AUTH0_URL,
-        AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
-        AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
-        AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
-        AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
+        AUTH0_URL: process.env.KEYCLOAK_TOKEN_URL,
+        AUTH0_AUDIENCE: process.env.KEYCLOAK_AUDIENCE,
+        AUTH0_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
+        AUTH0_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
+        AUTH0_PROXY_SERVER_URL: process.env.KEYCLOAK_TOKEN_URL,
         TOKEN_CACHE_TIME: 900,
       });
       this.clientInitReason = 'initialized';
@@ -164,10 +174,12 @@ export class EventBusService {
     return {
       BUSAPI_URL: this.toConfigStatus(process.env.BUSAPI_URL),
       KAFKA_ERROR_TOPIC: this.toConfigStatus(process.env.KAFKA_ERROR_TOPIC),
-      AUTH0_URL: this.toConfigStatus(process.env.AUTH0_URL),
-      AUTH0_AUDIENCE: this.toConfigStatus(process.env.AUTH0_AUDIENCE),
-      AUTH0_CLIENT_ID: this.toConfigStatus(process.env.AUTH0_CLIENT_ID),
-      AUTH0_CLIENT_SECRET: this.toConfigStatus(process.env.AUTH0_CLIENT_SECRET),
+      KEYCLOAK_TOKEN_URL: this.toConfigStatus(process.env.KEYCLOAK_TOKEN_URL),
+      KEYCLOAK_AUDIENCE: this.toConfigStatus(process.env.KEYCLOAK_AUDIENCE),
+      KEYCLOAK_CLIENT_ID: this.toConfigStatus(process.env.KEYCLOAK_CLIENT_ID),
+      KEYCLOAK_CLIENT_SECRET: this.toConfigStatus(
+        process.env.KEYCLOAK_CLIENT_SECRET,
+      ),
     };
   }
 
@@ -184,10 +196,13 @@ export class EventBusService {
    * values or dynamically selected configuration keys.
    *
    * @param {EventBusConfigStatus} status Sanitized set/empty configuration map.
-   * @returns {boolean} True when an Auth0 URL or audience is missing.
+   * @returns {boolean} True when the Keycloak token URL or audience is missing.
    */
   private hasMissingAuthConfig(status: EventBusConfigStatus): boolean {
-    return status.AUTH0_URL === 'empty' || status.AUTH0_AUDIENCE === 'empty';
+    return (
+      status.KEYCLOAK_TOKEN_URL === 'empty' ||
+      status.KEYCLOAK_AUDIENCE === 'empty'
+    );
   }
 
   /**

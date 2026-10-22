@@ -9,6 +9,9 @@ Required settings are `M2M_PROVIDER=keycloak`, `KEYCLOAK_ISSUER`,
 `KEYCLOAK_AUDIENCE`, and `KEYCLOAK_TOKEN_URL`; issuing workloads additionally need
 `KEYCLOAK_CLIENT_ID` and `KEYCLOAK_CLIENT_SECRET` from their own encrypted secret
 references. Optional `KEYCLOAK_SCOPE` narrows the client's approved defaults.
+Both Bus publishers use these settings: `src/shared/utils/event.utils.ts` (project
+events) and `EventBusService` (email and metadata events). Neither reads `AUTH0_*`
+any more; the values are passed to `tc-bus-api-wrapper` under its legacy option names.
 The DEV issuer is `https://keycloak.topcoder-dev.com/realms/topcoder-m2m-dev`,
 audience `https://api.topcoder-dev.com`, and managed endpoint
 `https://keycloak.topcoder-dev.com/m2m/token`. Wait for the managed endpoint's

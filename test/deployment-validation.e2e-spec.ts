@@ -124,10 +124,12 @@ describe('Deployment validation', () => {
 
     const required = [
       'DATABASE_URL',
-      'AUTH0_URL',
-      'AUTH0_AUDIENCE',
-      'AUTH0_CLIENT_ID',
-      'AUTH0_CLIENT_SECRET',
+      'M2M_PROVIDER',
+      'KEYCLOAK_ISSUER',
+      'KEYCLOAK_TOKEN_URL',
+      'KEYCLOAK_AUDIENCE',
+      'KEYCLOAK_CLIENT_ID',
+      'KEYCLOAK_CLIENT_SECRET',
       'BUSAPI_URL',
       'KAFKA_ERROR_TOPIC',
     ];
