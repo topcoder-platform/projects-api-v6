@@ -7,6 +7,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import axios, { AxiosRequestConfig, AxiosResponse, Method } from 'axios';
 import * as request from 'supertest';
+import { auth } from 'tc-core-library-js';
 import { AppModule } from '../src/app.module';
 import { FileService } from '../src/shared/services/file.service';
 import { JwtService, JwtUser } from '../src/shared/modules/global/jwt.service';
@@ -122,14 +123,24 @@ describe('Deployment validation', () => {
       return;
     }
 
+    // USE_KEYCLOAK=true needs the Keycloak settings; otherwise the Auth0 ones.
+    const m2mSettings = auth.useKeycloak()
+      ? [
+          'KEYCLOAK_ISSUER',
+          'KEYCLOAK_TOKEN_URL',
+          'KEYCLOAK_AUDIENCE',
+          'KEYCLOAK_CLIENT_ID',
+          'KEYCLOAK_CLIENT_SECRET',
+        ]
+      : [
+          'AUTH0_URL',
+          'AUTH0_AUDIENCE',
+          'AUTH0_CLIENT_ID',
+          'AUTH0_CLIENT_SECRET',
+        ];
     const required = [
       'DATABASE_URL',
-      'M2M_PROVIDER',
-      'KEYCLOAK_ISSUER',
-      'KEYCLOAK_TOKEN_URL',
-      'KEYCLOAK_AUDIENCE',
-      'KEYCLOAK_CLIENT_ID',
-      'KEYCLOAK_CLIENT_SECRET',
+      ...m2mSettings,
       'BUSAPI_URL',
       'KAFKA_ERROR_TOPIC',
     ];

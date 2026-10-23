@@ -5,6 +5,7 @@
  */
 import { LoggerService } from 'src/shared/modules/global/logger.service';
 import * as busApi from 'tc-bus-api-wrapper';
+import { auth } from 'tc-core-library-js';
 
 /**
  * Event envelope shape accepted by `tc-bus-api-wrapper`.
@@ -78,18 +79,28 @@ const logger = LoggerService.forRoot('EventUtils');
 /**
  * Builds `tc-bus-api-wrapper` configuration from environment variables.
  *
- * @security `KEYCLOAK_CLIENT_SECRET` is injected from environment and must never
- * be logged.
+ * The wrapper's `AUTH0_*` options come from `auth.wrapperSettings`, which follows
+ * `USE_KEYCLOAK`: `true` fills them from `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_AUDIENCE`,
+ * `KEYCLOAK_CLIENT_ID` and `KEYCLOAK_CLIENT_SECRET`; unset or `false` keeps
+ * `AUTH0_URL`, `AUTH0_AUDIENCE`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` and
+ * `AUTH0_PROXY_SERVER_URL`. Called by `getBusApiClient` on each initialization attempt.
+ *
+ * @returns {Record<string, unknown>} Wrapper configuration for the active provider.
+ * @throws {TypeError} When `USE_KEYCLOAK` is not `true`/`false`.
+ * @security `KEYCLOAK_CLIENT_SECRET` and `AUTH0_CLIENT_SECRET` are injected from
+ * environment and must never be logged.
  */
 function buildBusApiConfig(): Record<string, unknown> {
   return {
     BUSAPI_URL: process.env.BUSAPI_URL,
     KAFKA_ERROR_TOPIC: process.env.KAFKA_ERROR_TOPIC,
-    AUTH0_URL: process.env.KEYCLOAK_TOKEN_URL,
-    AUTH0_AUDIENCE: process.env.KEYCLOAK_AUDIENCE,
-    AUTH0_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
-    AUTH0_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
-    AUTH0_PROXY_SERVER_URL: process.env.KEYCLOAK_TOKEN_URL,
+    ...auth.wrapperSettings({
+      AUTH0_URL: process.env.AUTH0_URL,
+      AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
+      AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
+      AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
+      AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
+    }),
     TOKEN_CACHE_TIME: 900,
   };
 }

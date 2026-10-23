@@ -13,6 +13,7 @@
  * - PORT
  * - CORS_ALLOWED_ORIGIN
  * - HEALTH_CHECK_TIMEOUT
+ * - USE_KEYCLOAK (selects the Swagger M2M token example)
  *
  * Lifecycle:
  * - Called once by Node.js at startup.
@@ -24,6 +25,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cors from 'cors';
 import { NextFunction, Request, Response } from 'express';
+import { auth } from 'tc-core-library-js';
 import { ApiModule } from './api/api.module';
 import {
   EVENT_SWAGGER_EXAMPLES,
@@ -66,6 +68,28 @@ function serializeBigInt(value: unknown): unknown {
   }
 
   return value;
+}
+
+/**
+ * Picks the development M2M token endpoint and audience shown in the Swagger description.
+ *
+ * Takes no parameters. Returns the Keycloak DEV token endpoint and audience when
+ * `USE_KEYCLOAK=true`, or the Auth0 DEV tenant and M2M audience otherwise, so the
+ * example matches the provider this deployment uses. Called once by `bootstrap`.
+ *
+ * @returns {{ url: string; audience: string }} Token URL and audience for the curl example.
+ * @throws {TypeError} When `USE_KEYCLOAK` is not `true`/`false`.
+ */
+function devM2mTokenExample(): { url: string; audience: string } {
+  return auth.useKeycloak()
+    ? {
+        url: 'https://keycloak.topcoder-dev.com/m2m/token',
+        audience: 'https://api.topcoder-dev.com',
+      }
+    : {
+        url: 'https://topcoder-dev.auth0.com/oauth/token',
+        audience: 'https://m2m.topcoder-dev.com/',
+      };
 }
 
 /**
@@ -215,6 +239,7 @@ async function bootstrap() {
     }),
   );
 
+  const tokenExample = devM2mTokenExample();
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Topcoder Project Service')
     .setDescription(
@@ -236,9 +261,9 @@ Machine-to-Machine (M2M) Token
 Development token example:
 
 curl --request POST \\
-  --url https://keycloak.topcoder-dev.com/m2m/token \\
+  --url ${tokenExample.url} \\
   --header 'content-type: application/json' \\
-  --data '{"client_id":"your-client-id","client_secret":"your-client-secret","audience":"https://api.topcoder-dev.com","grant_type":"client_credentials"}'
+  --data '{"client_id":"your-client-id","client_secret":"your-client-secret","audience":"${tokenExample.audience}","grant_type":"client_credentials"}'
       `,
     )
     .setVersion('1.0')

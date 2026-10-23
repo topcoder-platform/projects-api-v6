@@ -1078,6 +1078,10 @@ describe('Event payload parity against v5 fixture snapshots', () => {
   };
 
   beforeAll(async () => {
+    // EventBusService needs the token URL and audience of the provider USE_KEYCLOAK selects.
+    process.env.AUTH0_URL = process.env.AUTH0_URL || 'https://auth.example.com';
+    process.env.AUTH0_AUDIENCE =
+      process.env.AUTH0_AUDIENCE || 'https://api.example.com';
     process.env.KEYCLOAK_TOKEN_URL =
       process.env.KEYCLOAK_TOKEN_URL || 'https://auth.example.com/m2m/token';
     process.env.KEYCLOAK_AUDIENCE =

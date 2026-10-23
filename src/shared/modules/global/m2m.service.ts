@@ -3,12 +3,41 @@ import { auth, Principal } from 'tc-core-library-js';
 import { JwtUser } from './jwt.service';
 import { SCOPE_HIERARCHY, SCOPE_SYNONYMS } from '../../enums/scopes.enum';
 
-/** Shared Keycloak issuance and explicit route-scope policy; never classifies raw JWT claims. */
+/**
+ * Outbound M2M token issuance and explicit route-scope policy; never classifies raw JWT claims.
+ *
+ * Tokens come from the provider selected by `USE_KEYCLOAK`. With `true` the core uses
+ * `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_AUDIENCE`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`
+ * (and optional `KEYCLOAK_SCOPE`) and ignores the Auth0 options. Unset or `false` uses the
+ * Auth0 settings from {@link M2MService.auth0Options} plus `AUTH0_CLIENT_ID` and
+ * `AUTH0_CLIENT_SECRET`, as before the Keycloak migration. Injected into the member,
+ * identity and billing-account services and into the guards.
+ */
 @Injectable()
 export class M2MService {
-  private readonly client = auth.m2m();
+  private readonly client = auth.m2m(M2MService.auth0Options());
 
-  /** Takes no arguments; returns a verified Keycloak token for downstream calls or throws on issuance/validation failure. */
+  /**
+   * Read the Auth0 token settings this service used before the Keycloak migration.
+   * Takes no parameters; returns `AUTH0_URL`, `AUTH0_AUDIENCE` and `AUTH0_PROXY_SERVER_URL`
+   * from the environment for `auth.m2m`, which uses them only when `USE_KEYCLOAK` is not true.
+   * Does not throw.
+   */
+  static auth0Options(): Record<string, string | undefined> {
+    return {
+      AUTH0_URL: process.env.AUTH0_URL,
+      AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
+      AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
+    };
+  }
+
+  /**
+   * Return a cached or new token from the active provider for downstream calls.
+   * Takes no arguments; the credentials default to `KEYCLOAK_CLIENT_ID`/`SECRET` when
+   * `USE_KEYCLOAK=true` and to `AUTH0_CLIENT_ID`/`SECRET` otherwise.
+   * @returns The bearer token (Keycloak tokens are verified before they are returned).
+   * @throws Rejects when the active provider's credentials or endpoint are missing or issuance fails.
+   */
   getM2MToken(): Promise<string> {
     return this.client.getMachineToken();
   }

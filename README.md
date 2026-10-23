@@ -361,12 +361,17 @@ Reference source: `.env.example`.
 | `DATABASE_URL` | ✅ | - | PostgreSQL connection string for Prisma |
 | `AUTH_SECRET` | ✅ | - | JWT signing secret (from `tc-core-library-js`) |
 | `VALID_ISSUERS` | ✅ | - | JSON array of accepted JWT issuers |
-| `KEYCLOAK_TOKEN_URL` | ✅ | - | Managed Keycloak token endpoint |
-| `KEYCLOAK_AUDIENCE` | ✅ | - | M2M audience |
-| `M2M_PROVIDER` | ✅ | - | Must be `keycloak`; no Auth0 fallback |
-| `KEYCLOAK_ISSUER` | ✅ | - | Exact trusted realm URL |
-| `KEYCLOAK_CLIENT_ID` | ✅ | - | M2M client ID |
-| `KEYCLOAK_CLIENT_SECRET` | ✅ | - | M2M client secret |
+| `USE_KEYCLOAK` | - | `false` | `true` gets M2M tokens from Keycloak (`KEYCLOAK_*`); unset or `false` uses Auth0 (`AUTH0_*`). Any other value fails at startup |
+| `KEYCLOAK_TOKEN_URL` | when `USE_KEYCLOAK=true` | - | Managed Keycloak token endpoint |
+| `KEYCLOAK_AUDIENCE` | when `USE_KEYCLOAK=true` | - | M2M audience |
+| `KEYCLOAK_ISSUER` | when `USE_KEYCLOAK=true` | - | Exact trusted realm URL |
+| `KEYCLOAK_CLIENT_ID` | when `USE_KEYCLOAK=true` | - | M2M client ID |
+| `KEYCLOAK_CLIENT_SECRET` | when `USE_KEYCLOAK=true` | - | M2M client secret |
+| `AUTH0_URL` | when `USE_KEYCLOAK` is not `true` | - | Auth0 token endpoint for M2M |
+| `AUTH0_AUDIENCE` | when `USE_KEYCLOAK` is not `true` | - | M2M audience |
+| `AUTH0_PROXY_SERVER_URL` | - | `AUTH0_URL` | Auth0 proxy (optional) |
+| `AUTH0_CLIENT_ID` | when `USE_KEYCLOAK` is not `true` | - | M2M client ID |
+| `AUTH0_CLIENT_SECRET` | when `USE_KEYCLOAK` is not `true` | - | M2M client secret |
 | `KAFKA_URL` | - | - | Legacy/compatibility setting; not used by current `tc-bus-api-wrapper` client init |
 | `KAFKA_ERROR_TOPIC` | ✅ | - | Kafka topic used by `tc-bus-api-wrapper` for `postError` routing (required by wrapper init) |
 | `KAFKA_CLIENT_CERT` | - | - | Legacy/compatibility setting; not used by current `tc-bus-api-wrapper` client init |
@@ -576,4 +581,4 @@ Internal projects are excluded from list results and totals and rejected on dire
 
 ## Keycloak migration branch
 
-Follow [Keycloak configuration and rollout](docs/keycloak-m2m.md). Keycloak configuration is mandatory on this isolated branch.
+Follow [Keycloak configuration and rollout](docs/keycloak-m2m.md). `USE_KEYCLOAK=true` selects Keycloak for M2M tokens; unset or `false` keeps the Auth0 settings, so rolling back is a configuration change and a new deployment.

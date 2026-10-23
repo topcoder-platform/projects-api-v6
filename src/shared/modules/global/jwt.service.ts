@@ -23,7 +23,11 @@ export interface JwtUser {
 export class JwtService implements OnModuleInit {
   private validator?: ReturnType<typeof auth.createValidator>;
 
-  /** Initializes explicit Keycloak and member trust configuration; takes no arguments and throws on invalid settings. */
+  /**
+   * Initializes machine and member trust for the provider selected by `USE_KEYCLOAK`: `true` requires
+   * `KEYCLOAK_ISSUER`/`AUDIENCE`/`TOKEN_URL`; unset or `false` trusts Auth0 machines via `LEGACY_M2M_*`.
+   * Takes no arguments; throws on invalid settings, including a `USE_KEYCLOAK` other than `true`/`false`.
+   */
   onModuleInit(): void {
     this.validator = auth.createValidator();
   }
