@@ -1082,11 +1082,12 @@ describe('Event payload parity against v5 fixture snapshots', () => {
     process.env.AUTH0_AUDIENCE =
       process.env.AUTH0_AUDIENCE || 'https://api.example.com';
 
-    jest.doMock('tc-bus-api-wrapper', () => {
-      return jest.fn(() => ({
-        postEvent: postEventMock,
-      }));
-    });
+    jest.doMock('tc-core-library-js', () => ({
+      ...jest.requireActual<typeof import('tc-core-library-js')>(
+        'tc-core-library-js',
+      ),
+      createBusApiClient: jest.fn(() => ({ postEvent: postEventMock })),
+    }));
 
     prismaMockBundle = createPrismaServiceMock();
 

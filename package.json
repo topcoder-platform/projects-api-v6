@@ -50,8 +50,7 @@
     "qs": "^6.15.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "tc-bus-api-wrapper": "github:topcoder-platform/tc-bus-api-wrapper#297a9c0adcdb97661257e7825bee9c3f5578b833",
-    "tc-core-library-js": "github:topcoder-platform/tc-core-library-js#1075136355e1e1c4779f2138a30f3ffbd718bfa4",
+    "tc-core-library-js": "github:topcoder-platform/tc-core-library-js#v4.0.0-rc.1",
     "uuid": "^14.0.1",
     "winston": "^3.17.0"
   },
