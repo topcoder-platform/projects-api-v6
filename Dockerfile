@@ -40,8 +40,11 @@ ENV RESET_DB=$RESET_DB_ARG
 ENV SEED_DATA=$SEED_DATA_ARG
 WORKDIR /app
 
+# Alpine replaces old APK patch versions. Keep the configured Node major while
+# accepting maintained patch releases and verify the selected runtime below.
 RUN apk upgrade --no-cache \
-  && apk add --no-cache bash nodejs-current="${NODE_VERSION}-r0" openssl \
+  && apk add --no-cache bash "nodejs-current~${NODE_VERSION%%.*}" openssl \
+  && test "$(node -p 'process.versions.node.split(".")[0]')" = "${NODE_VERSION%%.*}" \
   && addgroup --system --gid 10001 app \
   && adduser --system --disabled-password --no-create-home --uid 10001 --ingroup app app
 
