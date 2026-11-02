@@ -686,8 +686,7 @@ export class ProjectShowcasePostService {
     challengeMetadata?: ChallengeMetadataDto[],
   ): ProjectShowcasePostResponseDto {
     const details = post.project?.details as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const metadata = Object.fromEntries(
       PROJECT_SHOWCASE_METADATA_KEYS.map((key) => [
         key,

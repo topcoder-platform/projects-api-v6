@@ -48,7 +48,7 @@ describe('OrgConfigService', () => {
     );
   });
 
-  it('creates org config and publishes event', async () => {
+  it('creates org config without publishing retired metadata events', async () => {
     prisma.orgConfig.findFirst.mockResolvedValueOnce(null);
     prisma.orgConfig.create.mockResolvedValue(buildOrgConfigRecord());
 
@@ -62,7 +62,7 @@ describe('OrgConfigService', () => {
     );
 
     expect(result.id).toBe('1');
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
   });
 
   it('throws conflict for duplicate org config', async () => {

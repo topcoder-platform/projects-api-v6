@@ -607,10 +607,7 @@ export class ProjectTemplateService {
    */
   private toNullableJson(
     value:
-      | MetadataVersionReference
-      | Record<string, unknown>
-      | null
-      | undefined,
+      MetadataVersionReference | Record<string, unknown> | null | undefined,
   ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
     return toNullableJsonValue(value);
   }

@@ -98,8 +98,7 @@ interface ProjectMemberPermissionMatrixEntry {
 }
 
 export type ProjectPermissionsResponse =
-  | ProjectPolicyMap
-  | Record<string, ProjectMemberPermissionMatrixEntry>;
+  ProjectPolicyMap | Record<string, ProjectMemberPermissionMatrixEntry>;
 
 type ProjectMemberWithHandle = ProjectMember & {
   handle?: string | null;

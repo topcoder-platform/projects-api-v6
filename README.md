@@ -3,8 +3,8 @@
 NestJS drop-in replacement for `tc-project-service`, serving the Topcoder platform at `/v6/projects`.
 
 [![CircleCI](https://img.shields.io/badge/CircleCI-build%20status-informational?logo=circleci)](https://circleci.com/)
-![Node](https://img.shields.io/badge/node-v26.5.1-339933?logo=node.js&logoColor=white)
-![pnpm](https://img.shields.io/badge/pnpm-10.28.2-F69220?logo=pnpm&logoColor=white)
+![Node](https://img.shields.io/badge/node-v26.12.1-339933?logo=node.js&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-11.15.1-F69220?logo=pnpm&logoColor=white)
 ![Audit](https://img.shields.io/badge/production%20audit-0%20findings-brightgreen)
 
 ## Table of Contents
@@ -419,8 +419,8 @@ Reference source: `.env.example`.
 
 ### Prerequisites
 
-- Node.js `v26.5.1` (`nvm use` in this project folder)
-- pnpm `10.28.2`
+- Node.js `v26.12.1` (`nvm use` in this project folder)
+- pnpm `11.15.1`
 - PostgreSQL
 
 ### Installation
@@ -486,7 +486,7 @@ Must pass before every commit per `AGENTS.md`.
 ## Deployment
 
 - CI/CD: CircleCI -> AWS ECS Fargate.
-- The multi-stage Docker image builds with Node 26.5.1 and copies only compiled
+- The multi-stage Docker image builds with Node 26.12.1 and copies only compiled
   output, production dependencies, and Prisma migration assets into its Alpine
   3.24 runtime. The runtime installs the dynamically linked Alpine Node package
   and does not contain npm or other package tooling.
@@ -517,8 +517,8 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 Summary from `docs/DEPENDENCIES.md`:
 
 - Production audit: no known vulnerabilities.
-- Node 26.5.1, NestJS 11.1.28, Prisma 7.9.0, Axios 1.18.1,
-  Lodash 4.18.1, qs 6.15.3, and UUID 14.0.1 are locked in the
+- Node 26.12.1, NestJS 11.2.8, Prisma 7.10.1, Axios 1.21.0,
+  Lodash 4.18.1, qs 6.17.1, and UUID 14.0.3 are locked in the
   security candidate.
 - Security overrides for affected transitives are maintained in
   `pnpm-workspace.yaml` and captured in `pnpm-lock.yaml`.
@@ -606,3 +606,12 @@ Node major. The runtime keeps Alpine's dynamically linked Node and system
 libraries. Existing non-root users and application entrypoints are preserved.
 Build stages using a versioned official Node image retain their configured
 version, and pnpm build arguments are explicitly declared in the consuming stage.
+
+## November 2026 security validation
+
+The dependency refresh updates the complete lockfile, pins the reviewed core
+library revision, and tests legacy minimatch consumers through
+`pnpm test:dependency-compat`. Patched Ajv 6 and 8 dependencies replace the
+obsolete ESLint patches that forced a different Ajv major. Salesforce fallback
+queries now log a fixed diagnostic message rather than SQL containing
+configuration fields or account identifiers.

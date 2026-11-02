@@ -72,7 +72,7 @@ describe('WorkManagementPermissionService', () => {
     });
   });
 
-  it('creates work management permission and publishes event', async () => {
+  it('creates work management permission without publishing retired metadata events', async () => {
     prisma.projectTemplate.findFirst.mockResolvedValue({ id: BigInt(1001) });
     prisma.workManagementPermission.findFirst.mockResolvedValue(null);
     prisma.workManagementPermission.create.mockResolvedValue(
@@ -89,7 +89,7 @@ describe('WorkManagementPermissionService', () => {
     );
 
     expect(result.id).toBe('1');
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
   });
 
   it('throws conflict on duplicated policy and project template', async () => {

@@ -53,7 +53,7 @@ describe('ProductCategoryService', () => {
     );
   });
 
-  it('creates product category and publishes event', async () => {
+  it('creates product category without publishing retired metadata events', async () => {
     prisma.productCategory.findUnique.mockResolvedValue(null);
     prisma.productCategory.create.mockResolvedValue(
       buildProductCategoryRecord(),
@@ -72,7 +72,7 @@ describe('ProductCategoryService', () => {
     );
 
     expect(result.key).toBe('development');
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
   });
 
   it('throws conflict when key already exists', async () => {

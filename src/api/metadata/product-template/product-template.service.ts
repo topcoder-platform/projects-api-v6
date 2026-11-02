@@ -426,10 +426,7 @@ export class ProductTemplateService {
    */
   private toNullableJson(
     value:
-      | Record<string, unknown>
-      | MetadataVersionReference
-      | null
-      | undefined,
+      Record<string, unknown> | MetadataVersionReference | null | undefined,
   ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
     return toNullableJsonValue(value);
   }

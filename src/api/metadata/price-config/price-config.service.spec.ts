@@ -83,7 +83,7 @@ describe('PriceConfigService', () => {
         }),
       }),
     );
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
     expect(result.revision).toBe('5');
   });
 

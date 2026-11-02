@@ -3,6 +3,7 @@ import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 import { M2MService } from 'src/shared/modules/global/m2m.service';
 import { BillingAccountService } from './billingAccount.service';
+import { LoggerService } from 'src/shared/modules/global/logger.service';
 
 jest.mock('src/shared/config/service-endpoints.config', () => ({
   SERVICE_ENDPOINTS: {
@@ -110,6 +111,8 @@ describe('BillingAccountService', () => {
   });
 
   it('falls back only for missing accounts and retains API metadata', async () => {
+    const debug = jest.spyOn(LoggerService.prototype, 'debug');
+    process.env.SFDC_BILLING_ACCOUNT_ACTIVE_FIELD = 'FixtureSensitiveField__c';
     process.env.SALESFORCE_CLIENT_ID = 'client';
     process.env.SALESFORCE_CLIENT_AUDIENCE = 'https://login.salesforce.com';
     process.env.SALESFORCE_SUBJECT = 'user';
@@ -142,6 +145,14 @@ describe('BillingAccountService', () => {
       'token',
       'https://salesforce.test',
     );
+    expect(debug).toHaveBeenCalledWith(
+      'Querying legacy billing account details from Salesforce.',
+    );
+    expect(JSON.stringify(debug.mock.calls)).not.toContain(
+      'FixtureSensitiveField__c',
+    );
+    expect(JSON.stringify(debug.mock.calls)).not.toContain("IN ('13','14')");
+    debug.mockRestore();
   });
 
   it('omits unresolved accounts when both integrations are unavailable', async () => {
