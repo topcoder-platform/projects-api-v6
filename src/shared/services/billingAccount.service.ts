@@ -175,7 +175,9 @@ export class BillingAccountService {
       // Keep tc-project-service behavior: list by current user assignment and active BA.
       // SECURITY: SOQL injection mitigated by parseIntStrictly integer validation. If this validation is ever relaxed, parameterized queries must be used.
       const sql = `SELECT Topcoder_Billing_Account__r.Id, Topcoder_Billing_Account__r.TopCoder_Billing_Account_Id__c, Topcoder_Billing_Account__r.Billing_Account_Name__c, Topcoder_Billing_Account__r.Start_Date__c, Topcoder_Billing_Account__r.End_Date__c from Topcoder_Billing_Account_Resource__c tbar where Topcoder_Billing_Account__r.Active__c=true AND UserID__c='${normalizedUserId}'`;
-      this.logger.debug(sql);
+      this.logger.debug(
+        'Querying legacy billing account details from Salesforce.',
+      );
 
       const records = await this.queryBillingAccountRecords(
         sql,
@@ -253,7 +255,9 @@ export class BillingAccountService {
       const { accessToken, instanceUrl } = await this.authenticate();
       // SECURITY: SOQL injection mitigated by parseIntStrictly integer validation. If this validation is ever relaxed, parameterized queries must be used.
       const sql = `SELECT TopCoder_Billing_Account_Id__c, Mark_Up__c, Active__c, Start_Date__c, End_Date__c from Topcoder_Billing_Account__c tba where TopCoder_Billing_Account_Id__c='${normalizedBillingAccountId}'`;
-      this.logger.debug(sql);
+      this.logger.debug(
+        'Querying legacy billing account details from Salesforce.',
+      );
 
       const records = await this.queryBillingAccountRecords(
         sql,
@@ -415,7 +419,9 @@ export class BillingAccountService {
         .join(',');
       // SECURITY: SOQL injection mitigated by parseIntStrictly integer validation. If this validation is ever relaxed, parameterized queries must be used.
       const sql = `SELECT TopCoder_Billing_Account_Id__c, ${this.sfdcBillingAccountNameField}, Start_Date__c, End_Date__c, ${this.sfdcBillingAccountActiveField} from Topcoder_Billing_Account__c tba where TopCoder_Billing_Account_Id__c IN (${inClause})`;
-      this.logger.debug(sql);
+      this.logger.debug(
+        'Querying legacy billing account details from Salesforce.',
+      );
 
       const records = await this.queryBillingAccountRecords(
         sql,

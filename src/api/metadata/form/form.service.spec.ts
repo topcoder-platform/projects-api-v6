@@ -72,7 +72,7 @@ describe('FormService', () => {
         }),
       }),
     );
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
     expect(result.version).toBe('3');
   });
 

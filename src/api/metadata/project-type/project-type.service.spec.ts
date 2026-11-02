@@ -54,7 +54,7 @@ describe('ProjectTypeService', () => {
     );
   });
 
-  it('creates project type and publishes event', async () => {
+  it('creates project type without publishing retired metadata events', async () => {
     prisma.projectType.findUnique.mockResolvedValue(null);
     prisma.projectType.create.mockResolvedValue(buildProjectTypeRecord());
 
@@ -72,7 +72,7 @@ describe('ProjectTypeService', () => {
     );
 
     expect(result.key).toBe('design');
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
   });
 
   it('throws conflict when key already exists', async () => {

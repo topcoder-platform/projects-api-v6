@@ -85,7 +85,7 @@ describe('ProjectTemplateService', () => {
     );
   });
 
-  it('creates project template and publishes event', async () => {
+  it('creates project template without publishing retired metadata events', async () => {
     prisma.projectTemplate.create.mockResolvedValue(
       buildProjectTemplateRecord(),
     );
@@ -104,7 +104,7 @@ describe('ProjectTemplateService', () => {
     );
 
     expect(result.id).toBe('1');
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
   });
 
   it('upgrades template by creating new versioned configs', async () => {

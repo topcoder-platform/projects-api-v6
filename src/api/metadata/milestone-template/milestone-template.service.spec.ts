@@ -58,7 +58,7 @@ describe('MilestoneTemplateService', () => {
     );
   });
 
-  it('creates milestone template and publishes event', async () => {
+  it('creates milestone template without publishing retired metadata events', async () => {
     prisma.milestoneTemplate.create.mockResolvedValue(
       buildMilestoneTemplateRecord(),
     );
@@ -80,7 +80,7 @@ describe('MilestoneTemplateService', () => {
     );
 
     expect(result.id).toBe('1');
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
   });
 
   it('clones milestone template', async () => {
