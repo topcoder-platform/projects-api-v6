@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "environment": "dev",
+  "accountId": "811668436784",
+  "region": "us-east-1",
+  "deployRoleArn": "arn:aws:iam::811668436784:role/projects-api-v6-dev-deploy",
+  "taskRoleArn": "arn:aws:iam::811668436784:role/tc-project-service-ecs-task-role",
+  "executionRoleArn": "arn:aws:iam::811668436784:role/ecsTaskExecutionRole",
+  "cluster": "tc-project-service-serverless",
+  "service": "projects-api-v6",
+  "taskFamily": "projects-api-v6",
+  "circleciOrgId": "947bef5e-1669-415d-b83c-4fc85155b7df",
+  "circleciProjectId": "62d4fa73-0759-4238-a47d-8bc9c7e0af8f",
+  "repository": "github.com/topcoder-platform/projects-api-v6",
+  "branch": "dev",
+  "images": {
+    "projects-api-v6": "projects-api-v6"
+  }
+}
