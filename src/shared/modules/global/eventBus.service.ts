@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { LoggerService } from './logger.service';
 
-import * as busApi from 'tc-bus-api-wrapper';
+import { createBusApiClient as busApi } from 'tc-core-library-js';
 
 /**
  * Event bus integration for publishing project events.
@@ -51,7 +51,7 @@ type EventBusConfigStatus = Record<EventBusRequiredEnvKey, 'set' | 'empty'>;
 
 @Injectable()
 /**
- * Service responsible for publishing events to Kafka through tc-bus-api-wrapper.
+ * Service responsible for publishing events to Kafka through tc-core-library-js.
  */
 export class EventBusService {
   private readonly logger = LoggerService.forRoot('EventBusService');
@@ -118,7 +118,7 @@ export class EventBusService {
     if (typeof busApiFactory !== 'function') {
       this.clientInitReason = 'bus-api-wrapper-unavailable';
       this.logger.warn(
-        `tc-bus-api-wrapper is not available. Event publishing disabled. configStatus=${this.serializeConfigStatus(configStatus)}`,
+        `tc-core-library-js bus client is not available. Event publishing disabled. configStatus=${this.serializeConfigStatus(configStatus)}`,
       );
       return null;
     }

@@ -25,9 +25,9 @@
     "README.md"
   ],
   "dependencies": {
-    "@prisma/adapter-pg": "7.9.0",
-    "@prisma/client": "7.9.0",
-    "@prisma/client-runtime-utils": "7.9.0"
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "@prisma/client-runtime-utils": "7.10.1"
   },
   "engines": {
     "node": "26.x"

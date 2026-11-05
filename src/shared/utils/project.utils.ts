@@ -143,9 +143,7 @@ function getUserEmail(user: JwtUser): string {
       continue;
     }
 
-    const normalizedEmail = normalizeEmail(
-      (payload as Record<string, unknown>)[key],
-    );
+    const normalizedEmail = normalizeEmail(payload[key]);
     if (normalizedEmail.length > 0) {
       return normalizedEmail;
     }

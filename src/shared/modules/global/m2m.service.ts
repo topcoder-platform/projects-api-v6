@@ -37,7 +37,7 @@ export class M2MService {
    */
   constructor() {
     if (tcCore?.auth?.m2m) {
-      this.m2mClient = tcCore.auth.m2m({
+      this.m2mClient = tcCore.createM2MClient({
         AUTH0_URL: process.env.AUTH0_URL,
         AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
         AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
@@ -98,12 +98,7 @@ export class M2MService {
     }
 
     const scopes = this.extractScopes(payload);
-    const grantType = payload.gty;
-
-    const isMachine =
-      scopes.length > 0 ||
-      (typeof grantType === 'string' &&
-        grantType.toLowerCase() === 'client-credentials');
+    const isMachine = payload.isMachine === true;
 
     return {
       isMachine,

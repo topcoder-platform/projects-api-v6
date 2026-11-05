@@ -66,7 +66,7 @@ describe('ProductTemplateService', () => {
     );
   });
 
-  it('creates product template and publishes event', async () => {
+  it('creates product template without publishing retired metadata events', async () => {
     prisma.productTemplate.create.mockResolvedValue(
       buildProductTemplateRecord(),
     );
@@ -86,7 +86,7 @@ describe('ProductTemplateService', () => {
     );
 
     expect(result.id).toBe('1');
-    expect(eventBusService.publishProjectEvent).toHaveBeenCalled();
+    expect(eventBusService.publishProjectEvent).not.toHaveBeenCalled();
   });
 
   it('upgrades template by creating new form version', async () => {

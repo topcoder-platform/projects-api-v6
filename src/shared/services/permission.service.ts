@@ -745,7 +745,7 @@ export class PermissionService {
         continue;
       }
 
-      const value = (payload as Record<string, unknown>)[key];
+      const value = payload[key];
       if (typeof value !== 'string') {
         continue;
       }

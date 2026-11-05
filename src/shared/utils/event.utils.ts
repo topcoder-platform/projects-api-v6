@@ -4,10 +4,10 @@
  * Used by domain services to publish lifecycle events to Topcoder Bus API.
  */
 import { LoggerService } from 'src/shared/modules/global/logger.service';
-import * as busApi from 'tc-bus-api-wrapper';
+import { createBusApiClient as busApi } from 'tc-core-library-js';
 
 /**
- * Event envelope shape accepted by `tc-bus-api-wrapper`.
+ * Event envelope shape accepted by `tc-core-library-js`.
  */
 type BusApiEvent = {
   topic: string;
@@ -76,7 +76,7 @@ let circuitOpenUntil = 0;
 const logger = LoggerService.forRoot('EventUtils');
 
 /**
- * Builds `tc-bus-api-wrapper` configuration from environment variables.
+ * Builds `tc-core-library-js` configuration from environment variables.
  *
  * @security `AUTH0_CLIENT_SECRET` is injected from environment and must never
  * be logged.
@@ -240,7 +240,9 @@ export async function getBusApiClient(): Promise<BusApiClient> {
       const client = factory(buildBusApiConfig());
 
       if (!client || typeof client.postEvent !== 'function') {
-        throw new Error('tc-bus-api-wrapper client initialization failed.');
+        throw new Error(
+          'tc-core-library-js bus client client initialization failed.',
+        );
       }
 
       busApiClient = client;

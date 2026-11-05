@@ -3,8 +3,8 @@
 NestJS drop-in replacement for `tc-project-service`, serving the Topcoder platform at `/v6/projects`.
 
 [![CircleCI](https://img.shields.io/badge/CircleCI-build%20status-informational?logo=circleci)](https://circleci.com/)
-![Node](https://img.shields.io/badge/node-v26.5.1-339933?logo=node.js&logoColor=white)
-![pnpm](https://img.shields.io/badge/pnpm-10.28.2-F69220?logo=pnpm&logoColor=white)
+![Node](https://img.shields.io/badge/node-v26.12.1-339933?logo=node.js&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-11.15.1-F69220?logo=pnpm&logoColor=white)
 ![Audit](https://img.shields.io/badge/production%20audit-0%20findings-brightgreen)
 
 ## Table of Contents
@@ -419,8 +419,8 @@ Reference source: `.env.example`.
 
 ### Prerequisites
 
-- Node.js `v26.5.1` (`nvm use` in this project folder)
-- pnpm `10.28.2`
+- Node.js `v26.12.1` (`nvm use` in this project folder)
+- pnpm `11.15.1`
 - PostgreSQL
 
 ### Installation
@@ -486,7 +486,7 @@ Must pass before every commit per `AGENTS.md`.
 ## Deployment
 
 - CI/CD: CircleCI -> AWS ECS Fargate.
-- The multi-stage Docker image builds with Node 26.5.1 and copies only compiled
+- The multi-stage Docker image builds with Node 26.12.1 and copies only compiled
   output, production dependencies, and Prisma migration assets into its Alpine
   3.24 runtime. The runtime installs the dynamically linked Alpine Node package
   and does not contain npm or other package tooling.
@@ -517,8 +517,8 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 Summary from `docs/DEPENDENCIES.md`:
 
 - Production audit: no known vulnerabilities.
-- Node 26.5.1, NestJS 11.1.28, Prisma 7.9.0, Axios 1.18.1,
-  Lodash 4.18.1, qs 6.15.3, and UUID 14.0.1 are locked in the
+- Node 26.12.1, NestJS 11.2.8, Prisma 7.10.1, Axios 1.21.0,
+  Lodash 4.18.1, qs 6.17.1, and UUID 14.0.3 are locked in the
   security candidate.
 - Security overrides for affected transitives are maintained in
   `pnpm-workspace.yaml` and captured in `pnpm-lock.yaml`.
@@ -572,3 +572,46 @@ Migration runbook (phased rollout, rollback, monitoring): `docs/MIGRATION_RUNBOO
 `Talent Manager` and `Topcoder Talent Manager` users can list and open all non-internal projects without membership, including read-only access to their members, invites, and attachments. Set `INTERNAL_BILLING_ACCOUNT_IDS` to the comma-separated positive billing account IDs used for internal projects before deploying this policy (for example, `123,456`); an empty value excludes no accounts, and invalid values reject requests rather than applying a partial list. Projects without a billing account remain visible.
 
 Internal projects are excluded from list results and totals and rejected on direct project and nested project routes unless the Talent Manager is an active project member. Explicit membership in any project role overrides the internal billing account exclusion; deleted memberships and pending invites alone do not. Administrators and machine tokens keep their existing authorization policies. `memberOnly=true` narrows the visible projects to existing membership/pending-invite associations, including internal projects with active membership; Work exposes this as **My Projects**.
+
+## Shared authentication and bus client (v6 refresh)
+
+This branch uses `tc-core-library-js` **4.0.0-rc.1**. Use its named
+`createJwtVerifier` / `createJwtAuthenticator`, `createM2MClient`, and
+`createBusApiClient` exports for shared authentication and bus API publishing.
+Service-specific roles, scopes, sessions and ownership checks remain in this service.
+The former bus wrapper dependency and local JWT cryptography must not be reintroduced.
+
+RSA verification requires an exact configured issuer and audience (`JWT_AUDIENCE`
+for client tokens, `AUTH0_AUDIENCE` for machine/API tokens, or this service's explicit
+issuer-policy settings). HMAC secrets must be at least 32 bytes; no default secret
+is supplied. Expiry is enforced. Machine identity comes from the shared verifier,
+not the presence of scopes. Supply real development credentials through the service's
+existing environment configuration before deployment.
+
+Bus publishers use `createBusApiClient(config).postEvent(event)` with the existing
+event envelope and optional key. Configure `BUSAPI_URL` for v6 and the existing
+OAuth credentials/token provider. The client uses bounded HTTPS requests and does
+not retry POSTs automatically. Application retry/outbox behavior remains local.
+
+See the [core migration guide](https://github.com/topcoder-platform/tc-core-library-js/blob/v4.0.0-rc.1/MIGRATION.md)
+for the API mapping, compatibility requirements, and rollout scope.
+
+## Alpine Node runtime packages
+
+Container stages that install Node through APK constrain `nodejs-current` to the
+major version in `NODE_VERSION`, rather than an exact Alpine package revision.
+Alpine replaces older patch packages in its repositories; the compatible pin
+allows current security patches while a build-time check rejects a different
+Node major. The runtime keeps Alpine's dynamically linked Node and system
+libraries. Existing non-root users and application entrypoints are preserved.
+Build stages using a versioned official Node image retain their configured
+version, and pnpm build arguments are explicitly declared in the consuming stage.
+
+## November 2026 security validation
+
+The dependency refresh updates the complete lockfile, pins the reviewed core
+library revision, and tests legacy minimatch consumers through
+`pnpm test:dependency-compat`. Patched Ajv 6 and 8 dependencies replace the
+obsolete ESLint patches that forced a different Ajv major. Salesforce fallback
+queries now log a fixed diagnostic message rather than SQL containing
+configuration fields or account identifiers.
