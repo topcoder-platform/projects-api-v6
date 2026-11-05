@@ -1,4 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { createM2MClient, type M2MClient } from 'tc-core-library-js';
 import {
   Scope,
   SCOPE_HIERARCHY,
@@ -13,10 +14,6 @@ import { LoggerService } from './logger.service';
  * Provides M2M token acquisition through tc-core/Auth0 and scope utilities
  * used to classify machine tokens and evaluate scope-based access.
  */
-// tc-core-library-js is CommonJS-only.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const tcCore = require('tc-core-library-js');
-
 type TokenPayload = Record<string, unknown>;
 
 @Injectable()
@@ -28,34 +25,27 @@ type TokenPayload = Record<string, unknown>;
  */
 export class M2MService {
   private readonly logger = LoggerService.forRoot('M2MService');
-  private readonly m2mClient: any;
+  private readonly m2mClient: M2MClient;
 
   // TODO (security): AUTH0_CLIENT_ID and AUTH0_CLIENT_SECRET are read at call-time in getM2MToken() rather than validated at startup. A missing secret will only surface at runtime when a token is first requested.
-  // TODO (quality): m2mClient is typed as 'any'. Define an interface for the tc-core M2M client to enable type safety.
   /**
-   * Creates the tc-core M2M client when tc-core auth bindings are available.
+   * Creates the tc-core M2M client using its supported top-level factory.
    */
   constructor() {
-    if (tcCore?.auth?.m2m) {
-      this.m2mClient = tcCore.createM2MClient({
-        AUTH0_URL: process.env.AUTH0_URL,
-        AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
-        AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
-      });
-    }
+    this.m2mClient = createM2MClient({
+      AUTH0_URL: process.env.AUTH0_URL,
+      AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
+      AUTH0_PROXY_SERVER_URL: process.env.AUTH0_PROXY_SERVER_URL,
+    });
   }
 
   /**
    * Fetches an M2M token from Auth0 through tc-core.
    *
    * @returns {Promise<string>} Machine token string.
-   * @throws {InternalServerErrorException} When the client is not initialized, credentials are missing, or token retrieval fails.
+   * @throws {InternalServerErrorException} When credentials are missing or token retrieval fails.
    */
   async getM2MToken(): Promise<string> {
-    if (!this.m2mClient) {
-      throw new InternalServerErrorException('M2M client is not initialized.');
-    }
-
     const clientId = process.env.AUTH0_CLIENT_ID;
     const clientSecret = process.env.AUTH0_CLIENT_SECRET;
 
