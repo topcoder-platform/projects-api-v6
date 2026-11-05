@@ -13,11 +13,15 @@ import { Scope } from 'src/shared/enums/scopes.enum';
 import { JwtService } from './jwt.service';
 
 function signToken(payload: Record<string, unknown>): string {
-  return jwt.sign({ emailVerified: true, ...payload }, 'test-secret-with-at-least-32-bytes-long', {
-    issuer: 'https://issuer.test/',
-    audience: 'api',
-    expiresIn: 300,
-  });
+  return jwt.sign(
+    { emailVerified: true, ...payload },
+    'test-secret-with-at-least-32-bytes-long',
+    {
+      issuer: 'https://issuer.test/',
+      audience: 'api',
+      expiresIn: 300,
+    },
+  );
 }
 
 describe('JwtService', () => {
