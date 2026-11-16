@@ -26,11 +26,25 @@ function signToken(payload: Record<string, unknown>): string {
 
 describe('JwtService', () => {
   let service: JwtService;
+  const previousPolicies = process.env.JWT_ISSUER_POLICIES;
+  afterEach(() => {
+    if (previousPolicies === undefined) delete process.env.JWT_ISSUER_POLICIES;
+    else process.env.JWT_ISSUER_POLICIES = previousPolicies;
+  });
 
   beforeEach(() => {
     process.env.AUTH_SECRET = 'test-secret-with-at-least-32-bytes-long';
     process.env.VALID_ISSUERS = JSON.stringify(['https://issuer.test/']);
     process.env.AUTH0_AUDIENCE = 'api';
+    process.env.JWT_ISSUER_POLICIES = JSON.stringify([
+      {
+        issuer: 'https://issuer.test/',
+        algorithm: 'HS256',
+        audience: 'api',
+        legacyHs256Until: new Date(Date.now() + 3_600_000).toISOString(),
+      },
+      { issuer: 'https://machine.test/', algorithm: 'RS256', audience: 'api' },
+    ]);
     service = new JwtService();
     service.onModuleInit();
   });
@@ -89,7 +103,7 @@ describe('JwtService', () => {
       {
         algorithm: 'RS256',
         keyid: 'test-key',
-        issuer: 'https://issuer.test/',
+        issuer: 'https://machine.test/',
         audience: 'api',
         expiresIn: 300,
       },
