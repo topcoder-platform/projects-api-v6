@@ -1,9 +1,9 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
-import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { Permission } from '../../shared/constants/permissions';
+import { KAFKA_TOPIC } from '../../shared/config/kafka.config';
+import { Scope } from '../../shared/enums/scopes.enum';
+import { UserRole } from '../../shared/enums/userRole.enum';
+import { PermissionService } from '../../shared/services/permission.service';
 import { ProjectService } from './project.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({

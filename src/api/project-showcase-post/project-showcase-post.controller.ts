@@ -21,16 +21,16 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { Permission } from 'src/shared/constants/permissions';
-import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
-import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
-import { Scopes } from 'src/shared/decorators/scopes.decorator';
-import { Scope } from 'src/shared/enums/scopes.enum';
-import { UserRole } from 'src/shared/enums/userRole.enum';
-import { PermissionGuard } from 'src/shared/guards/permission.guard';
-import { Roles } from 'src/shared/guards/tokenRoles.guard';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { setProjectPaginationHeaders } from 'src/shared/utils/pagination.utils';
+import { Permission } from '../../shared/constants/permissions';
+import { CurrentUser } from '../../shared/decorators/currentUser.decorator';
+import { RequirePermission } from '../../shared/decorators/requirePermission.decorator';
+import { Scopes } from '../../shared/decorators/scopes.decorator';
+import { Scope } from '../../shared/enums/scopes.enum';
+import { UserRole } from '../../shared/enums/userRole.enum';
+import { PermissionGuard } from '../../shared/guards/permission.guard';
+import { Roles } from '../../shared/guards/tokenRoles.guard';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { setProjectPaginationHeaders } from '../../shared/utils/pagination.utils';
 import { ProjectShowcasePostResponseDto } from './dto/project-showcase-post-response.dto';
 import { ProjectShowcasePostListQueryDto } from './dto/project-showcase-post-list-query.dto';
 import { CreateProjectShowcasePostDto } from './dto/create-project-showcase-post.dto';

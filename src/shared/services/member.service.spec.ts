@@ -1,6 +1,6 @@
 import { HttpService } from '@nestjs/axios';
 import { of, throwError } from 'rxjs';
-import { M2MService } from 'src/shared/modules/global/m2m.service';
+import { M2MService } from '../modules/global/m2m.service';
 import { MemberService } from './member.service';
 
 jest.mock('src/shared/config/service-endpoints.config', () => ({

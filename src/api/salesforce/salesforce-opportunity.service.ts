@@ -4,15 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { getChallengesPrismaClient } from 'src/shared/global/external-prisma.client';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { BillingAccountService } from 'src/shared/services/billingAccount.service';
+import { getChallengesPrismaClient } from '../../shared/global/external-prisma.client';
+import { LoggerService } from '../../shared/modules/global/logger.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { BillingAccountService } from '../../shared/services/billingAccount.service';
 import {
   SALESFORCE_OPPORTUNITY_ID_PATTERN,
   SMU_VALUES,
   normalizeSmuValue,
-} from 'src/shared/utils/showcase-metadata.utils';
+} from '../../shared/utils/showcase-metadata.utils';
 import { SalesforceOpportunityResponseDto } from './dto/salesforce-opportunity-response.dto';
 import { SalesforceClient } from './salesforce.client';
 

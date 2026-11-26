@@ -1,7 +1,7 @@
 import { createServer, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { LoggerService } from './logger.service';
-import { Scope } from 'src/shared/enums/scopes.enum';
+import { Scope } from '../../enums/scopes.enum';
 import { M2MService } from './m2m.service';
 
 describe('M2MService', () => {

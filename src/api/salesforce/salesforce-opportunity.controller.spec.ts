@@ -1,6 +1,6 @@
 import { Reflector } from '@nestjs/core';
-import { MANAGER_ROLES, UserRole } from 'src/shared/enums/userRole.enum';
-import { ROLES_KEY } from 'src/shared/guards/tokenRoles.guard';
+import { MANAGER_ROLES, UserRole } from '../../shared/enums/userRole.enum';
+import { ROLES_KEY } from '../../shared/guards/tokenRoles.guard';
 import { SalesforceOpportunityController } from './salesforce-opportunity.controller';
 import { SalesforceOpportunityService } from './salesforce-opportunity.service';
 

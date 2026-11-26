@@ -9,10 +9,10 @@ import {
   CopilotOpportunityStatus,
   ProjectMember,
 } from '@prisma/client';
-import { Permission as NamedPermission } from 'src/shared/constants/permissions';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { Permission as NamedPermission } from '../../shared/constants/permissions';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import { CopilotNotificationService } from './copilot-notification.service';
 import {
   CopilotApplicationListQueryDto,

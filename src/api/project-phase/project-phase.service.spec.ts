@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { Permission } from 'src/shared/constants/permissions';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { Permission } from '../../shared/constants/permissions';
+import { PermissionService } from '../../shared/services/permission.service';
 import { ProjectPhaseService } from './project-phase.service';
 
 type TxPhaseOrder = {

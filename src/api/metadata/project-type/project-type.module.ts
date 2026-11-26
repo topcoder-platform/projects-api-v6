@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../../../shared/modules/global/globalProviders.module';
 import { ProjectTypeController } from './project-type.controller';
 import { ProjectTypeService } from './project-type.service';
 

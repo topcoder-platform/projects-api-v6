@@ -10,9 +10,9 @@ import {
   internalBillingAccountIds,
   isRestrictedTalentManager,
 } from './internal-project.utils';
-import { ProjectListQueryDto } from 'src/api/project/dto/project-list-query.dto';
-import { PROJECT_MEMBER_MANAGER_ROLES } from 'src/shared/enums/projectMemberRole.enum';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { ProjectListQueryDto } from '../../api/project/dto/project-list-query.dto';
+import { PROJECT_MEMBER_MANAGER_ROLES } from '../enums/projectMemberRole.enum';
+import { JwtUser } from '../modules/global/jwt.service';
 
 /**
  * Flags representing requested project response sub-resources.

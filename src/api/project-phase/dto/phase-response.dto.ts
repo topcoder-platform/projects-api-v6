@@ -1,6 +1,6 @@
 import { ProjectStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PhaseProductResponseDto } from 'src/api/phase-product/dto/phase-product-response.dto';
+import { PhaseProductResponseDto } from '../../phase-product/dto/phase-product-response.dto';
 
 /**
  * Response model for phase member rows embedded in phase responses.

@@ -6,24 +6,24 @@ import {
 } from '@nestjs/common';
 import { AttachmentType, ProjectAttachment } from '@prisma/client';
 import { basename } from 'path';
-import { CreateAttachmentDto } from 'src/api/project-attachment/dto/create-attachment.dto';
-import { UpdateAttachmentDto } from 'src/api/project-attachment/dto/update-attachment.dto';
-import { Permission } from 'src/shared/constants/permissions';
-import { APP_CONFIG } from 'src/shared/config/app.config';
-import { ProjectPermissionContextBase } from 'src/shared/interfaces/project-permission-context.interface';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { FileService } from 'src/shared/services/file.service';
-import { MemberService } from 'src/shared/services/member.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { CreateAttachmentDto } from './dto/create-attachment.dto';
+import { UpdateAttachmentDto } from './dto/update-attachment.dto';
+import { Permission } from '../../shared/constants/permissions';
+import { APP_CONFIG } from '../../shared/config/app.config';
+import { ProjectPermissionContextBase } from '../../shared/interfaces/project-permission-context.interface';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { LoggerService } from '../../shared/modules/global/logger.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { FileService } from '../../shared/services/file.service';
+import { MemberService } from '../../shared/services/member.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import {
   ensureProjectNamedPermission,
   getAuditUserIdOrDefault,
   isAdminProjectUser,
   loadProjectPermissionContextBase,
   parseBigIntId,
-} from 'src/shared/utils/service.utils';
+} from '../../shared/utils/service.utils';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
 
 @Injectable()

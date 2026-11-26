@@ -4,14 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PhaseProduct, Prisma } from '@prisma/client';
-import { CreatePhaseProductDto } from 'src/api/phase-product/dto/create-phase-product.dto';
-import { UpdatePhaseProductDto } from 'src/api/phase-product/dto/update-phase-product.dto';
-import { Permission } from 'src/shared/constants/permissions';
-import { APP_CONFIG } from 'src/shared/config/app.config';
-import { ProjectPermissionContext } from 'src/shared/interfaces/project-permission-context.interface';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { CreatePhaseProductDto } from './dto/create-phase-product.dto';
+import { UpdatePhaseProductDto } from './dto/update-phase-product.dto';
+import { Permission } from '../../shared/constants/permissions';
+import { APP_CONFIG } from '../../shared/config/app.config';
+import { ProjectPermissionContext } from '../../shared/interfaces/project-permission-context.interface';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import {
   ensureProjectNamedPermission,
   getAuditUserIdOrDefault,
@@ -19,7 +19,7 @@ import {
   parseBigIntId,
   toDetailsObject as toDetailsObjectValue,
   toJsonInput as toJsonInputValue,
-} from 'src/shared/utils/service.utils';
+} from '../../shared/utils/service.utils';
 import { PhaseProductResponseDto } from './dto/phase-product-response.dto';
 
 @Injectable()

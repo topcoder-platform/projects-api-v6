@@ -9,7 +9,7 @@ const { JwksClient } = sharedRequire('jwks-rsa') as {
   };
 };
 import * as jwt from 'jsonwebtoken';
-import { Scope } from 'src/shared/enums/scopes.enum';
+import { Scope } from '../../enums/scopes.enum';
 import { JwtService } from './jwt.service';
 
 function signToken(payload: Record<string, unknown>): string {

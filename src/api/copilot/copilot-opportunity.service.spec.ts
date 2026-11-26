@@ -5,8 +5,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { UserRole } from 'src/shared/enums/userRole.enum';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { UserRole } from '../../shared/enums/userRole.enum';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
 import { CopilotOpportunityService } from './copilot-opportunity.service';
 
 describe('CopilotOpportunityService', () => {

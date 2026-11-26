@@ -1,7 +1,7 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { CopilotNotificationService } from 'src/api/copilot/copilot-notification.service';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { CopilotNotificationService } from '../copilot/copilot-notification.service';
+import { GlobalProvidersModule } from '../../shared/modules/global/globalProviders.module';
 import { ProjectInviteController } from './project-invite.controller';
 import { ProjectInviteService } from './project-invite.service';
 

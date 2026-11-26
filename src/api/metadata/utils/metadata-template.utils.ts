@@ -1,6 +1,6 @@
 import { BadRequestException, HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaErrorService } from 'src/shared/modules/global/prisma-error.service';
+import { PrismaErrorService } from '../../../shared/modules/global/prisma-error.service';
 import {
   MetadataVersionReference,
   normalizeMetadataReference,

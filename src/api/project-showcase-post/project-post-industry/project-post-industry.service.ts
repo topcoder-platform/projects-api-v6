@@ -5,13 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ProjectPostIndustry } from '@prisma/client';
-import { PrismaErrorService } from 'src/shared/modules/global/prisma-error.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { EventBusService } from 'src/shared/modules/global/eventBus.service';
+import { PrismaErrorService } from '../../../shared/modules/global/prisma-error.service';
+import { PrismaService } from '../../../shared/modules/global/prisma.service';
+import { EventBusService } from '../../../shared/modules/global/eventBus.service';
 import {
   PROJECT_METADATA_RESOURCE,
   publishMetadataEvent,
-} from 'src/api/metadata/utils/metadata-event.utils';
+} from '../../metadata/utils/metadata-event.utils';
 import { CreateProjectPostIndustryDto } from './dto/create-project-post-industry.dto';
 import { ProjectPostIndustryResponseDto } from './dto/project-post-industry-response.dto';
 import { UpdateProjectPostIndustryDto } from './dto/update-project-post-industry.dto';

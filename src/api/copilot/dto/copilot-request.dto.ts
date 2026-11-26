@@ -19,7 +19,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { parseOptionalLooseInteger } from 'src/shared/utils/dto-transform.utils';
+import { parseOptionalLooseInteger } from '../../../shared/utils/dto-transform.utils';
 
 /**
  * Input/output DTOs for the copilot request lifecycle.

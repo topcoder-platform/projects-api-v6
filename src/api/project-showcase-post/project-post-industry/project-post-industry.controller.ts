@@ -15,11 +15,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
-import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
-import { AnyAuthenticated } from 'src/shared/guards/tokenRoles.guard';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { getAuditUserIdNumber } from 'src/api/metadata/utils/metadata-utils';
+import { CurrentUser } from '../../../shared/decorators/currentUser.decorator';
+import { AdminOnly } from '../../../shared/guards/adminOnly.guard';
+import { AnyAuthenticated } from '../../../shared/guards/tokenRoles.guard';
+import { JwtUser } from '../../../shared/modules/global/jwt.service';
+import { getAuditUserIdNumber } from '../../metadata/utils/metadata-utils';
 import { CreateProjectPostIndustryDto } from './dto/create-project-post-industry.dto';
 import { ProjectPostIndustryResponseDto } from './dto/project-post-industry-response.dto';
 import { UpdateProjectPostIndustryDto } from './dto/update-project-post-industry.dto';

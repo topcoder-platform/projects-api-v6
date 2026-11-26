@@ -19,16 +19,16 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { WorkStreamService } from 'src/api/workstream/workstream.service';
-import { Permission } from 'src/shared/constants/permissions';
-import { WORK_LAYER_ALLOWED_ROLES } from 'src/shared/constants/roles';
-import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
-import { RequirePermission } from 'src/shared/decorators/requirePermission.decorator';
-import { Scopes } from 'src/shared/decorators/scopes.decorator';
-import { Scope } from 'src/shared/enums/scopes.enum';
-import { PermissionGuard } from 'src/shared/guards/permission.guard';
-import { Roles } from 'src/shared/guards/tokenRoles.guard';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { WorkStreamService } from '../workstream/workstream.service';
+import { Permission } from '../../shared/constants/permissions';
+import { WORK_LAYER_ALLOWED_ROLES } from '../../shared/constants/roles';
+import { CurrentUser } from '../../shared/decorators/currentUser.decorator';
+import { RequirePermission } from '../../shared/decorators/requirePermission.decorator';
+import { Scopes } from '../../shared/decorators/scopes.decorator';
+import { Scope } from '../../shared/enums/scopes.enum';
+import { PermissionGuard } from '../../shared/guards/permission.guard';
+import { Roles } from '../../shared/guards/tokenRoles.guard';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
 import { CreatePhaseDto } from './dto/create-phase.dto';
 import { PhaseListQueryDto } from './dto/phase-list-query.dto';
 import { PhaseResponseDto } from './dto/phase-response.dto';

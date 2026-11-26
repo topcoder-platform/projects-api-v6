@@ -6,8 +6,8 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { APP_CONFIG } from 'src/shared/config/app.config';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
+import { APP_CONFIG } from '../config/app.config';
+import { LoggerService } from '../modules/global/logger.service';
 
 /**
  * S3 file-operation wrapper for project attachments.

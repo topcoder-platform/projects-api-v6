@@ -12,8 +12,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { MANAGER_ROLES, UserRole } from 'src/shared/enums/userRole.enum';
-import { Roles } from 'src/shared/guards/tokenRoles.guard';
+import { MANAGER_ROLES, UserRole } from '../../shared/enums/userRole.enum';
+import { Roles } from '../../shared/guards/tokenRoles.guard';
 import { SalesforceOpportunityResponseDto } from './dto/salesforce-opportunity-response.dto';
 import { SalesforceOpportunityService } from './salesforce-opportunity.service';
 

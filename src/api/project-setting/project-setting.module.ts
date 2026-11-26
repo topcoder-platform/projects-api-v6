@@ -1,6 +1,6 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../../shared/modules/global/globalProviders.module';
 import { ProjectSettingController } from './project-setting.controller';
 import { ProjectSettingService } from './project-setting.service';
 

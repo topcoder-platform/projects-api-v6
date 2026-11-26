@@ -1,6 +1,6 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Public } from 'src/shared/decorators/public.decorator';
+import { Public } from '../../../shared/decorators/public.decorator';
 import { PlanConfigResponseDto } from './dto/plan-config-response.dto';
 import { PlanConfigService } from './plan-config.service';
 

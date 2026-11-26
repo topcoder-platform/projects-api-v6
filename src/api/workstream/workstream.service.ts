@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, WorkStream } from '@prisma/client';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { parseSortParam } from 'src/shared/utils/query.utils';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { parseSortParam } from '../../shared/utils/query.utils';
 import {
   CreateWorkStreamDto,
   UpdateWorkStreamDto,

@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Public } from 'src/shared/decorators/public.decorator';
+import { Public } from '../../shared/decorators/public.decorator';
 import { parseOptionalBooleanQuery } from './utils/metadata-utils';
 import { MetadataListResponseDto } from './metadata-list-response.dto';
 import {

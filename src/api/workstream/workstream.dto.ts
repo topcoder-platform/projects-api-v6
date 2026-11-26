@@ -15,7 +15,7 @@ import {
 import {
   parseOptionalBoolean,
   parseOptionalInteger,
-} from 'src/shared/utils/dto-transform.utils';
+} from '../../shared/utils/dto-transform.utils';
 
 /**
  * Create payload for `POST /projects/:projectId/workstreams`.

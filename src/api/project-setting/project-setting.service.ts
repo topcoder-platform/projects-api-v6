@@ -8,20 +8,20 @@ import { Prisma, ProjectSetting, ValueType } from '@prisma/client';
 import {
   CreateProjectSettingDto,
   ProjectSettingValueType,
-} from 'src/api/project-setting/dto/create-project-setting.dto';
-import { ProjectSettingResponseDto } from 'src/api/project-setting/dto/project-setting-response.dto';
-import { UpdateProjectSettingDto } from 'src/api/project-setting/dto/update-project-setting.dto';
+} from './dto/create-project-setting.dto';
+import { ProjectSettingResponseDto } from './dto/project-setting-response.dto';
+import { UpdateProjectSettingDto } from './dto/update-project-setting.dto';
 import {
   ProjectMember,
   Permission,
-} from 'src/shared/interfaces/permission.interface';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+} from '../../shared/interfaces/permission.interface';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import {
   getAuditUserId as getAuditUserIdFromJwt,
   parseNumericStringId,
-} from 'src/shared/utils/service.utils';
+} from '../../shared/utils/service.utils';
 
 /**
  * Manages per-project key/value settings persisted in `ProjectSetting`.

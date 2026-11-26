@@ -1,10 +1,10 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ProjectMemberRole } from '@prisma/client';
-import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
-import { UserRole } from 'src/shared/enums/userRole.enum';
-import { MemberService } from 'src/shared/services/member.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { Permission } from '../../shared/constants/permissions';
+import { KAFKA_TOPIC } from '../../shared/config/kafka.config';
+import { UserRole } from '../../shared/enums/userRole.enum';
+import { MemberService } from '../../shared/services/member.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import { ProjectMemberService } from './project-member.service';
 
 jest.mock('src/shared/utils/event.utils', () => ({

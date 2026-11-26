@@ -3,7 +3,7 @@
  *
  * Used by domain services to publish lifecycle events to Topcoder Bus API.
  */
-import { LoggerService } from 'src/shared/modules/global/logger.service';
+import { LoggerService } from '../modules/global/logger.service';
 import { createBusApiClient as busApi } from 'tc-core-library-js';
 
 /**

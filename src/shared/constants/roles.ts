@@ -1,4 +1,4 @@
-import { UserRole } from 'src/shared/enums/userRole.enum';
+import { UserRole } from '../enums/userRole.enum';
 
 /**
  * Coarse auth pass-through for workstream/work/workitem endpoints.

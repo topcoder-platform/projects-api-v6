@@ -4,8 +4,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { setTimeout as delay } from 'node:timers/promises';
-import { SALESFORCE_CONFIG } from 'src/shared/config/salesforce.config';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
+import { SALESFORCE_CONFIG } from '../../shared/config/salesforce.config';
+import { LoggerService } from '../../shared/modules/global/logger.service';
 
 /**
  * Salesforce OAuth session kept in server memory only.

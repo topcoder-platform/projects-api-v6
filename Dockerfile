@@ -40,11 +40,9 @@ ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
 ENV SEED_DATA=$SEED_DATA_ARG
 WORKDIR /app
 
-# Alpine replaces old APK patch versions. Keep the configured Node major while
-# accepting maintained patch releases and verify the selected runtime below.
 RUN apk upgrade --no-cache \
-  && apk add --no-cache 'libcrypto3>=3.5.9-r1' 'libssl3>=3.5.9-r1' bash "nodejs-current~${NODE_VERSION%%.*}" "nodejs-current>=26.13.1-r0" "zlib>=1.4-r0" openssl \
-  && test "$(node -p 'process.versions.node.split(".")[0]')" = "${NODE_VERSION%%.*}" \
+  && apk add --no-cache 'libcrypto3>=3.5.9-r1' 'libssl3>=3.5.9-r1' bash 'nodejs-current~26.13.1' "zlib>=1.4-r0" openssl \
+  && test "$(node -p 'process.versions.node')" = "${NODE_VERSION}" \
   && addgroup --system --gid 10001 app \
   && adduser --system --disabled-password --no-create-home --uid 10001 --ingroup app app
 

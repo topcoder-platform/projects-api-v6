@@ -1,6 +1,6 @@
 packages:
-- .
-- packages/projects-prisma-client
+  - .
+  - packages/projects-prisma-client
 allowBuilds:
   '@nestjs/core': true
   '@prisma/engines': true
@@ -10,16 +10,21 @@ allowBuilds:
   '@prisma/client': true
   '@parcel/watcher': true
   unrs-resolver: true
-  ? prisma-client-5d2436c7af7cc0fe720cc0561c355f368c67488b5a6ab60825ecca51961068c9@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/8ca7e4d065d15a077c648e4d04b85b73276cc078#path:packages/challenge-prisma-client
-  : set this to true or false
-  ? prisma-client-9a7bd3faffe1bf759b7e5a9b9ac8d565b584cea16eb6514ab6a17128077ad3a9@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/c64ffdccbed62533528dce55d33484be5e035d89#path:packages/resources-prisma-client
-  : set this to true or false
-  ? prisma-client-9c498510e6ff16cc8439dcdf50ce209a44b2b4761bc0953588513676bcc12257@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/a0ffd68bd7c63bbf525459b1e195d6d38ab26a91#path:packages/member-prisma-client
-  : set this to true or false
+  prisma-client-5d2436c7af7cc0fe720cc0561c355f368c67488b5a6ab60825ecca51961068c9@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/8ca7e4d065d15a077c648e4d04b85b73276cc078#path:packages/challenge-prisma-client: false
+  prisma-client-9a7bd3faffe1bf759b7e5a9b9ac8d565b584cea16eb6514ab6a17128077ad3a9@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/c64ffdccbed62533528dce55d33484be5e035d89#path:packages/resources-prisma-client: false
+  prisma-client-9c498510e6ff16cc8439dcdf50ce209a44b2b4761bc0953588513676bcc12257@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/a0ffd68bd7c63bbf525459b1e195d6d38ab26a91#path:packages/member-prisma-client: false
   prisma-client-5d2436c7af7cc0fe720cc0561c355f368c67488b5a6ab60825ecca51961068c9: false
   prisma-client-9a7bd3faffe1bf759b7e5a9b9ac8d565b584cea16eb6514ab6a17128077ad3a9: false
   prisma-client-9c498510e6ff16cc8439dcdf50ce209a44b2b4761bc0953588513676bcc12257: false
+  '@topcoder/challenge-api-v6@https://codeload.github.com/topcoder-platform/challenge-api-v6/tar.gz/8c2bc0d9e1e879bd750d160bd57a041496e075fb#path:packages/challenge-prisma-client': false
+  prisma-client-78e089df1f5a5865043662e8e8189cf659f4f4558a239153ed1847f138ff847c@https://codeload.github.com/topcoder-platform/member-api-v6/tar.gz/c356006aab49b5cc71cbdaf0133f102661772c54#path:packages/member-prisma-client: false
+  prisma-client-9f97a39eec082d40239c345b858ab2195a94c2a5bbb3ef627ef0c8097ac7ec5d@https://codeload.github.com/topcoder-platform/resource-api-v6/tar.gz/839e585494df48834c02516038e9a7ef79226a47#path:packages/resources-prisma-client: false
 blockExoticSubdeps: false
+minimumReleaseAgeExclude:
+  - '@nestjs/common@12.6.3'
+  - '@nestjs/core@12.6.3'
+  - '@nestjs/platform-express@12.6.3'
+  - '@nestjs/testing@12.6.3'
 overrides:
   brace-expansion@^1: 1.1.21
   fast-uri@^3: 3.1.9

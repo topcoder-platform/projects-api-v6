@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { ExecutionContext } from '@nestjs/common/interfaces';
+import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../enums/userRole.enum';
 import { Permission } from '../interfaces/permission.interface';

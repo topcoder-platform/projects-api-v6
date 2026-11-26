@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { ProjectShowcasePostService } from './project-showcase-post.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { PermissionService } from '../../shared/services/permission.service';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
 
 const databaseTests = process.env.PROJECTS_TEST_DATABASE_URL
   ? describe

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../../shared/modules/global/globalProviders.module';
 import { ProjectShowcasePostController } from './project-showcase-post.controller';
 import { ProjectShowcasePostService } from './project-showcase-post.service';
 import { ProjectPostCategoryController } from './project-post-category/project-post-category.controller';

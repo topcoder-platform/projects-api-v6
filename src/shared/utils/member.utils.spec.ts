@@ -1,5 +1,5 @@
 import { ProjectMemberRole } from '@prisma/client';
-import { UserRole } from 'src/shared/enums/userRole.enum';
+import { UserRole } from '../enums/userRole.enum';
 import { validateUserHasProjectRole } from './member.utils';
 
 describe('validateUserHasProjectRole', () => {

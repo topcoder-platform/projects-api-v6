@@ -4,16 +4,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, ProjectMemberRole } from '@prisma/client';
-import { Permission } from 'src/shared/constants/permissions';
+import { Permission } from '../constants/permissions';
 import {
   ProjectPermissionContext,
   ProjectPermissionContextBase,
   ProjectPermissionMember,
-} from 'src/shared/interfaces/project-permission-context.interface';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
-import { hasAdminRole } from 'src/shared/utils/permission.utils';
+} from '../interfaces/project-permission-context.interface';
+import { JwtUser } from '../modules/global/jwt.service';
+import { PrismaService } from '../modules/global/prisma.service';
+import { PermissionService } from '../services/permission.service';
+import { hasAdminRole } from './permission.utils';
 
 const MAX_SIGNED_BIGINT_ID = 9223372036854775807n;
 

@@ -1,11 +1,11 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CopilotOpportunityType, Prisma } from '@prisma/client';
-import { Permission as NamedPermission } from 'src/shared/constants/permissions';
-import { UserRole } from 'src/shared/enums/userRole.enum';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { PermissionService } from 'src/shared/services/permission.service';
-import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
-import { isMachinePrincipal } from 'src/shared/utils/service.utils';
+import { Permission as NamedPermission } from '../../shared/constants/permissions';
+import { UserRole } from '../../shared/enums/userRole.enum';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { PermissionService } from '../../shared/services/permission.service';
+import { normalizeEntity as normalizePrismaEntity } from '../../shared/utils/entity.utils';
+import { isMachinePrincipal } from '../../shared/utils/service.utils';
 
 /**
  * Shared pure-function toolkit for the copilot feature.
