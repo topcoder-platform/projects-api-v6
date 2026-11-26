@@ -15,9 +15,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { CurrentUser } from 'src/shared/decorators/currentUser.decorator';
-import { AdminOnly } from 'src/shared/guards/adminOnly.guard';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { CurrentUser } from '../../../shared/decorators/currentUser.decorator';
+import { AdminOnly } from '../../../shared/guards/adminOnly.guard';
+import { JwtUser } from '../../../shared/modules/global/jwt.service';
 import { getAuditUserIdBigInt } from '../utils/metadata-utils';
 import { CreateOrgConfigDto } from './dto/create-org-config.dto';
 import { OrgConfigResponseDto } from './dto/org-config-response.dto';

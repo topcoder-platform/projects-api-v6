@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../../shared/modules/global/globalProviders.module';
 import { SalesforceOpportunityController } from './salesforce-opportunity.controller';
 import { SalesforceOpportunityService } from './salesforce-opportunity.service';
 import { SalesforceClient } from './salesforce.client';

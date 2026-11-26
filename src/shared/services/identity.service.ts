@@ -1,9 +1,9 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
-import { SERVICE_ENDPOINTS } from 'src/shared/config/service-endpoints.config';
-import { M2MService } from 'src/shared/modules/global/m2m.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
+import { SERVICE_ENDPOINTS } from '../config/service-endpoints.config';
+import { M2MService } from '../modules/global/m2m.service';
+import { LoggerService } from '../modules/global/logger.service';
 
 export interface IdentityUser {
   id: string;

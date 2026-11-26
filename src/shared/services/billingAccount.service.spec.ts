@@ -1,9 +1,9 @@
 import { HttpService } from '@nestjs/axios';
 import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
-import { M2MService } from 'src/shared/modules/global/m2m.service';
+import { M2MService } from '../modules/global/m2m.service';
 import { BillingAccountService } from './billingAccount.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
+import { LoggerService } from '../modules/global/logger.service';
 
 jest.mock('src/shared/config/service-endpoints.config', () => ({
   SERVICE_ENDPOINTS: {

@@ -6,7 +6,7 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import { SHOWCASE_CURRENT_STATUSES } from 'src/shared/utils/showcase-metadata.utils';
+import { SHOWCASE_CURRENT_STATUSES } from '../../../shared/utils/showcase-metadata.utils';
 
 /**
  * Additional showcase input, inherited by create/update DTOs. Shared project

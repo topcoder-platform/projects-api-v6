@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
 import { HealthCheckController } from './healthCheck.controller';
 
 describe('HealthCheckController', () => {

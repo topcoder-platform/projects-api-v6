@@ -7,7 +7,7 @@
  * latest available version.
  */
 import { BadRequestException } from '@nestjs/common';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import { PrismaService } from '../../../shared/modules/global/prisma.service';
 import {
   MetadataVersionReference,
   normalizeMetadataReference,

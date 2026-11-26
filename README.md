@@ -486,7 +486,7 @@ Must pass before every commit per `AGENTS.md`.
 ## Deployment
 
 - CI/CD: CircleCI -> AWS ECS Fargate.
-- The multi-stage Docker image builds with Node 26.12.1 and copies only compiled
+- The multi-stage Docker image builds with Node 26.13.1 and copies only compiled
   output, production dependencies, and Prisma migration assets into its Alpine
   3.24 runtime. The runtime installs the dynamically linked Alpine Node package
   and does not contain npm or other package tooling.
@@ -517,7 +517,7 @@ Open findings are tracked inline with `TODO (security)` comments in source.
 Summary from `docs/DEPENDENCIES.md`:
 
 - Production audit: no known vulnerabilities.
-- Node 26.12.1, NestJS 11.2.8, Prisma 7.10.1, Axios 1.21.0,
+- Node 26.13.1, NestJS 11.2.8, Prisma 7.10.1, Axios 1.21.0,
   Lodash 4.18.1, qs 6.17.1, and UUID 14.0.3 are locked in the
   security candidate.
 - Security overrides for affected transitives are maintained in

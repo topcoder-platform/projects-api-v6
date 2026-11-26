@@ -2,7 +2,7 @@ import {
   normalizeShowcaseProjectMetadata,
   PROJECT_SHOWCASE_METADATA_KEYS,
   SHOWCASE_TYPES,
-} from 'src/shared/utils/showcase-metadata.utils';
+} from '../../shared/utils/showcase-metadata.utils';
 import {
   BadRequestException,
   Injectable,
@@ -13,28 +13,28 @@ import {
   ProjectShowcasePost,
   ProjectShowcasePostStatus,
 } from '@prisma/client';
-import { Permission } from 'src/shared/constants/permissions';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { Permission } from '../../shared/constants/permissions';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import {
   ensureProjectNamedPermission,
   getAuditUserId,
   loadProjectPermissionContextBase,
   parseNumericStringId,
-} from 'src/shared/utils/service.utils';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+} from '../../shared/utils/service.utils';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
 import { CreateProjectShowcasePostDto } from './dto/create-project-showcase-post.dto';
 import { ProjectShowcasePostListQueryDto } from './dto/project-showcase-post-list-query.dto';
 import { ProjectShowcasePostResponseDto } from './dto/project-showcase-post-response.dto';
 import { UpdateProjectShowcasePostDto } from './dto/update-project-showcase-post.dto';
-import { signCloudFrontUrl } from 'src/shared/utils/cloudfront.utils';
+import { signCloudFrontUrl } from '../../shared/utils/cloudfront.utils';
 import {
   getChallengesPrismaClient,
   getMembersPrismaClient,
   getResourcesPrismaClient,
   getSkillsPrismaClient,
   getSubmitterRoleId,
-} from 'src/shared/global/external-prisma.client';
+} from '../../shared/global/external-prisma.client';
 import { ChallengeMetadataDto } from './dto/challenge-metadata.dto';
 /** Manages showcase content and atomically synchronizes its shared project/WIN metadata. */
 @Injectable()

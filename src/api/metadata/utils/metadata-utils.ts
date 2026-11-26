@@ -10,11 +10,11 @@ import {
   ForbiddenException,
   HttpException,
 } from '@nestjs/common';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { JwtUser } from '../../../shared/modules/global/jwt.service';
 import {
   getMachineActorId,
   isMachinePrincipal,
-} from 'src/shared/utils/service.utils';
+} from '../../../shared/utils/service.utils';
 
 export interface MetadataVersionReference {
   key: string;

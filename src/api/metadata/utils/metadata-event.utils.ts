@@ -8,8 +8,8 @@
 import {
   PROJECT_METADATA_RESOURCE,
   ProjectMetadataResource,
-} from 'src/shared/constants/event.constants';
-import { EventBusService } from 'src/shared/modules/global/eventBus.service';
+} from '../../../shared/constants/event.constants';
+import { EventBusService } from '../../../shared/modules/global/eventBus.service';
 
 export type MetadataEventAction =
   | 'PROJECT_METADATA_CREATE'

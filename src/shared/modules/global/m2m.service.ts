@@ -4,8 +4,8 @@ import {
   Scope,
   SCOPE_HIERARCHY,
   SCOPE_SYNONYMS,
-} from 'src/shared/enums/scopes.enum';
-import { extractScopesFromPayload } from 'src/shared/utils/scope.utils';
+} from '../../enums/scopes.enum';
+import { extractScopesFromPayload } from '../../utils/scope.utils';
 import { LoggerService } from './logger.service';
 
 /**

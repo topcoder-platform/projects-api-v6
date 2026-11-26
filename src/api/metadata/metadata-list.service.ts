@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, ProductTemplate, ProjectTemplate } from '@prisma/client';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
 import {
   MetadataVersionReference,
   normalizeMetadataReference,

@@ -15,39 +15,39 @@ import {
   ProjectMemberRole,
   ProjectMemberInvite,
 } from '@prisma/client';
-import { CopilotNotificationService } from 'src/api/copilot/copilot-notification.service';
-import { CreateInviteDto } from 'src/api/project-invite/dto/create-invite.dto';
+import { CopilotNotificationService } from '../copilot/copilot-notification.service';
+import { CreateInviteDto } from './dto/create-invite.dto';
 import {
   GetInviteQueryDto,
   InviteListQueryDto,
-} from 'src/api/project-invite/dto/invite-list-query.dto';
+} from './dto/invite-list-query.dto';
 import {
   InviteBulkResponseDto,
   InviteFailureDto,
-} from 'src/api/project-invite/dto/invite-response.dto';
-import { UpdateInviteDto } from 'src/api/project-invite/dto/update-invite.dto';
-import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
+} from './dto/invite-response.dto';
+import { UpdateInviteDto } from './dto/update-invite.dto';
+import { Permission } from '../../shared/constants/permissions';
+import { KAFKA_TOPIC } from '../../shared/config/kafka.config';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { LoggerService } from '../../shared/modules/global/logger.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
 import {
   EmailService,
   type InviteEmailInitiator,
-} from 'src/shared/services/email.service';
-import { IdentityService } from 'src/shared/services/identity.service';
-import { MemberService } from 'src/shared/services/member.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+} from '../../shared/services/email.service';
+import { IdentityService } from '../../shared/services/identity.service';
+import { MemberService } from '../../shared/services/member.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import {
   compareEmail,
   enrichInvitesWithUserDetails,
   validateUserHasProjectRole,
-} from 'src/shared/utils/member.utils';
+} from '../../shared/utils/member.utils';
 import {
   publishInviteEventSafely,
   publishMemberEventSafely,
-} from 'src/shared/utils/event.utils';
-import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
+} from '../../shared/utils/event.utils';
+import { normalizeEntity as normalizePrismaEntity } from '../../shared/utils/entity.utils';
 import {
   ensureRoleScopedPermission,
   getActorUserId as getActorUserIdFromJwt,
@@ -55,7 +55,7 @@ import {
   parseCsvFields,
   parseNumericStringId,
   parseOptionalNumericStringId,
-} from 'src/shared/utils/service.utils';
+} from '../../shared/utils/service.utils';
 
 interface InviteTargetByUser {
   userId: bigint;

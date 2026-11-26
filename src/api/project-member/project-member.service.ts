@@ -14,33 +14,33 @@ import {
   ProjectMember,
   ProjectMemberRole,
 } from '@prisma/client';
-import { CreateMemberDto } from 'src/api/project-member/dto/create-member.dto';
+import { CreateMemberDto } from './dto/create-member.dto';
 import {
   MemberListQueryDto,
   GetMemberQueryDto,
-} from 'src/api/project-member/dto/member-list-query.dto';
-import { UpdateMemberDto } from 'src/api/project-member/dto/update-member.dto';
-import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { MemberService } from 'src/shared/services/member.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+} from './dto/member-list-query.dto';
+import { UpdateMemberDto } from './dto/update-member.dto';
+import { Permission } from '../../shared/constants/permissions';
+import { KAFKA_TOPIC } from '../../shared/config/kafka.config';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { LoggerService } from '../../shared/modules/global/logger.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { MemberService } from '../../shared/services/member.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import {
   enrichMembersWithUserDetails,
   getDefaultProjectRole,
   validateUserHasProjectRole,
-} from 'src/shared/utils/member.utils';
-import { publishMemberEventSafely } from 'src/shared/utils/event.utils';
-import { normalizeEntity as normalizePrismaEntity } from 'src/shared/utils/entity.utils';
+} from '../../shared/utils/member.utils';
+import { publishMemberEventSafely } from '../../shared/utils/event.utils';
+import { normalizeEntity as normalizePrismaEntity } from '../../shared/utils/entity.utils';
 import {
   getActorUserId as getActorUserIdFromJwt,
   getAuditUserId as getAuditUserIdFromJwt,
   ensureRoleScopedPermission,
   parseCsvFields,
   parseNumericStringId,
-} from 'src/shared/utils/service.utils';
+} from '../../shared/utils/service.utils';
 
 /**
  * Manages the project member lifecycle: add, update, delete, list, and get.

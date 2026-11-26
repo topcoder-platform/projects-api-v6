@@ -1,11 +1,11 @@
 import { ForbiddenException } from '@nestjs/common';
 import { InviteStatus, ProjectMemberRole } from '@prisma/client';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
-import { Permission } from 'src/shared/constants/permissions';
-import { EmailService } from 'src/shared/services/email.service';
-import { IdentityService } from 'src/shared/services/identity.service';
-import { MemberService } from 'src/shared/services/member.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { KAFKA_TOPIC } from '../../shared/config/kafka.config';
+import { Permission } from '../../shared/constants/permissions';
+import { EmailService } from '../../shared/services/email.service';
+import { IdentityService } from '../../shared/services/identity.service';
+import { MemberService } from '../../shared/services/member.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import { CopilotNotificationService } from '../copilot/copilot-notification.service';
 import { ProjectInviteService } from './project-invite.service';
 

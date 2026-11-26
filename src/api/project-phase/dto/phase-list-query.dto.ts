@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
-import { parseOptionalBoolean } from 'src/shared/utils/dto-transform.utils';
+import { parseOptionalBoolean } from '../../../shared/utils/dto-transform.utils';
 
 /**
  * Query params for phase/work listing endpoints:

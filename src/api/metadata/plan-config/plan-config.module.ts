@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../../../shared/modules/global/globalProviders.module';
 import { PlanConfigController } from './plan-config.controller';
 import { PlanConfigRevisionController } from './plan-config-revision.controller';
 import { PlanConfigVersionController } from './plan-config-version.controller';

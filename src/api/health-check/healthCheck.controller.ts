@@ -5,8 +5,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { Public } from 'src/shared/decorators/public.decorator';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
+import { Public } from '../../shared/decorators/public.decorator';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
 
 // TODO (quality): Move GetHealthCheckResponseDto to a dedicated src/api/health-check/dto/get-health-check-response.dto.ts file to follow the project's DTO file convention.
 /**

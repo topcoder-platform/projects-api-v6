@@ -1,11 +1,11 @@
 import { HttpModule } from '@nestjs/axios';
 import { Global, Module } from '@nestjs/common';
-import { BillingAccountService } from 'src/shared/services/billingAccount.service';
-import { EmailService } from 'src/shared/services/email.service';
-import { FileService } from 'src/shared/services/file.service';
-import { IdentityService } from 'src/shared/services/identity.service';
-import { MemberService } from 'src/shared/services/member.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+import { BillingAccountService } from '../../services/billingAccount.service';
+import { EmailService } from '../../services/email.service';
+import { FileService } from '../../services/file.service';
+import { IdentityService } from '../../services/identity.service';
+import { MemberService } from '../../services/member.service';
+import { PermissionService } from '../../services/permission.service';
 import { EventBusService } from './eventBus.service';
 import { JwtService } from './jwt.service';
 import { LoggerService } from './logger.service';

@@ -3,7 +3,7 @@ import {
   internalBillingAccountIds,
   isRestrictedTalentManager,
 } from '../../shared/utils/internal-project.utils';
-import { normalizeShowcaseProjectMetadata } from 'src/shared/utils/showcase-metadata.utils';
+import { normalizeShowcaseProjectMetadata } from '../../shared/utils/showcase-metadata.utils';
 import {
   BadRequestException,
   ConflictException,
@@ -20,27 +20,27 @@ import {
   ProjectMemberRole,
   ProjectStatus,
 } from '@prisma/client';
-import { Permission } from 'src/shared/constants/permissions';
-import { KAFKA_TOPIC } from 'src/shared/config/kafka.config';
-import { Scope } from 'src/shared/enums/scopes.enum';
-import { ADMIN_ROLES, UserRole } from 'src/shared/enums/userRole.enum';
+import { Permission } from '../../shared/constants/permissions';
+import { KAFKA_TOPIC } from '../../shared/config/kafka.config';
+import { Scope } from '../../shared/enums/scopes.enum';
+import { ADMIN_ROLES, UserRole } from '../../shared/enums/userRole.enum';
 import {
   Permission as JsonPermission,
   PermissionRule as JsonPermissionRule,
-} from 'src/shared/interfaces/permission.interface';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
+} from '../../shared/interfaces/permission.interface';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { LoggerService } from '../../shared/modules/global/logger.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
 import {
   BillingAccount,
   BillingAccountService,
-} from 'src/shared/services/billingAccount.service';
-import { MemberService } from 'src/shared/services/member.service';
-import { PermissionService } from 'src/shared/services/permission.service';
+} from '../../shared/services/billingAccount.service';
+import { MemberService } from '../../shared/services/member.service';
+import { PermissionService } from '../../shared/services/permission.service';
 import {
   publishProjectEvent,
   publishRawEvent as publishRawBusEvent,
-} from 'src/shared/utils/event.utils';
+} from '../../shared/utils/event.utils';
 import {
   ParsedProjectFields,
   buildProjectIncludeClause,
@@ -48,7 +48,7 @@ import {
   filterAttachmentsByPermission,
   filterInvitesByPermission,
   parseFieldsParameter,
-} from 'src/shared/utils/project.utils';
+} from '../../shared/utils/project.utils';
 import { CreateProjectDto, EstimationDto } from './dto/create-project.dto';
 import { ProjectListQueryDto } from './dto/project-list-query.dto';
 import { ProjectWithRelationsDto } from './dto/project-response.dto';

@@ -1,4 +1,4 @@
-import { EventBusService } from 'src/shared/modules/global/eventBus.service';
+import { EventBusService } from '../modules/global/eventBus.service';
 import { EmailService } from './email.service';
 
 describe('EmailService', () => {

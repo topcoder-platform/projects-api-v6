@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../../../shared/modules/global/globalProviders.module';
 import { FormModule } from '../form/form.module';
 import { PlanConfigModule } from '../plan-config/plan-config.module';
 import { PriceConfigModule } from '../price-config/price-config.module';

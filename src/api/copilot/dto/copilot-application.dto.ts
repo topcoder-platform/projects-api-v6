@@ -2,7 +2,7 @@ import { CopilotApplicationStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
-import { parseOptionalLooseInteger } from 'src/shared/utils/dto-transform.utils';
+import { parseOptionalLooseInteger } from '../../../shared/utils/dto-transform.utils';
 
 /**
  * DTOs for copilot applications (apply, list, assign).

@@ -23,7 +23,7 @@ import {
   parseOptionalBoolean,
   parseOptionalLooseInteger,
   parseOptionalStringArray,
-} from 'src/shared/utils/dto-transform.utils';
+} from '../../../shared/utils/dto-transform.utils';
 import { CopilotSkillDto } from './copilot-request.dto';
 
 /**

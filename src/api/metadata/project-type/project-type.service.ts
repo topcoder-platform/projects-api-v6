@@ -5,9 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, ProjectType } from '@prisma/client';
-import { PrismaErrorService } from 'src/shared/modules/global/prisma-error.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { EventBusService } from 'src/shared/modules/global/eventBus.service';
+import { PrismaErrorService } from '../../../shared/modules/global/prisma-error.service';
+import { PrismaService } from '../../../shared/modules/global/prisma.service';
+import { EventBusService } from '../../../shared/modules/global/eventBus.service';
 import {
   PROJECT_METADATA_RESOURCE,
   publishMetadataEvent,

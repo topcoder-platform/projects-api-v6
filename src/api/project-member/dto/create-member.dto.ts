@@ -3,7 +3,7 @@ import { ProjectMemberRole } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { parseNumericStringId } from 'src/shared/utils/service.utils';
+import { parseNumericStringId } from '../../../shared/utils/service.utils';
 
 /**
  * Parses optional user ids from query/body payloads while preserving exact

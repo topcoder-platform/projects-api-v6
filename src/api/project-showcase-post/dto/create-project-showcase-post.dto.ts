@@ -14,7 +14,7 @@ import { ProjectShowcasePostStatus } from '@prisma/client';
 import { ProjectShowcasePostMediaInputDto } from './project-showcase-post-media-input.dto';
 
 import { ShowcaseMetadataDto } from './showcase-metadata.dto';
-import { SHOWCASE_TYPES } from 'src/shared/utils/showcase-metadata.utils';
+import { SHOWCASE_TYPES } from '../../../shared/utils/showcase-metadata.utils';
 
 /** Creates a showcase post with a delivery type and required shared project metadata. */
 export class CreateProjectShowcasePostDto extends ShowcaseMetadataDto {

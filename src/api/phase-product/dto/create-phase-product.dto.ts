@@ -11,7 +11,7 @@ import {
 import {
   parseOptionalInteger,
   parseOptionalNumber,
-} from 'src/shared/utils/dto-transform.utils';
+} from '../../../shared/utils/dto-transform.utils';
 
 /**
  * Create payload for phase product/work-item endpoints:

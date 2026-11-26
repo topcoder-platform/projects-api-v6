@@ -6,9 +6,9 @@ import {
 import { SalesforceOpportunityService } from './salesforce-opportunity.service';
 import { SalesforceClient } from './salesforce.client';
 
-import { getChallengesPrismaClient } from 'src/shared/global/external-prisma.client';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { BillingAccountService } from 'src/shared/services/billingAccount.service';
+import { getChallengesPrismaClient } from '../../shared/global/external-prisma.client';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { BillingAccountService } from '../../shared/services/billingAccount.service';
 
 jest.mock('src/shared/global/external-prisma.client', () => ({
   getChallengesPrismaClient: jest.fn(),

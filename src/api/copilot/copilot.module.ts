@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../../shared/modules/global/globalProviders.module';
 import { CopilotApplicationController } from './copilot-application.controller';
 import { CopilotApplicationService } from './copilot-application.service';
 import { CopilotNotificationService } from './copilot-notification.service';

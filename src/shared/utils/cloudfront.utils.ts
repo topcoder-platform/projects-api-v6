@@ -1,5 +1,5 @@
 import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
-import { APP_CONFIG } from 'src/shared/config/app.config';
+import { APP_CONFIG } from '../config/app.config';
 
 function normalizePemKey(rawKey: string | undefined): string | undefined {
   if (!rawKey) {

@@ -2,7 +2,7 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 // TODO (quality): GlobalProvidersModule is decorated @Global() and is already imported in AppModule. Importing it again here is redundant. Remove this import from ApiModule.
-import { GlobalProvidersModule } from 'src/shared/modules/global/globalProviders.module';
+import { GlobalProvidersModule } from '../shared/modules/global/globalProviders.module';
 import { CopilotModule } from './copilot/copilot.module';
 import { PhaseProductModule } from './phase-product/phase-product.module';
 import { ProjectAttachmentModule } from './project-attachment/project-attachment.module';

@@ -5,9 +5,9 @@ import {
   CopilotOpportunityStatus,
   CopilotOpportunityType,
 } from '@prisma/client';
-import { UserRole } from 'src/shared/enums/userRole.enum';
-import { EventBusService } from 'src/shared/modules/global/eventBus.service';
-import { MemberService } from 'src/shared/services/member.service';
+import { UserRole } from '../../shared/enums/userRole.enum';
+import { EventBusService } from '../../shared/modules/global/eventBus.service';
+import { MemberService } from '../../shared/services/member.service';
 import { CopilotNotificationService } from './copilot-notification.service';
 
 describe('CopilotNotificationService', () => {

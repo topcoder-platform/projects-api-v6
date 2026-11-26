@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { EventBusService } from 'src/shared/modules/global/eventBus.service';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
+import { EventBusService } from '../modules/global/eventBus.service';
+import { LoggerService } from '../modules/global/logger.service';
 
 export interface InviteEmailPayload {
   id?: string | number | bigint;

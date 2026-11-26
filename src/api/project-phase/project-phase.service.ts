@@ -12,20 +12,20 @@ import {
   ProjectPhaseMember,
   ProjectStatus,
 } from '@prisma/client';
-import { CreatePhaseDto } from 'src/api/project-phase/dto/create-phase.dto';
-import { PhaseListQueryDto } from 'src/api/project-phase/dto/phase-list-query.dto';
+import { CreatePhaseDto } from './dto/create-phase.dto';
+import { PhaseListQueryDto } from './dto/phase-list-query.dto';
 import {
   PhaseResponseDto,
   ProjectPhaseApprovalDto,
   ProjectPhaseMemberDto,
-} from 'src/api/project-phase/dto/phase-response.dto';
-import { UpdatePhaseDto } from 'src/api/project-phase/dto/update-phase.dto';
-import { Permission } from 'src/shared/constants/permissions';
-import { ProjectPermissionContext } from 'src/shared/interfaces/project-permission-context.interface';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
-import { PrismaService } from 'src/shared/modules/global/prisma.service';
-import { PermissionService } from 'src/shared/services/permission.service';
-import { parseSortParam } from 'src/shared/utils/query.utils';
+} from './dto/phase-response.dto';
+import { UpdatePhaseDto } from './dto/update-phase.dto';
+import { Permission } from '../../shared/constants/permissions';
+import { ProjectPermissionContext } from '../../shared/interfaces/project-permission-context.interface';
+import { JwtUser } from '../../shared/modules/global/jwt.service';
+import { PrismaService } from '../../shared/modules/global/prisma.service';
+import { PermissionService } from '../../shared/services/permission.service';
+import { parseSortParam } from '../../shared/utils/query.utils';
 import {
   ensureProjectNamedPermission,
   getAuditUserIdOrDefault,
@@ -34,7 +34,7 @@ import {
   parseBigIntId,
   toDetailsObject as toDetailsObjectValue,
   toJsonInput as toJsonInputValue,
-} from 'src/shared/utils/service.utils';
+} from '../../shared/utils/service.utils';
 
 type PhaseWithRelations = ProjectPhase & {
   products?: PhaseProduct[];

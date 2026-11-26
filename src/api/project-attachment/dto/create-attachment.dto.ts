@@ -14,7 +14,7 @@ import {
 import {
   parseOptionalInteger,
   parseOptionalIntegerArray,
-} from 'src/shared/utils/dto-transform.utils';
+} from '../../../shared/utils/dto-transform.utils';
 
 /**
  * Create payload for project attachment endpoints:

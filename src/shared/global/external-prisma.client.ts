@@ -1,3 +1,4 @@
+import { createPostgresAdapter } from '../../prisma-adapter';
 import { Prisma } from '@prisma/client';
 import { PrismaClient as ChallengesPrismaClient } from '@topcoder/challenge-api-v6';
 import { PrismaClient as MembersPrismaClient } from '@topcoder/member-api-v6';
@@ -33,7 +34,7 @@ export const getChallengesPrismaClient = (): ChallengesPrismaClient => {
     const url = ensureUrl(process.env.CHALLENGES_DB_URL, 'CHALLENGES_DB_URL');
     challengesClient = new ChallengesPrismaClient({
       ...clientOptions,
-      datasources: { db: { url } },
+      adapter: createPostgresAdapter(url),
     });
   }
   return challengesClient;
@@ -44,7 +45,7 @@ export const getMembersPrismaClient = (): MembersPrismaClient => {
     const url = ensureUrl(process.env.MEMBERS_DB_URL, 'MEMBERS_DB_URL');
     membersClient = new MembersPrismaClient({
       ...clientOptions,
-      datasources: { db: { url } },
+      adapter: createPostgresAdapter(url),
     });
   }
   return membersClient;
@@ -55,7 +56,7 @@ export const getResourcesPrismaClient = (): ResourcesPrismaClient => {
     const url = ensureUrl(process.env.RESOURCES_DB_URL, 'RESOURCES_DB_URL');
     resourcesClient = new ResourcesPrismaClient({
       ...clientOptions,
-      datasources: { db: { url } },
+      adapter: createPostgresAdapter(url),
     });
   }
   return resourcesClient;
@@ -66,7 +67,7 @@ export const getSkillsPrismaClient = (): SkillsPrismaClient => {
     const url = ensureUrl(process.env.SKILLS_DB_URL, 'SKILLS_DB_URL');
     skillsClient = new SkillsPrismaClient({
       ...clientOptions,
-      datasources: { db: { url } },
+      adapter: createPostgresAdapter(url),
     });
   }
   return skillsClient;

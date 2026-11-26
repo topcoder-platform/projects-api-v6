@@ -4,9 +4,9 @@
  * Used by project member and project invite services.
  */
 import { InviteStatus, ProjectMemberRole } from '@prisma/client';
-import { DEFAULT_PROJECT_ROLE } from 'src/shared/constants/permissions.constants';
-import { UserRole } from 'src/shared/enums/userRole.enum';
-import { JwtUser } from 'src/shared/modules/global/jwt.service';
+import { DEFAULT_PROJECT_ROLE } from '../constants/permissions.constants';
+import { UserRole } from '../enums/userRole.enum';
+import { JwtUser } from '../modules/global/jwt.service';
 
 /**
  * Minimal user profile payload used for member/invite enrichment.

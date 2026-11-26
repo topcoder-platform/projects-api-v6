@@ -7,10 +7,10 @@ import {
 import { createPrivateKey, KeyObject } from 'crypto';
 import { firstValueFrom } from 'rxjs';
 import * as jwt from 'jsonwebtoken';
-import { SERVICE_ENDPOINTS } from 'src/shared/config/service-endpoints.config';
-import { LoggerService } from 'src/shared/modules/global/logger.service';
-import { M2MService } from 'src/shared/modules/global/m2m.service';
-import { SALESFORCE_OPPORTUNITY_ID_PATTERN } from 'src/shared/utils/showcase-metadata.utils';
+import { SERVICE_ENDPOINTS } from '../config/service-endpoints.config';
+import { LoggerService } from '../modules/global/logger.service';
+import { M2MService } from '../modules/global/m2m.service';
+import { SALESFORCE_OPPORTUNITY_ID_PATTERN } from '../utils/showcase-metadata.utils';
 
 /** Account identity exposed by the Salesforce opportunity integration. */
 export interface BillingAccountSummary {
